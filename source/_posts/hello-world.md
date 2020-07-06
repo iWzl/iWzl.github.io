@@ -3,6 +3,10 @@ title: Hello World
 tag: "Hello"
 categories:
     - Hello
+keywords: 内容限制访问
+password: 123456
+abstract: 限制访问
+message:  输入密码，查看文章
 ---
 
 
