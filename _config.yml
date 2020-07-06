@@ -3,7 +3,7 @@
 ## Source: https://github.com/hexojs/hexo/
 
 # Site
-title: LeoWang‘s Ark
+title: LeoWang
 subtitle: '好知者,好知上'
 description: '记录平时学习的一些东西,免得之后忘记了'
 keywords:
@@ -13,7 +13,7 @@ timezone: 'Asia/Shanghai'
 
 # URL
 ## If your site is put in a subdirectory, set url as 'http://yoursite.com/child' and root as '/child/'
-url: http://yoursite.com
+url: https://github.com/iWzl
 root: /
 permalink: :year/:month/:day/:title/
 permalink_defaults:
