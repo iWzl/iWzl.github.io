@@ -47,11 +47,31 @@
 </div>
 <script src="/lib/blog-encrypt.js"></script><link href="/css/blog-encrypt.css" rel="stylesheet" type="text/css">]]></content>
       <categories>
-        <category>框架</category>
+        <category>系统调优</category>
       </categories>
       <tags>
         <tag>Java</tag>
         <tag>系统调优</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>现代架构下的即时通讯的实现设计</title>
+    <url>/2020/07/07/%E7%8E%B0%E4%BB%A3%E6%9E%B6%E6%9E%84%E4%B8%8B%E7%9A%84%E5%8F%8A%E6%97%B6%E9%80%9A%E8%AE%AF%E7%9A%84%E5%AE%9E%E7%8E%B0%E8%AE%BE%E8%AE%A1/</url>
+    <content><![CDATA[<div id="hexo-blog-encrypt" data-wpm="Oh, this is an invalid password. Check and try again, please." data-whm="OOPS, these decrypted content may changed, but you can still have a look.">
+  <div class="hbe-input-container">
+  <input type="password" id="hbePass" placeholder="" />
+    <label for="hbePass">查看内容,请输入密码</label>
+    <div class="bottom-line"></div>
+  </div>
+  <script id="hbeData" type="hbeData" data-hmacdigest="5b399cb19b2223a7a234e305c6a313ed4db47217871ba7558ad528234b1780d3">217eb0e2694620ddc0df9ef4c08680f4c1766dfda1eefeee30d7772c817297c6ede2a2f38fef357ac637f0af5dc323e2c0223549d265a78d0b73596631fb3f855dd0429b3e4ccf2fa14f75adcd814da530f300a6295116e5b8aa44d3c59964235ea0be00fb8cbfbdda476224f703e012</script>
+</div>
+<script src="/lib/blog-encrypt.js"></script><link href="/css/blog-encrypt.css" rel="stylesheet" type="text/css">]]></content>
+      <categories>
+        <category>系统实现设计</category>
+      </categories>
+      <tags>
+        <tag>系统实现设计</tag>
+        <tag>即时通讯</tag>
       </tags>
   </entry>
 </search>
