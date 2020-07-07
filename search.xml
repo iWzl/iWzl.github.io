@@ -1,40 +1,58 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
-    <title>Hello World</title>
-    <url>/2020/07/06/hello-world/</url>
-    <content><![CDATA[<h1 id="dhfsiohfiodshodfioho"><a href="#dhfsiohfiodshodfioho" class="headerlink" title="dhfsiohfiodshodfioho"></a>dhfsiohfiodshodfioho</h1><p>Welcome to <a href="https://hexo.io/" target="_blank" rel="noopener">Hexo</a>! This is your very first post. Check <a href="https://hexo.io/docs/" target="_blank" rel="noopener">documentation</a> for more info. If you get any problems when using Hexo, you can find the answer in <a href="https://hexo.io/docs/troubleshooting.html" target="_blank" rel="noopener">troubleshooting</a> or you can ask me on <a href="https://github.com/hexojs/hexo/issues">GitHub</a>.</p>
-<h2 id="Quick-Start"><a href="#Quick-Start" class="headerlink" title="Quick Start"></a>Quick Start</h2><h3 id="Create-a-new-post"><a href="#Create-a-new-post" class="headerlink" title="Create a new post"></a>Create a new post</h3><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">$ hexo new <span class="string">"My New Post"</span></span><br></pre></td></tr></table></figure>
+    <title>CentOS下Nginx支持SSL协议的编译安装</title>
+    <url>/2020/07/06/CentOS%E4%B8%8BNginx%E6%94%AF%E6%8C%81SSL%E5%8D%8F%E8%AE%AE%E7%9A%84%E7%BC%96%E8%AF%91%E5%AE%89%E8%A3%85/</url>
+    <content><![CDATA[<h2 id="Nginx及其衍生的其他相关优秀开源产品"><a href="#Nginx及其衍生的其他相关优秀开源产品" class="headerlink" title="Nginx及其衍生的其他相关优秀开源产品"></a>Nginx及其衍生的其他相关优秀开源产品</h2><ul>
+<li><a href="http://nginx.org/" target="_blank" rel="noopener">NGINX</a> 是开源、高性能、高可靠的 Web 和反向代理服务器</li>
+<li><a href="https://tengine.taobao.org/" target="_blank" rel="noopener">Tengine</a> Tengine是由淘宝网发起基于Nginx的Web服务器项目</li>
+<li><a href="https://openresty.org/cn/" target="_blank" rel="noopener">OpenResty</a> OpenResty® 是一个基于 Nginx 与 Lua 的高性能 Web 平台</li>
+</ul>
+<h2 id="下载Nginx稳定版包并解压"><a href="#下载Nginx稳定版包并解压" class="headerlink" title="下载Nginx稳定版包并解压"></a>下载Nginx稳定版包并解压</h2><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">wget http://nginx.org/download/nginx-x.x.x.tar.gz</span><br><span class="line">tar zxvf nginx-x.x.x.tar.gz</span><br><span class="line"><span class="built_in">cd</span> nginx-x.x.x</span><br></pre></td></tr></table></figure>
+<a id="more"></a>
 
-<p>More info: <a href="https://hexo.io/docs/writing.html" target="_blank" rel="noopener">Writing</a></p>
-<h3 id="Run-server"><a href="#Run-server" class="headerlink" title="Run server"></a>Run server</h3><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">$ hexo server</span><br></pre></td></tr></table></figure>
+<h2 id="补全需要的库依赖"><a href="#补全需要的库依赖" class="headerlink" title="补全需要的库依赖"></a>补全需要的库依赖</h2><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">yum install gcc-c++</span><br><span class="line">yum install -y pcre pcre-devel</span><br><span class="line">yum install -y zlib zlib-devel</span><br><span class="line">yum install -y openssl openssl-devel</span><br></pre></td></tr></table></figure>
 
-<p>More info: <a href="https://hexo.io/docs/server.html" target="_blank" rel="noopener">Server</a></p>
-<h3 id="Generate-static-files"><a href="#Generate-static-files" class="headerlink" title="Generate static files"></a>Generate static files</h3><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">$ hexo generate</span><br></pre></td></tr></table></figure>
-
-<p>More info: <a href="https://hexo.io/docs/generating.html" target="_blank" rel="noopener">Generating</a></p>
-<h3 id="Deploy-to-remote-sites"><a href="#Deploy-to-remote-sites" class="headerlink" title="Deploy to remote sites"></a>Deploy to remote sites</h3><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">$ hexo deploy</span><br></pre></td></tr></table></figure>
-
-<p>More info: <a href="https://hexo.io/docs/one-command-deployment.html" target="_blank" rel="noopener">Deployment</a></p>
-]]></content>
+<h2 id="执行编译安装"><a href="#执行编译安装" class="headerlink" title="执行编译安装"></a>执行编译安装</h2><p>所有文件放在同一个位置,便于统一管理</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">./configure --prefix=/usr/<span class="built_in">local</span>/nginx  \</span><br><span class="line">--conf-path=/usr/<span class="built_in">local</span>/nginx/etc/nginx.conf  \</span><br><span class="line">--user=nginx --group=nginx  \</span><br><span class="line">--error-log-path=/usr/<span class="built_in">local</span>/nginx/nginxlog/error.log  \</span><br><span class="line">--http-log-path=/usr/<span class="built_in">local</span>/nginx/nginxlog/access.log  \</span><br><span class="line">--pid-path=/usr/<span class="built_in">local</span>/nginx/pids/nginx.pid  \</span><br><span class="line">--lock-path=/usr/<span class="built_in">local</span>/nginx/locks/nginx.lock  \</span><br><span class="line">--with-http_ssl_module  \</span><br><span class="line">--with-http_stub_status_module  \</span><br><span class="line">--with-http_gzip_static_module  \</span><br><span class="line">--http-client-body-temp-path=/usr/<span class="built_in">local</span>/nginx/tmp/client  \</span><br><span class="line">--http-proxy-temp-path=/usr/<span class="built_in">local</span>/nginx/tmp/proxy  \</span><br><span class="line">--http-fastcgi-temp-path=/usr/<span class="built_in">local</span>/nginx/tmp/fastcgi  \</span><br><span class="line">--http-uwsgi-temp-path=/usr/<span class="built_in">local</span>/nginx/tmp/uwsgi  \</span><br><span class="line">--http-scgi-temp-path=/usr/<span class="built_in">local</span>/nginx/tmp/scgi</span><br></pre></td></tr></table></figure>
+<p>编译结果</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">Configuration summary</span><br><span class="line">  + using system PCRE library</span><br><span class="line">  + using system OpenSSL library</span><br><span class="line">  + using system zlib library</span><br><span class="line"></span><br><span class="line">  nginx path prefix: <span class="string">"/usr/local/nginx"</span></span><br><span class="line">  nginx binary file: <span class="string">"/usr/local/nginx/sbin/nginx"</span></span><br><span class="line">  nginx modules path: <span class="string">"/usr/local/nginx/modules"</span></span><br><span class="line">  nginx configuration prefix: <span class="string">"/usr/local/nginx/etc"</span></span><br><span class="line">  nginx configuration file: <span class="string">"/usr/local/nginx/etc/nginx.conf"</span></span><br><span class="line">  nginx pid file: <span class="string">"/usr/local/nginx/pids/nginx.pid"</span></span><br><span class="line">  nginx error <span class="built_in">log</span> file: <span class="string">"/usr/local/nginx/nginxlog/error.log"</span></span><br><span class="line">  nginx http access <span class="built_in">log</span> file: <span class="string">"/usr/local/nginx/nginxlog/access.log"</span></span><br><span class="line">  nginx http client request body temporary files: <span class="string">"/usr/local/nginx/tmp/client"</span></span><br><span class="line">  nginx http proxy temporary files: <span class="string">"/usr/local/nginx/tmp/proxy"</span></span><br><span class="line">  nginx http fastcgi temporary files: <span class="string">"/usr/local/nginx/tmp/fastcgi"</span></span><br><span class="line">  nginx http uwsgi temporary files: <span class="string">"/usr/local/nginx/tmp/uwsgi"</span></span><br><span class="line">  nginx http scgi temporary files: <span class="string">"/usr/local/nginx/tmp/scgi</span></span><br></pre></td></tr></table></figure>
+<p>执行安装</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">make &amp;&amp; make install</span><br></pre></td></tr></table></figure>
+<h2 id="安装后处理"><a href="#安装后处理" class="headerlink" title="安装后处理"></a>安装后处理</h2><p>查看文件结构</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="built_in">cd</span> /usr/<span class="built_in">local</span>/nginx/</span><br><span class="line">tree</span><br><span class="line">.</span><br><span class="line">├── etc</span><br><span class="line">│   ├── fastcgi.conf</span><br><span class="line">│   ├── fastcgi.conf.default</span><br><span class="line">│   ├── fastcgi_params</span><br><span class="line">│   ├── fastcgi_params.default</span><br><span class="line">│   ├── koi-utf</span><br><span class="line">│   ├── koi-win</span><br><span class="line">│   ├── mime.types</span><br><span class="line">│   ├── mime.types.default</span><br><span class="line">│   ├── nginx.conf</span><br><span class="line">│   ├── nginx.conf.default</span><br><span class="line">│   ├── scgi_params</span><br><span class="line">│   ├── scgi_params.default</span><br><span class="line">│   ├── uwsgi_params</span><br><span class="line">│   ├── uwsgi_params.default</span><br><span class="line">│   └── win-utf</span><br><span class="line">├── html</span><br><span class="line">│   ├── 50x.html</span><br><span class="line">│   └── index.html</span><br><span class="line">├── nginxlog</span><br><span class="line">├── pids</span><br><span class="line">└── sbin</span><br><span class="line">    └── nginx</span><br></pre></td></tr></table></figure>
+<p>完善Nginx目录结构</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">mkdir -pv /usr/<span class="built_in">local</span>/nginx/tmp/&#123;client,proxy,fastcgi,uwsgi,scgi&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="Nginx启动和监听"><a href="#Nginx启动和监听" class="headerlink" title="Nginx启动和监听"></a>Nginx启动和监听</h2><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 启动</span></span><br><span class="line">/usr/<span class="built_in">local</span>/nginx/sbin/nginx</span><br><span class="line"><span class="comment"># 检查是否启动</span></span><br><span class="line">ss -tnlp | grep :80</span><br></pre></td></tr></table></figure>]]></content>
       <categories>
-        <category>Hello</category>
+        <category>Nginx</category>
+        <category>Liunx</category>
       </categories>
       <tags>
-        <tag>Hello</tag>
+        <tag>Nginx</tag>
+        <tag>Liunx</tag>
+        <tag>Server</tag>
+        <tag>CentOS</tag>
       </tags>
   </entry>
   <entry>
-    <title>密码访问Test</title>
-    <url>/2020/07/06/%E5%AF%86%E7%A0%81%E8%AE%BF%E9%97%AETest/</url>
+    <title>关于QuickProfile中存在的风险异常分析</title>
+    <url>/2020/07/06/%E5%85%B3%E4%BA%8EQuickProfile%E4%B8%AD%E5%AD%98%E5%9C%A8%E7%9A%84%E9%A3%8E%E9%99%A9%E5%BC%82%E5%B8%B8%E5%88%86%E6%9E%90/</url>
     <content><![CDATA[<div id="hexo-blog-encrypt" data-wpm="Oh, this is an invalid password. Check and try again, please." data-whm="OOPS, these decrypted content may changed, but you can still have a look.">
   <div class="hbe-input-container">
   <input type="password" id="hbePass" placeholder="" />
     <label for="hbePass">查看内容,请输入密码</label>
     <div class="bottom-line"></div>
   </div>
-  <script id="hbeData" type="hbeData" data-hmacdigest="9c9d5e21425accc510d734582475e776d2b0ba8b87a59a73099f92835e28ba7d">80bd98c5e49e01cb8fe91d9a4539dd9b</script>
+  <script id="hbeData" type="hbeData" data-hmacdigest="7506cdb68ef40e3b8bde66558b2b1d27508c2bdcba501e880a6f7701d7377a07">5a9d859d84bffc595a5dc39839d0abec3566fd585b6a38a804dc7c35a5153fab63bbb03905a835e023b7afd8d2b9fe225e445421a82b894b11a35036eb237fdc558e756360cc899a68356fe150e4506b3f20fb8738883d1d40c713bdfa4c47a2b2ebcd72306812814541c837058583c4b1c556b2e025b6bcce345f700a94a6bdc4248c757dff85f154ef960af0cb2a828ae782902d669b46ab7fb6883d27c80056eca45c5fabc870ac4a3a0efd08b330053d54c1331647f48352565023c63eb7</script>
 </div>
 <script src="/lib/blog-encrypt.js"></script><link href="/css/blog-encrypt.css" rel="stylesheet" type="text/css">]]></content>
+      <categories>
+        <category>框架</category>
+      </categories>
+      <tags>
+        <tag>Java</tag>
+        <tag>系统调优</tag>
+      </tags>
   </entry>
 </search>
