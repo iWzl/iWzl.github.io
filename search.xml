@@ -26,7 +26,6 @@
 <h2 id="Nginx启动和监听"><a href="#Nginx启动和监听" class="headerlink" title="Nginx启动和监听"></a>Nginx启动和监听</h2><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 启动</span></span><br><span class="line">/usr/<span class="built_in">local</span>/nginx/sbin/nginx</span><br><span class="line"><span class="comment"># 检查是否启动</span></span><br><span class="line">ss -tnlp | grep :80</span><br></pre></td></tr></table></figure>]]></content>
       <categories>
         <category>Nginx</category>
-        <category>Liunx</category>
       </categories>
       <tags>
         <tag>Nginx</tag>
