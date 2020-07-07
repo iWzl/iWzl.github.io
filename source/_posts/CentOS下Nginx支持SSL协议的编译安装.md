@@ -7,7 +7,6 @@ tags:
     - CentOS
 categories:
     - Nginx
-    - Liunx
 ---
 
 ## Nginx及其衍生的其他相关优秀开源产品
