@@ -11,7 +11,7 @@
   <script src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
   
   
-    <meta name="keywords" content="Java,基准测试,系统调优," />
+    <meta name="keywords" content="Java,基准测试,系统调优,JMH,基础," />
   
 
   
@@ -21,7 +21,7 @@
   
   <link rel="icon" type="image/x-icon" href="/images/footer-logo.png">
   
-  <title>Java Microbenchmark Harness微基准测试拾遗 [ LeoWang ]</title>
+  <title>Java Microbenchmark Harness微基准测试基础 [ LeoWang ]</title>
   
     <!-- stylesheets list from config.yml -->
     
@@ -96,7 +96,7 @@
   <article class="post" id="post">
     <header class="post-header text-center">
       <h1 class="title">
-        Java Microbenchmark Harness微基准测试拾遗
+        Java Microbenchmark Harness微基准测试基础
       </h1>
       <span>
         
@@ -108,7 +108,7 @@
       <span class="slash">/</span>
       <span class="post-meta">
       <span class="post-tags">
-        <ul class="article-tag-list" itemprop="keywords"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Java/" rel="tag">Java</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/%E5%9F%BA%E5%87%86%E6%B5%8B%E8%AF%95/" rel="tag">基准测试</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/%E7%B3%BB%E7%BB%9F%E8%B0%83%E4%BC%98/" rel="tag">系统调优</a></li></ul>
+        <ul class="article-tag-list" itemprop="keywords"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/JMH/" rel="tag">JMH</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Java/" rel="tag">Java</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/%E5%9F%BA%E5%87%86%E6%B5%8B%E8%AF%95/" rel="tag">基准测试</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/%E5%9F%BA%E7%A1%80/" rel="tag">基础</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/%E7%B3%BB%E7%BB%9F%E8%B0%83%E4%BC%98/" rel="tag">系统调优</a></li></ul>
       </span>
     </span>
       <span class="slash">/</span>
@@ -123,7 +123,7 @@
       <blockquote>
 <p><strong>If you cannot measure it, you cannot improve it.    –Lord Kelvin</strong></p>
 </blockquote>
-<p><a href="http://openjdk.java.net/projects/code-tools/jmh/" target="_blank" rel="noopener">Java Microbenchmark Harness</a> 是专门进行代码的微基准测试的一套工具API。 为应用提供了数据支持，是评价和比较方法好坏的基准。一般说JMH，是在 <strong>Method 层面上的 Benchmark</strong>，精度可以精确到微秒级。以下记录JMH下的一些东西，便于之后查找和学习。</p>
+<p><a href="http://openjdk.java.net/projects/code-tools/jmh/" target="_blank" rel="noopener">Java Microbenchmark Harness</a> 是专门进行代码的微基准测试的一套工具API。 为应用提供了数据支持，是评价和比较方法好坏的基准。一般说JMH，是在 <strong>Method 层面上的 Benchmark</strong>，精度可以精确到微秒级。以下记录JMH的使用和相关基础，便于之后查找和学习。</p>
 <p>Benchmark 作为应用框架，产品的基准画像，存在统一的标准，避免了不同测评对象自说自话的尴尬，应用框架各自使用有利于自身场景的测评方式必然不可取。</p>
 <a id="more"></a>
 
@@ -229,6 +229,11 @@
   
       <div class="post-nav-item post-nav-prev">
           
+          <a href="/2020/07/09/Java-Microbenchmark-Harness-Test-Trap/" rel="prev" title="Java Microbenchmark Harness微基准测试陷阱">
+            Java Microbenchmark Harness微基准测试陷阱
+          </a>
+          <span>〉</span>
+        
       </div>
     </div>
   

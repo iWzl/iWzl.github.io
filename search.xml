@@ -1,32 +1,66 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
-    <title>现代架构下的即时通讯的实现设计</title>
-    <url>/2020/07/07/Instant-Messaging-System-Design/</url>
-    <content><![CDATA[<div id="hexo-blog-encrypt" data-wpm="Oh, this is an invalid password. Check and try again, please." data-whm="OOPS, these decrypted content may changed, but you can still have a look.">
-  <div class="hbe-input-container">
-  <input type="password" id="hbePass" placeholder="" />
-    <label for="hbePass">查看内容,请输入密码</label>
-    <div class="bottom-line"></div>
-  </div>
-  <script id="hbeData" type="hbeData" data-hmacdigest="5b399cb19b2223a7a234e305c6a313ed4db47217871ba7558ad528234b1780d3">217eb0e2694620ddc0df9ef4c08680f4c1766dfda1eefeee30d7772c817297c6ede2a2f38fef357ac637f0af5dc323e2c0223549d265a78d0b73596631fb3f855dd0429b3e4ccf2fa14f75adcd814da530f300a6295116e5b8aa44d3c59964235ea0be00fb8cbfbdda476224f703e012</script>
-</div>
-<script src="/lib/blog-encrypt.js"></script><link href="/css/blog-encrypt.css" rel="stylesheet" type="text/css">]]></content>
+    <title>Java Microbenchmark Harness微基准测试陷阱</title>
+    <url>/2020/07/09/Java-Microbenchmark-Harness-Test-Trap/</url>
+    <content><![CDATA[<blockquote>
+<p><strong>天下之事，闻者不如见者知之为详，见者不如居者知之为尽。——宋-陆游</strong></p>
+<p><strong>你要知道梨子的滋味，就要亲口尝一下。——毛泽东</strong></p>
+</blockquote>
+<p>俗话说，没有实践就没有发言权，自己实践才能知之为尽，Benchmark 为应用提供了数据支持，是评价和比较方法好坏的基准，Benchmark 的准确性，多样性便显得尤为重要。JMH为Java方法的基准水平提供了很好的量化标准，也为剖析系统性能和技术选型提供的更为有效切可靠的实现手段。</p>
+<p>以下记录在使用Java Microbenchmark Harness做微基准测试容易遇见的误区和相关陷阱，便于之后的查找和说明。</p>
+<a id="more"></a>
+
+<h2 id="代码预热"><a href="#代码预热" class="headerlink" title="代码预热"></a>代码预热</h2><blockquote>
+<p><strong>Warmup = waiting for the transient responses to settle down</strong></p>
+</blockquote>
+<p>随着JVM虚拟机的优化，JIT的存在，代码的执行往往前期执行结果没有后期的执行结果好。 <code>Benchmark</code> 产生更可靠的结果的原因是，它只度量稳定状态下<code>方法任务</code>的执行时间，而不理会最初的性能。大多数 Java 实现具有复杂的性能生命周期。一般来说，最初的性能往往相当低，然后性能显著提高（常常出现几次性能跃升），直到到达稳定状态。</p>
+<h3 id="类装载"><a href="#类装载" class="headerlink" title="类装载"></a>类装载</h3><p>JVM 通常只在类的第一次使用类时装载它们。所以,方法任务的第一次执行时间包含装载它使用的所有类的时间（如果这些类还没有装载的话）。因为类装载往往涉及磁盘 I/O、解析和检验，这会显著增加<code>方法任务</code>的第一次执行时间。<strong>常常</strong>可以通过多次执行<code>方法任务</code>来消除这种影响。</p>
+<blockquote>
+<p>PS:  <strong>常常</strong>而不是<strong>总是</strong>，这是因为 <code>方法任务</code> 可能具有复杂的分支行为，这可能导致它在任何给定的执行过程中并不使用所有可能用到的类。幸运的是，如果执行任务足够多次，就可能经历所有分支，因此很快就会装载所有相关类）。</p>
+</blockquote>
+<p>如果使用定制的类装载器，就有另一个问题：JVM 可能认为一些类已经成了垃圾，因此决定卸载它。这不太可能严重影响性能，但是仍然会使基准测试结果产生偏差。</p>
+<h3 id="混合模式"><a href="#混合模式" class="headerlink" title="混合模式"></a>混合模式</h3><p>在执行即时（Just-in-time，JIT）编译之前，现代的 JVM 通常会运行代码一段时间（常常是纯解释式运行），从而收集剖析信息。这对基准测试的影响在于，任务可能需要执行许多次，才能达到稳定状态。</p>
+<p>一般来说对稳定状态下的基准测试至少需要以下步骤：</p>
+<ol>
+<li>执行 <code>方法任务</code> 一次，以便装载所有类。</li>
+<li>执行 <code>方法任务</code> 足够多次，以确保出现稳定状态的执行数据。</li>
+</ol>
+<h2 id="陷阱一-死码消除"><a href="#陷阱一-死码消除" class="headerlink" title="陷阱一: 死码消除"></a>陷阱一: 死码消除</h2><p>在某些情况下，编译器可以判断出某些代码根本不影响输出，所以编译器会消除这些代码,例如注释的代码，不可达的代码块，可达但不被使用的代码，都会被判断为死码而被Javac的时候被消除。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">ErrorBenchmark</span> </span>&#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">double</span> PI = Math.PI;</span><br><span class="line">  </span><br><span class="line">    <span class="meta">@Benchmark</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">benchmarkNothing</span><span class="params">()</span></span>&#123;</span><br><span class="line">        <span class="comment">//do nothing</span></span><br><span class="line">    &#125;</span><br><span class="line">  </span><br><span class="line">    <span class="meta">@Benchmark</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">benchmarkWrong</span><span class="params">()</span></span>&#123;</span><br><span class="line">        Math.log(PI);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Benchmark</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">double</span> <span class="title">benchmarkRight</span><span class="params">()</span></span>&#123;</span><br><span class="line">        <span class="keyword">return</span> Math.log(PI);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="为什么要使用JMH"><a href="#为什么要使用JMH" class="headerlink" title="为什么要使用JMH"></a>为什么要使用JMH</h2><p>对于传统的接口调用测试，可能会使用以下的方式测试</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">long</span> startTime = System.currentTimeMillis();</span><br><span class="line">benchmarkTestMethod();</span><br><span class="line">System.out.println(System.currentTimeMillis()-startTime);</span><br></pre></td></tr></table></figure>
+
+<p>而JMH则使用</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="meta">@Benchmark</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">benchmarkTestMethod</span><span class="params">()</span></span>&#123;</span><br><span class="line">  <span class="comment">// do </span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="参考和引用"><a href="#参考和引用" class="headerlink" title="参考和引用"></a>参考和引用</h2><ul>
+<li><a href="https://www.ibm.com/developerworks/cn/java/j-benchmark1.html" target="_blank" rel="noopener">IBM Developer Java 代码基准测试的问题</a></li>
+<li><a href="cnkirito.moe/java-jmh/">JAVA 拾遗 — JMH 与 8 个测试陷阱</a></li>
+</ul>
+]]></content>
       <categories>
-        <category>系统实现设计</category>
+        <category>系统调优</category>
       </categories>
       <tags>
-        <tag>系统实现设计</tag>
-        <tag>即时通讯</tag>
+        <tag>Java</tag>
+        <tag>基准测试</tag>
+        <tag>系统调优</tag>
+        <tag>误区和陷阱</tag>
+        <tag>JMH</tag>
       </tags>
   </entry>
   <entry>
-    <title>Java Microbenchmark Harness微基准测试拾遗</title>
-    <url>/2020/07/07/Java-Microbenchmark-Harness/</url>
+    <title>Java Microbenchmark Harness微基准测试基础</title>
+    <url>/2020/07/07/Java-Microbenchmark-Harness-Basic/</url>
     <content><![CDATA[<blockquote>
 <p><strong>If you cannot measure it, you cannot improve it.    –Lord Kelvin</strong></p>
 </blockquote>
-<p><a href="http://openjdk.java.net/projects/code-tools/jmh/" target="_blank" rel="noopener">Java Microbenchmark Harness</a> 是专门进行代码的微基准测试的一套工具API。 为应用提供了数据支持，是评价和比较方法好坏的基准。一般说JMH，是在 <strong>Method 层面上的 Benchmark</strong>，精度可以精确到微秒级。以下记录JMH下的一些东西，便于之后查找和学习。</p>
+<p><a href="http://openjdk.java.net/projects/code-tools/jmh/" target="_blank" rel="noopener">Java Microbenchmark Harness</a> 是专门进行代码的微基准测试的一套工具API。 为应用提供了数据支持，是评价和比较方法好坏的基准。一般说JMH，是在 <strong>Method 层面上的 Benchmark</strong>，精度可以精确到微秒级。以下记录JMH的使用和相关基础，便于之后查找和学习。</p>
 <p>Benchmark 作为应用框架，产品的基准画像，存在统一的标准，避免了不同测评对象自说自话的尴尬，应用框架各自使用有利于自身场景的测评方式必然不可取。</p>
 <a id="more"></a>
 
@@ -106,6 +140,8 @@
         <tag>Java</tag>
         <tag>基准测试</tag>
         <tag>系统调优</tag>
+        <tag>JMH</tag>
+        <tag>基础</tag>
       </tags>
   </entry>
   <entry>
@@ -140,6 +176,26 @@
         <tag>Liunx</tag>
         <tag>Server</tag>
         <tag>CentOS</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>现代架构下的即时通讯的实现设计</title>
+    <url>/2020/07/07/Instant-Messaging-System-Design/</url>
+    <content><![CDATA[<div id="hexo-blog-encrypt" data-wpm="Oh, this is an invalid password. Check and try again, please." data-whm="OOPS, these decrypted content may changed, but you can still have a look.">
+  <div class="hbe-input-container">
+  <input type="password" id="hbePass" placeholder="" />
+    <label for="hbePass">查看内容,请输入密码</label>
+    <div class="bottom-line"></div>
+  </div>
+  <script id="hbeData" type="hbeData" data-hmacdigest="5b399cb19b2223a7a234e305c6a313ed4db47217871ba7558ad528234b1780d3">217eb0e2694620ddc0df9ef4c08680f4c1766dfda1eefeee30d7772c817297c6ede2a2f38fef357ac637f0af5dc323e2c0223549d265a78d0b73596631fb3f855dd0429b3e4ccf2fa14f75adcd814da530f300a6295116e5b8aa44d3c59964235ea0be00fb8cbfbdda476224f703e012</script>
+</div>
+<script src="/lib/blog-encrypt.js"></script><link href="/css/blog-encrypt.css" rel="stylesheet" type="text/css">]]></content>
+      <categories>
+        <category>系统实现设计</category>
+      </categories>
+      <tags>
+        <tag>系统实现设计</tag>
+        <tag>即时通讯</tag>
       </tags>
   </entry>
   <entry>
