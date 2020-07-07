@@ -21,7 +21,7 @@
       </tags>
   </entry>
   <entry>
-    <title>Java Microbenchmark Harness微基准拾遗</title>
+    <title>Java Microbenchmark Harness微基准测试拾遗</title>
     <url>/2020/07/07/Java-Microbenchmark-Harness/</url>
     <content><![CDATA[<blockquote>
 <p><strong>If you cannot measure it, you cannot improve it.    –Lord Kelvin</strong></p>
@@ -85,9 +85,14 @@
 <li>Group: 该状态为同一个组里面所有线程共享。</li>
 <li>Benchmark: 该状态在所有线程间共享。</li>
 </ol>
-<h2 id="补充说明"><a href="#补充说明" class="headerlink" title="补充说明"></a>补充说明</h2><p>大地撒娇</p>
+<h2 id="补充说明"><a href="#补充说明" class="headerlink" title="补充说明"></a>补充说明</h2><p>在日常的工作和学习中，常常会遇到三种类型的问题，JHM对其能很好就觉很处理。</p>
+<ul>
+<li>对方法或库的不同实现方式的性能分析测试和最后的采用取舍</li>
+<li>方法入参对方法的性能影响和限制</li>
+<li>对项目中的热点方法的优化和其优化效果的定性分析。</li>
+</ul>
 <hr>
-<h3 id="参考和来源"><a href="#参考和来源" class="headerlink" title="参考和来源"></a>参考和来源</h3><ul>
+<h2 id="参考和来源"><a href="#参考和来源" class="headerlink" title="参考和来源"></a>参考和来源</h2><ul>
 <li><a href="https://www.xncoding.com/2018/01/07/java/jmh.html" target="_blank" rel="noopener">Java微基准测试框架JMH</a></li>
 <li><a href="http://irfen.me/java-jmh-simple-microbenchmark/" target="_blank" rel="noopener">Java使用JMH进行简单的基准测试Benchmark</a></li>
 <li><a href="http://blog.dyngr.com/blog/2016/10/29/introduction-of-jmh/" target="_blank" rel="noopener">Java 并发编程笔记：JMH 性能测试框架</a></li>

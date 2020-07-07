@@ -21,7 +21,7 @@
   
   <link rel="icon" type="image/x-icon" href="/images/footer-logo.png">
   
-  <title>Java Microbenchmark Harness微基准拾遗 [ LeoWang ]</title>
+  <title>Java Microbenchmark Harness微基准测试拾遗 [ LeoWang ]</title>
   
     <!-- stylesheets list from config.yml -->
     
@@ -96,7 +96,7 @@
   <article class="post" id="post">
     <header class="post-header text-center">
       <h1 class="title">
-        Java Microbenchmark Harness微基准拾遗
+        Java Microbenchmark Harness微基准测试拾遗
       </h1>
       <span>
         
@@ -116,7 +116,7 @@
       <span id="busuanzi_value_page_pv"></span> 点击
     </span>
       <span class="slash">/</span>
-      <span class="read">阅读耗时 17 分钟</span>
+      <span class="read">阅读耗时 18 分钟</span>
     </header>
 
     <div class="post-content">
@@ -182,9 +182,14 @@
 <li>Group: 该状态为同一个组里面所有线程共享。</li>
 <li>Benchmark: 该状态在所有线程间共享。</li>
 </ol>
-<h2 id="补充说明"><a href="#补充说明" class="headerlink" title="补充说明"></a>补充说明</h2><p>大地撒娇</p>
+<h2 id="补充说明"><a href="#补充说明" class="headerlink" title="补充说明"></a>补充说明</h2><p>在日常的工作和学习中，常常会遇到三种类型的问题，JHM对其能很好就觉很处理。</p>
+<ul>
+<li>对方法或库的不同实现方式的性能分析测试和最后的采用取舍</li>
+<li>方法入参对方法的性能影响和限制</li>
+<li>对项目中的热点方法的优化和其优化效果的定性分析。</li>
+</ul>
 <hr>
-<h3 id="参考和来源"><a href="#参考和来源" class="headerlink" title="参考和来源"></a>参考和来源</h3><ul>
+<h2 id="参考和来源"><a href="#参考和来源" class="headerlink" title="参考和来源"></a>参考和来源</h2><ul>
 <li><a href="https://www.xncoding.com/2018/01/07/java/jmh.html" target="_blank" rel="noopener">Java微基准测试框架JMH</a></li>
 <li><a href="http://irfen.me/java-jmh-simple-microbenchmark/" target="_blank" rel="noopener">Java使用JMH进行简单的基准测试Benchmark</a></li>
 <li><a href="http://blog.dyngr.com/blog/2016/10/29/introduction-of-jmh/" target="_blank" rel="noopener">Java 并发编程笔记：JMH 性能测试框架</a></li>
@@ -198,7 +203,7 @@
     
   <div id="toc" class="toc-article">
     <strong class="toc-title">Posts</strong>
-    <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#Hello-JHM"><span class="toc-text">Hello JHM</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#Maven依赖"><span class="toc-text">Maven依赖</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#性能测试设计"><span class="toc-text">性能测试设计</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#性能测试执行"><span class="toc-text">性能测试执行</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#直接IDE运行"><span class="toc-text">直接IDE运行</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#打包成Jar-其他机器上执行"><span class="toc-text">打包成Jar,其他机器上执行</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#测试结果"><span class="toc-text">测试结果</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#JHM的注解和功能"><span class="toc-text">JHM的注解和功能</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#BenchmarkMode"><span class="toc-text">@BenchmarkMode</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Warmup"><span class="toc-text">@Warmup</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Measurement"><span class="toc-text">@Measurement</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Threads"><span class="toc-text">@Threads</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Fork"><span class="toc-text">@Fork</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#OutputTimeUnit"><span class="toc-text">@OutputTimeUnit</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Benchmark"><span class="toc-text">@Benchmark</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Param"><span class="toc-text">@Param</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Setup"><span class="toc-text">@Setup</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#TearDown"><span class="toc-text">@TearDown</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#State"><span class="toc-text">@State</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#补充说明"><span class="toc-text">补充说明</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#参考和来源"><span class="toc-text">参考和来源</span></a></li></ol></li></ol>
+    <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#Hello-JHM"><span class="toc-text">Hello JHM</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#Maven依赖"><span class="toc-text">Maven依赖</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#性能测试设计"><span class="toc-text">性能测试设计</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#性能测试执行"><span class="toc-text">性能测试执行</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#直接IDE运行"><span class="toc-text">直接IDE运行</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#打包成Jar-其他机器上执行"><span class="toc-text">打包成Jar,其他机器上执行</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#测试结果"><span class="toc-text">测试结果</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#JHM的注解和功能"><span class="toc-text">JHM的注解和功能</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#BenchmarkMode"><span class="toc-text">@BenchmarkMode</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Warmup"><span class="toc-text">@Warmup</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Measurement"><span class="toc-text">@Measurement</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Threads"><span class="toc-text">@Threads</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Fork"><span class="toc-text">@Fork</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#OutputTimeUnit"><span class="toc-text">@OutputTimeUnit</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Benchmark"><span class="toc-text">@Benchmark</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Param"><span class="toc-text">@Param</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Setup"><span class="toc-text">@Setup</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#TearDown"><span class="toc-text">@TearDown</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#State"><span class="toc-text">@State</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#补充说明"><span class="toc-text">补充说明</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#参考和来源"><span class="toc-text">参考和来源</span></a></li></ol>
   </div>
 
 
