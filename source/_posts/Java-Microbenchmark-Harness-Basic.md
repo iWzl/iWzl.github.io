@@ -1,17 +1,19 @@
 ---
-title: Java Microbenchmark Harness微基准测试拾遗
+title: Java Microbenchmark Harness微基准测试基础
 date: 2020-07-07 18:24:35
 tags:
 	- Java
 	- 基准测试
+	- JMH
 	- 系统调优
+	- 基础
 categories:
     - 系统调优
 ---
 
 > **If you cannot measure it, you cannot improve it.	–Lord Kelvin**
 
-[Java Microbenchmark Harness](http://openjdk.java.net/projects/code-tools/jmh/) 是专门进行代码的微基准测试的一套工具API。 为应用提供了数据支持，是评价和比较方法好坏的基准。一般说JMH，是在 **Method 层面上的 Benchmark**，精度可以精确到微秒级。以下记录JMH下的一些东西，便于之后查找和学习。
+[Java Microbenchmark Harness](http://openjdk.java.net/projects/code-tools/jmh/) 是专门进行代码的微基准测试的一套工具API。 为应用提供了数据支持，是评价和比较方法好坏的基准。一般说JMH，是在 **Method 层面上的 Benchmark**，精度可以精确到微秒级。以下记录JMH的使用和相关基础，便于之后查找和学习。
 
 Benchmark 作为应用框架，产品的基准画像，存在统一的标准，避免了不同测评对象自说自话的尴尬，应用框架各自使用有利于自身场景的测评方式必然不可取。
 
