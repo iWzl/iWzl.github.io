@@ -1,5 +1,5 @@
 ---
-title: Java Microbenchmark Harness微基准拾遗
+title: Java Microbenchmark Harness微基准测试拾遗
 date: 2020-07-07 18:24:35
 tags:
 	- Java
@@ -295,11 +295,15 @@ State 用于声明某个类是一个“状态”，然后接受一个 Scope 参�
 
 ## 补充说明
 
-大地撒娇
+在日常的工作和学习中，常常会遇到三种类型的问题，JHM对其能很好就觉很处理。
+
+* 对方法或库的不同实现方式的性能分析测试和最后的采用取舍
+* 方法入参对方法的性能影响和限制
+* 对项目中的热点方法的优化和其优化效果的定性分析。
 
 ---
 
-### 参考和来源
+## 参考和来源
 
 * [Java微基准测试框架JMH](https://www.xncoding.com/2018/01/07/java/jmh.html)
 * [Java使用JMH进行简单的基准测试Benchmark](http://irfen.me/java-jmh-simple-microbenchmark/)
