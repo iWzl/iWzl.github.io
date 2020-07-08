@@ -46,7 +46,7 @@ JVM 通常只在类的第一次使用类时装载它们。所以,方法任务的
 
 ## 陷阱一: 死码消除
 
-在某些情况下，编译器可以判断出某些代码根本不影响输出，所以编译器会消除这些代码,例如注释的代码，不可达的代码块，可达但不被使用的代码，都会被判断为死码而被Javac的时候被消除。
+[死码消除]([https://zh.wikipedia.org/zh-cn/%E6%AD%BB%E7%A2%BC%E5%88%AA%E9%99%A4](https://zh.wikipedia.org/zh-cn/死碼刪除))(Dead code elimination）是一种编译最优化技术,在某些情况下，编译器可以判断出某些代码根本不影响输出，所以编译器会消除这些代码,例如注释的代码，不可达的代码块，可达但不被使用的代码，会被判断为死码而在Javac的时候被消除。
 
 ```java
 public class ErrorBenchmark {
@@ -54,21 +54,43 @@ public class ErrorBenchmark {
   
     @Benchmark
     public void benchmarkNothing(){
-        //do nothing
+        // 19873732.412 ± 6783114.266  ops/ms
+        //do nothing 
     }
   
     @Benchmark
     public void benchmarkWrong(){
-        Math.log(PI);
+        //  20988076.131 ± 7282548.202  ops/ms
+        Math.log(PI);  // DCE 会被判断为死码而被消除
     }
 
     @Benchmark
     public double benchmarkRight(){
+       // 306740.041 ±   52692.696  ops/ms
         return Math.log(PI);
     }
 
 }
 ```
+
+在做测试时，需要注意方法会不会有死码的存在，否者可能会带来一些不合理的测试结果和意外。对于会被判断为死码但又需要进行执行测试方法来说，可以想办法去除孤立的方法执行，例如增加方法返回值，或者使用JMH的提供的API**Blackhole**。
+
+```java
+@Benchmark
+public void benchmarkRight(Blackhole bh) {
+    bh.consume(Math.log(PI));
+}
+```
+
+## 陷阱二：常量折叠与常量传播
+
+[常数折叠]([https://zh.wikipedia.org/wiki/%E5%B8%B8%E6%95%B8%E6%8A%98%E7%96%8A#%E5%B8%B8%E6%95%B8%E5%82%B3%E6%92%AD](https://zh.wikipedia.org/wiki/常數折疊#常數傳播))（Constant folding）以及常数传播（constant propagation）都是[编译器最佳化](https://zh.wikipedia.org/w/index.php?title=編譯器最佳化&action=edit&redlink=1)技术。是一个在编译时期简化常数的一个过程。常数在表示式中仅仅代表一个简单的数值，就算一个变数从未被修改也可作为常数，或者直接将一个变数被明确地被标注为常数。
+
+```java
+long number = 2 * 600 * 200;
+```
+
+多数的现代编译器不会真的产生两个乘法的指令再将结果储存下来，取而代之的，他们会辨识出语句的结构，并在编译时期将数值直接计算出来。常数折叠的时机取决于编译器，有的在编译前期完成，有的在较后期进行。
 
 
 
@@ -96,5 +118,5 @@ public void benchmarkTestMethod(){
 ## 参考和引用
 
 * [IBM Developer Java 代码基准测试的问题](https://www.ibm.com/developerworks/cn/java/j-benchmark1.html)
-* [JAVA 拾遗 — JMH 与 8 个测试陷阱](cnkirito.moe/java-jmh/)
+* [JAVA 拾遗 — JMH 与 8 个测试陷阱](https://www.cnkirito.moe/java-jmh/)
 
