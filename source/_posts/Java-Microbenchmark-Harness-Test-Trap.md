@@ -92,6 +92,61 @@ long number = 2 * 600 * 200;
 
 多数的现代编译器不会真的产生两个乘法的指令再将结果储存下来，取而代之的，他们会辨识出语句的结构，并在编译时期将数值直接计算出来。常数折叠的时机取决于编译器，有的在编译前期完成，有的在较后期进行。
 
+```java
+private double x = Math.PI;
+
+// 编译器会对 final 变量特殊处理 
+private final double wrongX = Math.PI;
+
+@Benchmark
+public double baseline() {
+    // 2.220 ± 0.352 ns/op
+    return Math.PI;
+}
+
+@Benchmark
+public double measureWrong_1() { 
+    // 2.220 ± 0.352 ns/op
+    // 错误，结果可以被预测，会发生常量折叠
+    return Math.log(Math.PI);
+}
+
+@Benchmark
+public double measureWrong_2() { 
+    // 2.220 ± 0.352 ns/op
+    // 错误，结果可以被预测，会发生常量折叠
+    return Math.log(wrongX);
+}
+
+@Benchmark
+public double measureRight() { 
+    // 22.590 ± 2.636  ns/op
+    return Math.log(x);
+}
+```
+
+由于发生了常量折叠，相同实现下的执行销量完全不同，这个测试在一定程度上说明了final的定义对于方法执行结果的影响。
+
+此外**常数传播 (**Constant propagation**)** 是一个替代表示式中已知常数的过程，也是在编译时期进行，包含前述所定义，内建函数也适用于常数。
+
+```java
+int x = 520;
+int y = 260 - 520 / 2;
+return y * (1314 / x + 2);
+```
+
+传播可以理解变量的替换，如果进行持续传播，上式则可写成如下
+
+```java
+int x = 14;
+int y = 0;
+return 0;
+```
+
+## 陷阱三：不要在测试中写循环
+
+
+
 
 
 ## 为什么要使用JMH
