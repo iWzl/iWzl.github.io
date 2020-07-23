@@ -1,5 +1,5 @@
 ---
-title: Jenkins-programming-environment-setup
+title: Jenkins在CentOS系统环境上的搭建和部署
 date: 2020-07-23 21:32:40
 tags: 
     - DevOps
