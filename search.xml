@@ -21,40 +21,6 @@
       </tags>
   </entry>
   <entry>
-    <title>CentOS下Nginx支持SSL协议的编译安装</title>
-    <url>/2020/07/04/Nginx-under-CentOS-installation/</url>
-    <content><![CDATA[<h2 id="Nginx及其衍生的其他相关优秀开源产品"><a href="#Nginx及其衍生的其他相关优秀开源产品" class="headerlink" title="Nginx及其衍生的其他相关优秀开源产品"></a>Nginx及其衍生的其他相关优秀开源产品</h2><ul>
-<li><a href="http://nginx.org/" target="_blank" rel="noopener">NGINX</a> 是开源、高性能、高可靠的 Web 和反向代理服务器</li>
-<li><a href="https://tengine.taobao.org/" target="_blank" rel="noopener">Tengine</a> Tengine是由淘宝网发起基于Nginx的Web服务器项目</li>
-<li><a href="https://openresty.org/cn/" target="_blank" rel="noopener">OpenResty</a> OpenResty® 是一个基于 Nginx 与 Lua 的高性能 Web 平台</li>
-</ul>
-<h2 id="下载Nginx稳定版包并解压"><a href="#下载Nginx稳定版包并解压" class="headerlink" title="下载Nginx稳定版包并解压"></a>下载Nginx稳定版包并解压</h2><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">wget http://nginx.org/download/nginx-x.x.x.tar.gz</span><br><span class="line">tar zxvf nginx-x.x.x.tar.gz</span><br><span class="line"><span class="built_in">cd</span> nginx-x.x.x</span><br></pre></td></tr></table></figure>
-<a id="more"></a>
-
-<h2 id="补全需要的库依赖"><a href="#补全需要的库依赖" class="headerlink" title="补全需要的库依赖"></a>补全需要的库依赖</h2><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">yum install gcc-c++</span><br><span class="line">yum install -y pcre pcre-devel</span><br><span class="line">yum install -y zlib zlib-devel</span><br><span class="line">yum install -y openssl openssl-devel</span><br></pre></td></tr></table></figure>
-
-<h2 id="执行编译安装"><a href="#执行编译安装" class="headerlink" title="执行编译安装"></a>执行编译安装</h2><p>所有文件放在同一个位置,便于统一管理</p>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">./configure --prefix=/usr/<span class="built_in">local</span>/nginx  \</span><br><span class="line">--conf-path=/usr/<span class="built_in">local</span>/nginx/etc/nginx.conf  \</span><br><span class="line">--user=nginx --group=nginx  \</span><br><span class="line">--error-log-path=/usr/<span class="built_in">local</span>/nginx/nginxlog/error.log  \</span><br><span class="line">--http-log-path=/usr/<span class="built_in">local</span>/nginx/nginxlog/access.log  \</span><br><span class="line">--pid-path=/usr/<span class="built_in">local</span>/nginx/pids/nginx.pid  \</span><br><span class="line">--lock-path=/usr/<span class="built_in">local</span>/nginx/locks/nginx.lock  \</span><br><span class="line">--with-http_ssl_module  \</span><br><span class="line">--with-http_stub_status_module  \</span><br><span class="line">--with-http_gzip_static_module  \</span><br><span class="line">--http-client-body-temp-path=/usr/<span class="built_in">local</span>/nginx/tmp/client  \</span><br><span class="line">--http-proxy-temp-path=/usr/<span class="built_in">local</span>/nginx/tmp/proxy  \</span><br><span class="line">--http-fastcgi-temp-path=/usr/<span class="built_in">local</span>/nginx/tmp/fastcgi  \</span><br><span class="line">--http-uwsgi-temp-path=/usr/<span class="built_in">local</span>/nginx/tmp/uwsgi  \</span><br><span class="line">--http-scgi-temp-path=/usr/<span class="built_in">local</span>/nginx/tmp/scgi</span><br></pre></td></tr></table></figure>
-<p>编译结果</p>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">Configuration summary</span><br><span class="line">  + using system PCRE library</span><br><span class="line">  + using system OpenSSL library</span><br><span class="line">  + using system zlib library</span><br><span class="line"></span><br><span class="line">  nginx path prefix: <span class="string">"/usr/local/nginx"</span></span><br><span class="line">  nginx binary file: <span class="string">"/usr/local/nginx/sbin/nginx"</span></span><br><span class="line">  nginx modules path: <span class="string">"/usr/local/nginx/modules"</span></span><br><span class="line">  nginx configuration prefix: <span class="string">"/usr/local/nginx/etc"</span></span><br><span class="line">  nginx configuration file: <span class="string">"/usr/local/nginx/etc/nginx.conf"</span></span><br><span class="line">  nginx pid file: <span class="string">"/usr/local/nginx/pids/nginx.pid"</span></span><br><span class="line">  nginx error <span class="built_in">log</span> file: <span class="string">"/usr/local/nginx/nginxlog/error.log"</span></span><br><span class="line">  nginx http access <span class="built_in">log</span> file: <span class="string">"/usr/local/nginx/nginxlog/access.log"</span></span><br><span class="line">  nginx http client request body temporary files: <span class="string">"/usr/local/nginx/tmp/client"</span></span><br><span class="line">  nginx http proxy temporary files: <span class="string">"/usr/local/nginx/tmp/proxy"</span></span><br><span class="line">  nginx http fastcgi temporary files: <span class="string">"/usr/local/nginx/tmp/fastcgi"</span></span><br><span class="line">  nginx http uwsgi temporary files: <span class="string">"/usr/local/nginx/tmp/uwsgi"</span></span><br><span class="line">  nginx http scgi temporary files: <span class="string">"/usr/local/nginx/tmp/scgi</span></span><br></pre></td></tr></table></figure>
-<p>执行安装</p>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">make &amp;&amp; make install</span><br></pre></td></tr></table></figure>
-<h2 id="安装后处理"><a href="#安装后处理" class="headerlink" title="安装后处理"></a>安装后处理</h2><p>查看文件结构</p>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="built_in">cd</span> /usr/<span class="built_in">local</span>/nginx/</span><br><span class="line">tree</span><br><span class="line">.</span><br><span class="line">├── etc</span><br><span class="line">│   ├── fastcgi.conf</span><br><span class="line">│   ├── fastcgi.conf.default</span><br><span class="line">│   ├── fastcgi_params</span><br><span class="line">│   ├── fastcgi_params.default</span><br><span class="line">│   ├── koi-utf</span><br><span class="line">│   ├── koi-win</span><br><span class="line">│   ├── mime.types</span><br><span class="line">│   ├── mime.types.default</span><br><span class="line">│   ├── nginx.conf</span><br><span class="line">│   ├── nginx.conf.default</span><br><span class="line">│   ├── scgi_params</span><br><span class="line">│   ├── scgi_params.default</span><br><span class="line">│   ├── uwsgi_params</span><br><span class="line">│   ├── uwsgi_params.default</span><br><span class="line">│   └── win-utf</span><br><span class="line">├── html</span><br><span class="line">│   ├── 50x.html</span><br><span class="line">│   └── index.html</span><br><span class="line">├── nginxlog</span><br><span class="line">├── pids</span><br><span class="line">└── sbin</span><br><span class="line">    └── nginx</span><br></pre></td></tr></table></figure>
-<p>完善Nginx目录结构</p>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">mkdir -pv /usr/<span class="built_in">local</span>/nginx/tmp/&#123;client,proxy,fastcgi,uwsgi,scgi&#125;</span><br></pre></td></tr></table></figure>
-<h2 id="Nginx启动和监听"><a href="#Nginx启动和监听" class="headerlink" title="Nginx启动和监听"></a>Nginx启动和监听</h2><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 启动</span></span><br><span class="line">/usr/<span class="built_in">local</span>/nginx/sbin/nginx</span><br><span class="line"><span class="comment"># 检查是否启动</span></span><br><span class="line">ss -tnlp | grep :80</span><br></pre></td></tr></table></figure>]]></content>
-      <categories>
-        <category>Nginx</category>
-      </categories>
-      <tags>
-        <tag>Nginx</tag>
-        <tag>Liunx</tag>
-        <tag>Server</tag>
-        <tag>CentOS</tag>
-      </tags>
-  </entry>
-  <entry>
     <title>Java Microbenchmark Harness微基准测试基础</title>
     <url>/2020/07/07/Java-Microbenchmark-Harness-Basic/</url>
     <content><![CDATA[<blockquote>
@@ -145,6 +111,40 @@
       </tags>
   </entry>
   <entry>
+    <title>CentOS下Nginx支持SSL协议的编译安装</title>
+    <url>/2020/07/04/Nginx-under-CentOS-installation/</url>
+    <content><![CDATA[<h2 id="Nginx及其衍生的其他相关优秀开源产品"><a href="#Nginx及其衍生的其他相关优秀开源产品" class="headerlink" title="Nginx及其衍生的其他相关优秀开源产品"></a>Nginx及其衍生的其他相关优秀开源产品</h2><ul>
+<li><a href="http://nginx.org/" target="_blank" rel="noopener">NGINX</a> 是开源、高性能、高可靠的 Web 和反向代理服务器</li>
+<li><a href="https://tengine.taobao.org/" target="_blank" rel="noopener">Tengine</a> Tengine是由淘宝网发起基于Nginx的Web服务器项目</li>
+<li><a href="https://openresty.org/cn/" target="_blank" rel="noopener">OpenResty</a> OpenResty® 是一个基于 Nginx 与 Lua 的高性能 Web 平台</li>
+</ul>
+<h2 id="下载Nginx稳定版包并解压"><a href="#下载Nginx稳定版包并解压" class="headerlink" title="下载Nginx稳定版包并解压"></a>下载Nginx稳定版包并解压</h2><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">wget http://nginx.org/download/nginx-x.x.x.tar.gz</span><br><span class="line">tar zxvf nginx-x.x.x.tar.gz</span><br><span class="line"><span class="built_in">cd</span> nginx-x.x.x</span><br></pre></td></tr></table></figure>
+<a id="more"></a>
+
+<h2 id="补全需要的库依赖"><a href="#补全需要的库依赖" class="headerlink" title="补全需要的库依赖"></a>补全需要的库依赖</h2><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">yum install gcc-c++</span><br><span class="line">yum install -y pcre pcre-devel</span><br><span class="line">yum install -y zlib zlib-devel</span><br><span class="line">yum install -y openssl openssl-devel</span><br></pre></td></tr></table></figure>
+
+<h2 id="执行编译安装"><a href="#执行编译安装" class="headerlink" title="执行编译安装"></a>执行编译安装</h2><p>所有文件放在同一个位置,便于统一管理</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">./configure --prefix=/usr/<span class="built_in">local</span>/nginx  \</span><br><span class="line">--conf-path=/usr/<span class="built_in">local</span>/nginx/etc/nginx.conf  \</span><br><span class="line">--user=nginx --group=nginx  \</span><br><span class="line">--error-log-path=/usr/<span class="built_in">local</span>/nginx/nginxlog/error.log  \</span><br><span class="line">--http-log-path=/usr/<span class="built_in">local</span>/nginx/nginxlog/access.log  \</span><br><span class="line">--pid-path=/usr/<span class="built_in">local</span>/nginx/pids/nginx.pid  \</span><br><span class="line">--lock-path=/usr/<span class="built_in">local</span>/nginx/locks/nginx.lock  \</span><br><span class="line">--with-http_ssl_module  \</span><br><span class="line">--with-http_stub_status_module  \</span><br><span class="line">--with-http_gzip_static_module  \</span><br><span class="line">--http-client-body-temp-path=/usr/<span class="built_in">local</span>/nginx/tmp/client  \</span><br><span class="line">--http-proxy-temp-path=/usr/<span class="built_in">local</span>/nginx/tmp/proxy  \</span><br><span class="line">--http-fastcgi-temp-path=/usr/<span class="built_in">local</span>/nginx/tmp/fastcgi  \</span><br><span class="line">--http-uwsgi-temp-path=/usr/<span class="built_in">local</span>/nginx/tmp/uwsgi  \</span><br><span class="line">--http-scgi-temp-path=/usr/<span class="built_in">local</span>/nginx/tmp/scgi</span><br></pre></td></tr></table></figure>
+<p>编译结果</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">Configuration summary</span><br><span class="line">  + using system PCRE library</span><br><span class="line">  + using system OpenSSL library</span><br><span class="line">  + using system zlib library</span><br><span class="line"></span><br><span class="line">  nginx path prefix: <span class="string">"/usr/local/nginx"</span></span><br><span class="line">  nginx binary file: <span class="string">"/usr/local/nginx/sbin/nginx"</span></span><br><span class="line">  nginx modules path: <span class="string">"/usr/local/nginx/modules"</span></span><br><span class="line">  nginx configuration prefix: <span class="string">"/usr/local/nginx/etc"</span></span><br><span class="line">  nginx configuration file: <span class="string">"/usr/local/nginx/etc/nginx.conf"</span></span><br><span class="line">  nginx pid file: <span class="string">"/usr/local/nginx/pids/nginx.pid"</span></span><br><span class="line">  nginx error <span class="built_in">log</span> file: <span class="string">"/usr/local/nginx/nginxlog/error.log"</span></span><br><span class="line">  nginx http access <span class="built_in">log</span> file: <span class="string">"/usr/local/nginx/nginxlog/access.log"</span></span><br><span class="line">  nginx http client request body temporary files: <span class="string">"/usr/local/nginx/tmp/client"</span></span><br><span class="line">  nginx http proxy temporary files: <span class="string">"/usr/local/nginx/tmp/proxy"</span></span><br><span class="line">  nginx http fastcgi temporary files: <span class="string">"/usr/local/nginx/tmp/fastcgi"</span></span><br><span class="line">  nginx http uwsgi temporary files: <span class="string">"/usr/local/nginx/tmp/uwsgi"</span></span><br><span class="line">  nginx http scgi temporary files: <span class="string">"/usr/local/nginx/tmp/scgi</span></span><br></pre></td></tr></table></figure>
+<p>执行安装</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">make &amp;&amp; make install</span><br></pre></td></tr></table></figure>
+<h2 id="安装后处理"><a href="#安装后处理" class="headerlink" title="安装后处理"></a>安装后处理</h2><p>查看文件结构</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="built_in">cd</span> /usr/<span class="built_in">local</span>/nginx/</span><br><span class="line">tree</span><br><span class="line">.</span><br><span class="line">├── etc</span><br><span class="line">│   ├── fastcgi.conf</span><br><span class="line">│   ├── fastcgi.conf.default</span><br><span class="line">│   ├── fastcgi_params</span><br><span class="line">│   ├── fastcgi_params.default</span><br><span class="line">│   ├── koi-utf</span><br><span class="line">│   ├── koi-win</span><br><span class="line">│   ├── mime.types</span><br><span class="line">│   ├── mime.types.default</span><br><span class="line">│   ├── nginx.conf</span><br><span class="line">│   ├── nginx.conf.default</span><br><span class="line">│   ├── scgi_params</span><br><span class="line">│   ├── scgi_params.default</span><br><span class="line">│   ├── uwsgi_params</span><br><span class="line">│   ├── uwsgi_params.default</span><br><span class="line">│   └── win-utf</span><br><span class="line">├── html</span><br><span class="line">│   ├── 50x.html</span><br><span class="line">│   └── index.html</span><br><span class="line">├── nginxlog</span><br><span class="line">├── pids</span><br><span class="line">└── sbin</span><br><span class="line">    └── nginx</span><br></pre></td></tr></table></figure>
+<p>完善Nginx目录结构</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">mkdir -pv /usr/<span class="built_in">local</span>/nginx/tmp/&#123;client,proxy,fastcgi,uwsgi,scgi&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="Nginx启动和监听"><a href="#Nginx启动和监听" class="headerlink" title="Nginx启动和监听"></a>Nginx启动和监听</h2><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 启动</span></span><br><span class="line">/usr/<span class="built_in">local</span>/nginx/sbin/nginx</span><br><span class="line"><span class="comment"># 检查是否启动</span></span><br><span class="line">ss -tnlp | grep :80</span><br></pre></td></tr></table></figure>]]></content>
+      <categories>
+        <category>Nginx</category>
+      </categories>
+      <tags>
+        <tag>Nginx</tag>
+        <tag>Liunx</tag>
+        <tag>Server</tag>
+        <tag>CentOS</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>Java Microbenchmark Harness微基准测试陷阱</title>
     <url>/2020/07/09/Java-Microbenchmark-Harness-Test-Trap/</url>
     <content><![CDATA[<blockquote>
@@ -230,6 +230,66 @@
       <tags>
         <tag>Java</tag>
         <tag>系统调优</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>Jenkins-programming-environment-setup</title>
+    <url>/2020/07/23/Jenkins-programming-environment-setup/</url>
+    <content><![CDATA[<h1 id="Jenkins服务在CentOS系统环境上的搭建和部署"><a href="#Jenkins服务在CentOS系统环境上的搭建和部署" class="headerlink" title="Jenkins服务在CentOS系统环境上的搭建和部署"></a>Jenkins服务在CentOS系统环境上的搭建和部署</h1><blockquote>
+<p><a href="https://www.jenkins.io/zh/" target="_blank" rel="noopener">Jenkins</a> 由Java编写的一个开源的、提供友好操作界面的持续集成(CI)工具，起源于Hudson（Hudson是商用的），主要用于持续、自动的构建/测试软件项目、监控外部任务的运行（这个比较抽象，暂且写上，不做解释）。Jenkins用Java语言编写，可在Tomcat等流行的servlet容器中运行，也可独立运行。通常与版本管理工具(SCM)、构建工具结合使用。常用的版本控制工具有SVN、GIT，构建工具有Maven、Ant、Gradle。</p>
+</blockquote>
+<a id="more"></a>  
+
+<p>CI(Continuous integration，中文意思是持续集成)是一种软件开发时间。持续集成强调开发人员提交了新代码之后，立刻进行构建、（单元）测试。根据测试结果，我们可以确定新代码和原有代码能否正确地集成在一起。借用网络图片对CI加以理解。</p>
+<p><img src="https://upload-images.jianshu.io/upload_images/6464255-1b6e3bfdbece1492.jpg" alt="CI"></p>
+<p> CD(Continuous Delivery， 中文意思持续交付)是在持续集成的基础上，将集成后的代码部署到更贴近真实运行环境(类生产环境)中。比如，我们完成单元测试后，可以把代码部署到连接数据库的Staging环境中更多的测试。如果代码没有问题，可以继续手动部署到生产环境。下图反应的是CI/CD 的大概工作模式。</p>
+<p><img src="https://upload-images.jianshu.io/upload_images/6464255-ba088ec7257062c0.jpg" alt="Jekins"></p>
+<!-- more -->
+
+<h2 id="在线安装Jenkins"><a href="#在线安装Jenkins" class="headerlink" title="在线安装Jenkins"></a>在线安装Jenkins</h2><figure class="highlight shell"><table><tr><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> 获取 repo</span></span><br><span class="line"><span class="meta">$</span><span class="bash"> wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo</span></span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 获取key, 如果之前导入 jenkins 的key, 这一步可以忽略</span></span><br><span class="line"><span class="meta">$</span><span class="bash"> rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key</span></span><br><span class="line"></span><br><span class="line"><span class="meta">$</span><span class="bash"> yum update &amp;&amp; yum install jenkins</span></span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 启用 jenkins</span></span><br><span class="line"><span class="meta">$</span><span class="bash"> systemctl start jenkins</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="离线安装Jenkins"><a href="#离线安装Jenkins" class="headerlink" title="离线安装Jenkins"></a>离线安装Jenkins</h2><figure class="highlight shell"><table><tr><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> 准备安装临时文件夹</span></span><br><span class="line"><span class="meta">$</span><span class="bash"> mkdir jenkins</span></span><br><span class="line"><span class="meta">$</span><span class="bash"> <span class="built_in">cd</span> jenkins</span></span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 获取最新的稳定版本的Jenkins.rpm文件(https://pkg.jenkins.io/redhat-stable/)</span></span><br><span class="line"><span class="meta">$</span><span class="bash"> wget https://pkg.jenkins.io/redhat-stable/jenkins-2.235.2-1.1.noarch.rpm</span></span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 执行本地的Yum安装</span></span><br><span class="line"><span class="meta">$</span><span class="bash"> yum localinstall jenkins-2.235.2-1.1.noarch.rpm</span></span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 启用 jenkins</span></span><br><span class="line"><span class="meta">$</span><span class="bash"> systemctl start jenkins</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="安装异常解决"><a href="#安装异常解决" class="headerlink" title="安装异常解决"></a>安装异常解决</h2><h3 id="异常信息如下"><a href="#异常信息如下" class="headerlink" title="异常信息如下"></a>异常信息如下</h3><figure class="highlight shell"><table><tr><td class="code"><pre><span class="line">[root@Leonardo-iWzl-Server jenkins]# systemctl start jenkins</span><br><span class="line">Job for jenkins.service failed because the control process exited with error code. See "systemctl status jenkins.service" and "journalctl -xe" for details.</span><br><span class="line">[root@Leonardo-iWzl-Server jenkins]# systemctl status jenkins</span><br><span class="line">● jenkins.service - LSB: Jenkins Automation Server</span><br><span class="line">   Loaded: loaded (/etc/rc.d/init.d/jenkins; bad; vendor preset: disabled)</span><br><span class="line">   Active: failed (Result: exit-code) since 四 2020-07-23 10:02:43 EDT; 16s ago</span><br><span class="line">     Docs: man:systemd-sysv-generator(8)</span><br><span class="line">  Process: 23582 ExecStart=/etc/rc.d/init.d/jenkins start (code=exited, status=1/FAILURE)</span><br><span class="line"></span><br><span class="line">7月 23 10:02:43 Leonardo-iWzl-Server systemd[1]: Starting LSB: Jenkins Automation Server...</span><br><span class="line">7月 23 10:02:43 Leonardo-iWzl-Server runuser[23587]: pam_unix(runuser:session): session opened for user jenkins...d=0)</span><br><span class="line">7月 23 10:02:43 Leonardo-iWzl-Server jenkins[23582]: Starting Jenkins bash: /usr/bin/java: No such file or directory</span><br><span class="line">7月 23 10:02:43 Leonardo-iWzl-Server runuser[23587]: pam_unix(runuser:session): session closed for user jenkins</span><br><span class="line">7月 23 10:02:43 Leonardo-iWzl-Server jenkins[23582]: [FAILED]</span><br><span class="line">7月 23 10:02:43 Leonardo-iWzl-Server systemd[1]: jenkins.service: control process exited, code=exited status=1</span><br><span class="line">7月 23 10:02:43 Leonardo-iWzl-Server systemd[1]: Failed to start LSB: Jenkins Automation Server.</span><br><span class="line">7月 23 10:02:43 Leonardo-iWzl-Server systemd[1]: Unit jenkins.service entered failed state.</span><br><span class="line">7月 23 10:02:43 Leonardo-iWzl-Server systemd[1]: jenkins.service failed.</span><br><span class="line">Hint: Some lines were ellipsized, use -l to show in full.</span><br></pre></td></tr></table></figure>
+
+<h3 id="原因说明"><a href="#原因说明" class="headerlink" title="原因说明"></a>原因说明</h3><p>Jenkins 默认会在以下目录按顺序搜寻 JDK，一旦找到一个可用的即返回</p>
+<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line">/etc/alternatives/java</span><br><span class="line">/usr/lib/jvm/java-1.8.0/bin/java</span><br><span class="line">/usr/lib/jvm/jre-1.8.0/bin/java</span><br><span class="line">/usr/lib/jvm/java-1.7.0/bin/java</span><br><span class="line">/usr/lib/jvm/jre-1.7.0/bin/java</span><br><span class="line">/usr/lib/jvm/java-11.0/bin/java</span><br><span class="line">/usr/lib/jvm/jre-11.0/bin/java</span><br><span class="line">/usr/lib/jvm/java-11-openjdk-amd64</span><br><span class="line">/usr/bin/java</span><br></pre></td></tr></table></figure>
+
+<p>如果系统的以上位置都未安装 JDK，启动时就会报错，可以通过建立软连接进行解决</p>
+<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line">ln -s /usr/local/java/jdk1.8.0_261/bin/java /usr/bin/java</span><br></pre></td></tr></table></figure>
+
+<p>完成以上错误处理后,可得到以下输出</p>
+<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line">[root@Leonardo-iWzl-Server jenkins]# systemctl status jenkins</span><br><span class="line">● jenkins.service - LSB: Jenkins Automation Server</span><br><span class="line">   Loaded: loaded (/etc/rc.d/init.d/jenkins; bad; vendor preset: disabled)</span><br><span class="line">   Active: active (running) since 四 2020-07-23 10:10:06 EDT; 4s ago</span><br><span class="line">     Docs: man:systemd-sysv-generator(8)</span><br><span class="line">  Process: 23606 ExecStart=/etc/rc.d/init.d/jenkins start (code=exited, status=0/SUCCESS)</span><br><span class="line">   CGroup: /system.slice/jenkins.service</span><br><span class="line">           └─23630 /usr/bin/java -Dcom.sun.akuma.Daemon=daemonized -Djava.awt.headless=true -DJENKINS_HOME=/var/lib/jenkins -jar /usr/lib/jenkins/jenkins.war --logfile=/var/log/jenkins/jenkins.log --webroot=/var/cache/jenkins/war --dae...</span><br><span class="line"></span><br><span class="line">7月 23 10:10:04 Leonardo-iWzl-Server systemd[1]: Starting LSB: Jenkins Automation Server...</span><br><span class="line">7月 23 10:10:04 Leonardo-iWzl-Server runuser[23611]: pam_unix(runuser:session): session opened for user jenkins by (uid=0)</span><br><span class="line">7月 23 10:10:06 Leonardo-iWzl-Server runuser[23611]: pam_unix(runuser:session): session closed for user jenkins</span><br><span class="line">7月 23 10:10:06 Leonardo-iWzl-Server jenkins[23606]: Starting Jenkins [  OK  ]</span><br><span class="line">7月 23 10:10:06 Leonardo-iWzl-Server systemd[1]: Started LSB: Jenkins Automation Server.</span><br></pre></td></tr></table></figure>
+
+<p> 查看jenkins 的启动参数 <em>ps -ef |grep jenkins</em> </p>
+<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line">[root@Leonardo-iWzl-Server jenkins]# ps -ef |grep jenkins</span><br><span class="line">jenkins  23630     1 49 10:10 ?        00:00:54 /usr/bin/java </span><br><span class="line">		-Dcom.sun.akuma.Daemon=daemonized </span><br><span class="line">		-Djava.awt.headless=true </span><br><span class="line">		-DJENKINS_HOME=/var/lib/jenkins </span><br><span class="line">		-jar /usr/lib/jenkins/jenkins.war </span><br><span class="line">		--logfile=/var/log/jenkins/jenkins.log </span><br><span class="line">		--webroot=/var/cache/jenkins/war </span><br><span class="line">		--daemon </span><br><span class="line">		--httpPort=8080 </span><br><span class="line">		--debug=5 </span><br><span class="line">		--handlerCountMax=100 </span><br><span class="line">		--handlerCountMaxIdle=20</span><br><span class="line">root     23695 23312  0 10:11 pts/0    00:00:00 grep --color=auto jenkins</span><br></pre></td></tr></table></figure>
+
+<p>在这里看到日志的一些配置和相关的端口、可以通过访问<em>「IP」:8080</em>访问到Jenkins服务</p>
+<h3 id="Jenkins的更新"><a href="#Jenkins的更新" class="headerlink" title="Jenkins的更新"></a>Jenkins的更新</h3><p>对于Jenkins更新可以通过</p>
+<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line">yum update jenkins</span><br></pre></td></tr></table></figure>
+
+<p>完成更新后,需要重启Jenkins服务</p>
+<h3 id="Jenkins国内镜像配置"><a href="#Jenkins国内镜像配置" class="headerlink" title="Jenkins国内镜像配置"></a>Jenkins国内镜像配置</h3><p>修改<em>/var/lib/jenkins</em> 目录下的<em>hudson.model.UpdateCenter.xml</em>文件内容如下</p>
+<figure class="highlight xml"><table><tr><td class="code"><pre><span class="line"><span class="meta">&lt;?xml version='1.1' encoding='UTF-8'?&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">sites</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">site</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">id</span>&gt;</span>default<span class="tag">&lt;/<span class="name">id</span>&gt;</span></span><br><span class="line">    <span class="comment">&lt;!-- &lt;url&gt;https://updates.jenkins.io/update-center.json&lt;/url&gt;--&gt;</span></span><br><span class="line">     <span class="tag">&lt;<span class="name">url</span>&gt;</span>https://mirrors.tuna.tsinghua.edu.cn/jenkins/updates/update-center.json/url&gt;</span><br><span class="line">  <span class="tag">&lt;/<span class="name">site</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">sites</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p>修改默认配置json文件<em>/var/lib/jenkins/updates/default.json</em></p>
+<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> 进入响应文件夹</span></span><br><span class="line">cd /var/lib/jenkins/updates</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 备份原始文件</span></span><br><span class="line">cp default.json default.json.bak</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 替换更新下载地址</span></span><br><span class="line">sed -i 's/http:\/\/updates.jenkins-ci.org\/download/https:\/\/mirrors.tuna.tsinghua.edu.cn\/jenkins/g' default.json</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 替换测试URL</span></span><br><span class="line">sed -i 's/http:\/\/www.google.com/https:\/\/www.baidu.com/g' default.json</span><br></pre></td></tr></table></figure>
+
+<p>完成以后重启Jenkins服务</p>
+<h3 id="配置Jenkins服务"><a href="#配置Jenkins服务" class="headerlink" title="配置Jenkins服务"></a>配置Jenkins服务</h3><p>之后按提示和Jenkins可视化引导完成剩余的Jenkins环境的搭建部署</p>
+<h2 id="Jenkins的结构导图"><a href="#Jenkins的结构导图" class="headerlink" title="Jenkins的结构导图"></a>Jenkins的结构导图</h2><p><img src="https://upload-images.jianshu.io/upload_images/6464255-cc56d3af1fdd96df.png" alt="Jenkins"></p>
+<hr>
+<h2 id="参考和引用"><a href="#参考和引用" class="headerlink" title="参考和引用"></a>参考和引用</h2><p><a href="https://www.jianshu.com/p/5f671aca2b5a" target="_blank" rel="noopener">哥本哈根月光-Jenkins详细教程</a></p>
+<p><a href="https://halo.sherlocky.com/archives/jenkins" target="_blank" rel="noopener">CentOS 安装 Jenkins 及 国内下载加速</a></p>
+]]></content>
+      <categories>
+        <category>DevOps</category>
+      </categories>
+      <tags>
+        <tag>Liunx</tag>
+        <tag>CentOS</tag>
+        <tag>DevOps</tag>
+        <tag>Jenkins</tag>
       </tags>
   </entry>
 </search>
