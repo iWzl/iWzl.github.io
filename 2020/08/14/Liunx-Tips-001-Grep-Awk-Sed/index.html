@@ -1,0 +1,540 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#202020"/>
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  <script src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+  
+  
+    <meta name="keywords" content="Liunx,Tools,Shell," />
+  
+
+  
+    <meta name="description" content="做点记录,省的忘了" />
+  
+  
+  
+  <link rel="icon" type="image/x-icon" href="/images/footer-logo.png">
+  
+  <title>Liuns系统高效文件处理三剑客-Grep/Awk/Sed [ LeoWang ]</title>
+  
+    <!-- stylesheets list from config.yml -->
+    
+      <link rel="stylesheet" href="//cdn.bootcss.com/pure/1.0.0/pure-min.css">
+    
+      <link rel="stylesheet" href="/css/xoxo.css">
+    
+  
+<meta name="generator" content="Hexo 4.2.1"></head>
+
+
+<body>
+  <div class="nav-container">
+    <nav class="home-menu pure-menu pure-menu-horizontal">
+  <a class="pure-menu-heading" href="/">
+    
+    <span class="title" style="text-transform:none">LeoWang</span>
+  </a>
+
+  <ul class="pure-menu-list clearfix">
+      
+          
+            
+              <li class="pure-menu-item"><a href="/" class="pure-menu-link">Home</a></li>
+            
+          
+      
+          
+            
+              <li class="pure-menu-item pure-menu-has-children pure-menu-allow-hover">
+            
+              <a href="#" id="post" class="pure-menu-link">Blog</a>
+              <ul class="pure-menu-children">
+              
+                  
+                    <li class="pure-menu-item"><a href="/categories" style="color:#202020;" class="pure-menu-link">Categories</a></li>
+                  
+              
+                  
+                    <li class="pure-menu-item"><a href="/archives" style="color:#202020;" class="pure-menu-link">Archives</a></li>
+                  
+              
+                  
+                    <li class="pure-menu-item"><a href="/tags" style="color:#202020;" class="pure-menu-link">Tags</a></li>
+                  
+              
+              </ul>
+            </li>
+          
+      
+          
+            
+              <li class="pure-menu-item"><a href="/project" class="pure-menu-link">Project</a></li>
+            
+          
+      
+          
+            
+              <li class="pure-menu-item"><a href="/search" class="pure-menu-link">Search</a></li>
+            
+          
+      
+  </ul>
+   
+</nav>
+
+  </div>
+
+  <div class="container" id="content-outer">
+    <div class="inner" id="content-inner">
+      <div class="post-container">
+  <article class="post" id="post">
+    <header class="post-header text-center">
+      <h1 class="title">
+        Liuns系统高效文件处理三剑客-Grep/Awk/Sed
+      </h1>
+      <span>
+        
+        <time class="time" datetime="2020-08-14T03:45:29.000Z">
+        2020-08-14
+      </time>
+        
+      </span>
+      <span class="slash">/</span>
+      <span class="post-meta">
+      <span class="post-tags">
+        <ul class="article-tag-list" itemprop="keywords"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Liunx/" rel="tag">Liunx</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Shell/" rel="tag">Shell</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Tools/" rel="tag">Tools</a></li></ul>
+      </span>
+    </span>
+      <span class="slash">/</span>
+      <span class="read">
+      <span id="busuanzi_value_page_pv"></span> 点击
+    </span>
+      <span class="slash">/</span>
+      <span class="read">阅读耗时 16 分钟</span>
+    </header>
+
+    <div class="post-content">
+      <blockquote>
+<p><strong>子曰：“工欲善其事，必先利其器。居是邦也，事其大夫之贤者，友其士之仁者。”</strong> –论语·卫灵公</p>
+</blockquote>
+<h3 id="Grep"><a href="#Grep" class="headerlink" title="Grep"></a>Grep</h3><p><a href="https://zh.wikipedia.org/wiki/Grep" target="_blank" rel="noopener">Grep</a>(global search regular expression(RE) and print out the line)是一款强大的文本搜索工具，支持正则表达式。来自Unix文本编辑器ed类似操作的命令,最初用于Unix操作系统的命令行工具。在给出文件列表或标准输入后，grep会对匹配一个或多个正则表达式的文本进行搜索，并只输出匹配（或者不匹配）的行或文本。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">[root@Leonardo-iWzl-Aliyun-Service ~]# grep --help</span><br><span class="line">用法: grep [选项]... PATTERN [FILE]...</span><br><span class="line">Search for PATTERN in each FILE.</span><br><span class="line">Example: grep -i 'hello world' menu.h main.c</span><br></pre></td></tr></table></figure>
+<a id="more"></a>
+
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br></pre></td><td class="code"><pre><span class="line">Pattern selection and interpretation:</span><br><span class="line">  -E, --extended-regexp     PATTERN is an extended regular expression</span><br><span class="line">  -F, --fixed-strings       PATTERN is a set of newline-separated strings</span><br><span class="line">  -G, --basic-regexp        PATTERN is a basic regular expression (default)</span><br><span class="line">  -P, --perl-regexp         PATTERN is a Perl regular expression</span><br><span class="line">  -e, --regexp=PATTERN      用 PATTERN 来进行匹配操作</span><br><span class="line">  -f, --file=FILE           从 FILE 中取得 PATTERN</span><br><span class="line">  -i, --ignore-case         忽略大小写</span><br><span class="line">  -w, --word-regexp         强制 PATTERN 仅完全匹配字词</span><br><span class="line">  -x, --line-regexp         强制 PATTERN 仅完全匹配一行</span><br><span class="line">  -z, --null-data           一个 0 字节的数据行，但不是空行</span><br><span class="line"></span><br><span class="line">杂项:</span><br><span class="line">  -s, --no-messages         不显示错误信息</span><br><span class="line">  -v, --invert-match        选中不匹配的行</span><br><span class="line">  -V, --version             显示版本信息并退出</span><br><span class="line">      --help                显示此帮助并退出</span><br><span class="line"></span><br><span class="line">Output control:</span><br><span class="line">  -m, --max-count=NUM       stop after NUM selected lines</span><br><span class="line">  -b, --byte-offset         print the byte offset with output lines</span><br><span class="line">  -n, --line-number         print line number with output lines</span><br><span class="line">      --line-buffered       flush output on every line</span><br><span class="line">  -H, --with-filename       print file name with output lines</span><br><span class="line">  -h, --no-filename         suppress the file name prefix on output</span><br><span class="line">      --label=LABEL         use LABEL as the standard input file name prefix</span><br><span class="line">  -o, --only-matching       只显示匹配PATTERN 部分的行</span><br><span class="line">  -q, --quiet, --silent     不显示所有常规输出</span><br><span class="line">      --binary-files=TYPE   设定二进制文件的TYPE 类型；</span><br><span class="line">                            TYPE 可以是`binary', `text', 或`without-match'</span><br><span class="line">  -a, --text                等同于 --binary-files=text</span><br><span class="line">  -I                        equivalent to --binary-files=without-match</span><br><span class="line">  -d, --directories=ACTION  how to handle directories;</span><br><span class="line">                            ACTION is 'read', 'recurse', or 'skip'</span><br><span class="line">  -D, --devices=ACTION      how to handle devices, FIFOs and sockets;</span><br><span class="line">                            ACTION is 'read' or 'skip'</span><br><span class="line">  -r, --recursive           like --directories=recurse</span><br><span class="line">  -R, --dereference-recursive</span><br><span class="line">                            likewise, but follow all symlinks</span><br><span class="line">      --include=FILE_PATTERN</span><br><span class="line">                            search only files that match FILE_PATTERN</span><br><span class="line">      --exclude=FILE_PATTERN</span><br><span class="line">                            skip files and directories matching FILE_PATTERN</span><br><span class="line">      --exclude-from=FILE   skip files matching any file pattern from FILE</span><br><span class="line">      --exclude-dir=PATTERN directories that match PATTERN will be skipped.</span><br><span class="line">  -L, --files-without-match print only names of FILEs with no selected lines</span><br><span class="line">  -l, --files-with-matches  print only names of FILEs with selected lines</span><br><span class="line">  -c, --count               print only a count of selected lines per FILE</span><br><span class="line"></span><br><span class="line">文件控制:</span><br><span class="line">  -B, --before-context=NUM  打印文本及其前面NUM 行</span><br><span class="line">  -A, --after-context=NUM   打印文本及其后面NUM 行</span><br><span class="line">  -C, --context=NUM         打印NUM 行输出文本</span><br><span class="line">  -NUM                      same as --context=NUM</span><br><span class="line">      --group-separator=SEP use SEP as a group separator</span><br><span class="line">      --no-group-separator  use empty string as a group separator</span><br><span class="line">      --color[=WHEN],</span><br><span class="line">      --colour[=WHEN]       use markers to highlight the matching strings;</span><br><span class="line">                            WHEN is 'always', 'never', or 'auto'</span><br><span class="line">  -U, --binary              do not strip CR characters at EOL (MSDOS/Windows)</span><br></pre></td></tr></table></figure>
+
+<p>常用参数:</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">-v        取反</span><br><span class="line">-i        忽略大小写</span><br><span class="line">-c        符合条件的行数</span><br><span class="line">-n        输出的同时打印行号</span><br><span class="line">^*        以*开头         </span><br><span class="line">*$         以*结尾 </span><br><span class="line">^$         空行 </span><br><span class="line"></span><br><span class="line">-a        不忽略二进制数据</span><br><span class="line">-A&lt;n&gt;     除了显示匹配的行外，还显示之后的n行</span><br><span class="line">-b        在符合条件的行之前，显示该行第一个字符的编号</span><br></pre></td></tr></table></figure>
+
+<p>Demo文案</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log</span><br><span class="line">I came;</span><br><span class="line">I saw;</span><br><span class="line">i conquered.</span><br><span class="line"></span><br><span class="line">我来了，我看到了，我征服了.   ——凯撒大帝</span><br></pre></td></tr></table></figure>
+
+<h4 id="查找符合条件的行"><a href="#查找符合条件的行" class="headerlink" title="查找符合条件的行"></a>查找符合条件的行</h4><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log |grep 'I'</span><br><span class="line">I came;</span><br><span class="line">I saw;</span><br></pre></td></tr></table></figure>
+
+<h4 id="查找符合条件的行数"><a href="#查找符合条件的行数" class="headerlink" title="查找符合条件的行数"></a>查找符合条件的行数</h4><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log |grep 'I' -c</span><br><span class="line">2</span><br></pre></td></tr></table></figure>
+
+<h4 id="查找不符合条件的行"><a href="#查找不符合条件的行" class="headerlink" title="查找不符合条件的行"></a>查找不符合条件的行</h4><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log |grep 'I' -v</span><br><span class="line">i conquered.</span><br><span class="line"></span><br><span class="line">我来了，我看到了，我征服了.   ——凯撒大帝</span><br></pre></td></tr></table></figure>
+
+<h4 id="忽略大小写查找"><a href="#忽略大小写查找" class="headerlink" title="忽略大小写查找"></a>忽略大小写查找</h4><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log |grep 'I' -i</span><br><span class="line">I came;</span><br><span class="line">I saw;</span><br><span class="line">i conquered.</span><br></pre></td></tr></table></figure>
+
+<h4 id="查找符合条件的行并输出行号"><a href="#查找符合条件的行并输出行号" class="headerlink" title="查找符合条件的行并输出行号"></a>查找符合条件的行并输出行号</h4><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log |grep 'I' -n</span><br><span class="line">1:I came;</span><br><span class="line">2:I saw;</span><br></pre></td></tr></table></figure>
+
+<h4 id="以’-’开头的查询"><a href="#以’-’开头的查询" class="headerlink" title="以’*’开头的查询"></a>以’*’开头的查询</h4><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log |grep '^I'</span><br><span class="line">I came;</span><br><span class="line">I saw;</span><br></pre></td></tr></table></figure>
+
+<h4 id="以’-’结尾的查询"><a href="#以’-’结尾的查询" class="headerlink" title="以’*’结尾的查询"></a>以’*’结尾的查询</h4><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log |grep '; $'</span><br><span class="line">I came;</span><br><span class="line">I saw;</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h3 id="Awk"><a href="#Awk" class="headerlink" title="Awk"></a>Awk</h3><p>Awk不仅仅是一个小工具，也可以算得上一种小型的编程语言了，支持if判断分支和while循环语句还有它的内置函数等，是一个要比grep和sed更强大的文本处理工具，但也就意味着要学习的东西更多了。由 Alfred Aho 、Peter Weinberger 和 Brian Kernighan 创始,并以姓氏的首个字母命名.</p>
+<h4 id="基本结构和执行"><a href="#基本结构和执行" class="headerlink" title="基本结构和执行"></a>基本结构和执行</h4><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">awk '&#123;[pattern] action&#125;' &#123;filenames&#125;  </span><br><span class="line">awk 'BEGIN&#123; commands &#125; pattern&#123; commands &#125; END&#123; commands &#125;' &#123;filenames&#125;</span><br></pre></td></tr></table></figure>
+
+<p>Awk脚本通常由：BEGIN语句块、能够使用模式匹配的通用语句块、END语句块3部分组成，这三个部分是可选的。任意一个部分都可以不出现在脚本中，脚本通常是被单引号或双引号中.</p>
+<ul>
+<li>第一步：执行BEGIN{ commands }语句块中的语句；</li>
+<li>第二步：从文件或标准输入(stdin)读取一行，然后执行pattern{ commands }语句块，它逐行扫描文件，从第一行到最后一行重复这个过程，直到文件全部被读取完毕。</li>
+<li>第三步：当读至输入流末尾时，执行END{ commands }语句块。</li>
+</ul>
+<p>BEGIN语句块在awk开始从输入流中读取行之前被执行，这是一个可选的语句块，比如变量初始化、打印输出表格的表头等语句通常可以写在BEGIN语句块中。</p>
+<p>END语句块在awk从输入流中读取完所有的行之后即被执行，比如打印所有行的分析结果这类信息汇总都是在END语句块中完成，它也是一个可选语句块。</p>
+<p>Pattern语句块中的通用命令是最重要的部分，它也是可选的。如果没有提供pattern语句块，则默认执行{ print }，即打印每一个读取到的行，awk读取的每一行都会执行该语句块。</p>
+<p>action 在{}内指定，一般用来打印，也可以是一个代码段。也就是commands</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">[root@Leonardo-iWzl-Server ~]# awk --help</span><br><span class="line">Usage: awk [POSIX or GNU style options] -f progfile [--] file ...</span><br><span class="line">Usage: awk [POSIX or GNU style options] [--] 'program' file ...</span><br><span class="line">POSIX options:		GNU long options: (standard)</span><br><span class="line">	-f progfile		--file=progfile</span><br><span class="line">	-F fs			--field-separator=fs</span><br><span class="line">	-v var=val		--assign=var=val</span><br><span class="line">Short options:		GNU long options: (extensions)</span><br><span class="line">	-b			--characters-as-bytes</span><br><span class="line">	-c			--traditional</span><br><span class="line">	-C			--copyright</span><br><span class="line">	-d[file]		--dump-variables[=file]</span><br><span class="line">	-e 'program-text'	--source='program-text'</span><br><span class="line">	-E file			--exec=file</span><br><span class="line">	-g			--gen-pot</span><br><span class="line">	-h			--help</span><br><span class="line">	-L [fatal]		--lint[=fatal]</span><br><span class="line">	-n			--non-decimal-data</span><br><span class="line">	-N			--use-lc-numeric</span><br><span class="line">	-O			--optimize</span><br><span class="line">	-p[file]		--profile[=file]</span><br><span class="line">	-P			--posix</span><br><span class="line">	-r			--re-interval</span><br><span class="line">	-S			--sandbox</span><br><span class="line">	-t			--lint-old</span><br><span class="line">	-V			--version</span><br></pre></td></tr></table></figure>
+
+<h4 id="内建参数"><a href="#内建参数" class="headerlink" title="内建参数"></a>内建参数</h4><table>
+<thead>
+<tr>
+<th align="left">变量</th>
+<th align="left">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">$n</td>
+<td align="left">当前记录的第n个字段，字段间由FS分隔</td>
+</tr>
+<tr>
+<td align="left">$0</td>
+<td align="left">完整的输入记录</td>
+</tr>
+<tr>
+<td align="left">ARGC</td>
+<td align="left">命令行参数的数目</td>
+</tr>
+<tr>
+<td align="left">ARGIND</td>
+<td align="left">命令行中当前文件的位置(从0开始算)</td>
+</tr>
+<tr>
+<td align="left">ARGV</td>
+<td align="left">包含命令行参数的数组</td>
+</tr>
+<tr>
+<td align="left">CONVFMT</td>
+<td align="left">数字转换格式(默认值为%.6g)ENVIRON环境变量关联数组</td>
+</tr>
+<tr>
+<td align="left">ERRNO</td>
+<td align="left">最后一个系统错误的描述</td>
+</tr>
+<tr>
+<td align="left">FIELDWIDTHS</td>
+<td align="left">字段宽度列表(用空格键分隔)</td>
+</tr>
+<tr>
+<td align="left">FILENAME</td>
+<td align="left">当前文件名</td>
+</tr>
+<tr>
+<td align="left">FNR</td>
+<td align="left">各文件分别计数的行号</td>
+</tr>
+<tr>
+<td align="left">FS</td>
+<td align="left">字段分隔符(默认是任何空格)</td>
+</tr>
+<tr>
+<td align="left">IGNORECASE</td>
+<td align="left">如果为真，则进行忽略大小写的匹配</td>
+</tr>
+<tr>
+<td align="left">NF</td>
+<td align="left">一条记录的字段的数目</td>
+</tr>
+<tr>
+<td align="left">NR</td>
+<td align="left">已经读出的记录数，就是行号，从1开始</td>
+</tr>
+<tr>
+<td align="left">OFMT</td>
+<td align="left">数字的输出格式(默认值是%.6g)</td>
+</tr>
+<tr>
+<td align="left">OFS</td>
+<td align="left">输出记录分隔符（输出换行符），输出时用指定的符号代替换行符</td>
+</tr>
+<tr>
+<td align="left">ORS</td>
+<td align="left">输出记录分隔符(默认值是一个换行符)</td>
+</tr>
+<tr>
+<td align="left">RLENGTH</td>
+<td align="left">由match函数所匹配的字符串的长度</td>
+</tr>
+<tr>
+<td align="left">RS</td>
+<td align="left">记录分隔符(默认是一个换行符)</td>
+</tr>
+<tr>
+<td align="left">RSTART</td>
+<td align="left">由match函数所匹配的字符串的第一个位置</td>
+</tr>
+<tr>
+<td align="left">SUBSEP</td>
+<td align="left">数组下标分隔符(默认值是/034)</td>
+</tr>
+</tbody></table>
+<h4 id="运算支持"><a href="#运算支持" class="headerlink" title="运算支持"></a>运算支持</h4><table>
+<thead>
+<tr>
+<th align="left">运算符</th>
+<th align="left">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">= += -= <em>= /= %= ^= *</em>=</td>
+<td align="left">赋值</td>
+</tr>
+<tr>
+<td align="left">?:</td>
+<td align="left">C条件表达式</td>
+</tr>
+<tr>
+<td align="left">||</td>
+<td align="left">逻辑或</td>
+</tr>
+<tr>
+<td align="left">&amp;&amp;</td>
+<td align="left">逻辑与</td>
+</tr>
+<tr>
+<td align="left">~ 和 !~</td>
+<td align="left">匹配正则表达式和不匹配正则表达式</td>
+</tr>
+<tr>
+<td align="left">&lt; &lt;= &gt; &gt;= != ==</td>
+<td align="left">关系运算符</td>
+</tr>
+<tr>
+<td align="left">空格</td>
+<td align="left">连接</td>
+</tr>
+<tr>
+<td align="left">+ -</td>
+<td align="left">加，减</td>
+</tr>
+<tr>
+<td align="left">* / %</td>
+<td align="left">乘，除与求余</td>
+</tr>
+<tr>
+<td align="left">+ - !</td>
+<td align="left">一元加，减和逻辑非</td>
+</tr>
+<tr>
+<td align="left">^ ***</td>
+<td align="left">求幂</td>
+</tr>
+<tr>
+<td align="left">++ –</td>
+<td align="left">增加或减少，作为前缀或后缀</td>
+</tr>
+<tr>
+<td align="left">$</td>
+<td align="left">字段引用</td>
+</tr>
+<tr>
+<td align="left">in</td>
+<td align="left">数组成员</td>
+</tr>
+</tbody></table>
+<p>Demo文案</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">[root@Leonardo-iWzl-Server ~]# cat demo.log</span><br><span class="line">小米 20 成都 172 60 女</span><br><span class="line">小张 21 杭州 182 79 男</span><br><span class="line">小文 19 长沙 178 70 男</span><br><span class="line">小紫 22 北京 168 50 女</span><br></pre></td></tr></table></figure>
+
+<h4 id="输出指定位置的文档"><a href="#输出指定位置的文档" class="headerlink" title="输出指定位置的文档"></a>输出指定位置的文档</h4><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">[root@Leonardo-iWzl-Server ~]# cat demo.log |awk '&#123;print $1,$3,$5&#125;'</span><br><span class="line">小米 成都 60</span><br><span class="line">小张 杭州 79</span><br><span class="line">小文 长沙 70</span><br><span class="line">小紫 北京 50</span><br></pre></td></tr></table></figure>
+
+<h4 id="指定分隔符输出文档"><a href="#指定分隔符输出文档" class="headerlink" title="指定分隔符输出文档"></a>指定分隔符输出文档</h4><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> 使用<span class="string">"1"</span>分割</span></span><br><span class="line">[root@Leonardo-iWzl-Server ~]# cat demo.log |awk -F 1 '&#123;print $1&#125;'</span><br><span class="line">小米 20 成都</span><br><span class="line">小张 2</span><br><span class="line">小文</span><br><span class="line">小紫 22 北京</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 或者使用内建变量</span></span><br><span class="line">[root@Leonardo-iWzl-Server ~]# cat demo.log |awk 'BEGIN&#123;FS='1'&#125; &#123;print $1&#125;'</span><br><span class="line">小米 20 成都</span><br><span class="line">小张 2</span><br><span class="line">小文</span><br><span class="line">小紫 22 北京</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 使用多个分隔符.先使用<span class="string">"1"</span>分割，然后对分割结果再使用<span class="string">"0"</span>分割</span></span><br><span class="line">[root@Leonardo-iWzl-Server ~]# cat demo.log |awk -F '[10]' '&#123;print $1&#125;'</span><br><span class="line">小米 2</span><br><span class="line">小张 2</span><br><span class="line">小文</span><br><span class="line">小紫 22 北京</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 或者使用内建变量</span></span><br><span class="line">[root@Leonardo-iWzl-Server ~]# cat demo.log |awk 'BEGIN&#123;FS="[10]"&#125; &#123;print $1&#125;'</span><br><span class="line">小米 2</span><br><span class="line">小张 2</span><br><span class="line">小文</span><br><span class="line">小紫 22 北京</span><br></pre></td></tr></table></figure>
+
+<h4 id="设置计算参数并输出文档"><a href="#设置计算参数并输出文档" class="headerlink" title="设置计算参数并输出文档"></a>设置计算参数并输出文档</h4><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash">awk -v 设置变量</span></span><br><span class="line">[root@Leonardo-iWzl-Server ~]# cat demo.log |awk -v a=100 '&#123;print $1,$2,a-$2&#125;'</span><br><span class="line">小米 20 80</span><br><span class="line">小张 21 79</span><br><span class="line">小文 19 81</span><br><span class="line">小紫 22 78</span><br></pre></td></tr></table></figure>
+
+
+    </div>
+
+  </article>
+  <div class="toc-container">
+    
+  <div id="toc" class="toc-article">
+    <strong class="toc-title">Posts</strong>
+    <ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#Grep"><span class="toc-text">Grep</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#查找符合条件的行"><span class="toc-text">查找符合条件的行</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#查找符合条件的行数"><span class="toc-text">查找符合条件的行数</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#查找不符合条件的行"><span class="toc-text">查找不符合条件的行</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#忽略大小写查找"><span class="toc-text">忽略大小写查找</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#查找符合条件的行并输出行号"><span class="toc-text">查找符合条件的行并输出行号</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#以’-’开头的查询"><span class="toc-text">以’*’开头的查询</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#以’-’结尾的查询"><span class="toc-text">以’*’结尾的查询</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Awk"><span class="toc-text">Awk</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#基本结构和执行"><span class="toc-text">基本结构和执行</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#内建参数"><span class="toc-text">内建参数</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#运算支持"><span class="toc-text">运算支持</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#输出指定位置的文档"><span class="toc-text">输出指定位置的文档</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#指定分隔符输出文档"><span class="toc-text">指定分隔符输出文档</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#设置计算参数并输出文档"><span class="toc-text">设置计算参数并输出文档</span></a></li></ol></li></ol>
+  </div>
+
+
+  </div>
+</div>
+<div class="copyright">
+    <span>本作品采用</span>
+    <a href="http://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener">知识共享署名-非商业性使用 4.0 国际许可协议</a>
+    <span>进行许可。 转载时请注明原文链接。</span>
+</div>
+
+
+  
+    <div class="post-nav">
+      <div class="post-nav-item post-nav-next">
+        
+          <span>〈 </span>
+          <a href="/2020/08/03/Jenkins-Github-Springboot-Auto-Deploy/" rel="next" title="Jenkins利用Github的Webhook自动部署Springboot项目">
+          Jenkins利用Github的Webhook自动部署Springboot项目
+          </a>
+        
+      </div>
+  
+      <div class="post-nav-item post-nav-prev">
+          
+      </div>
+    </div>
+  
+
+
+
+    </div>
+
+    
+
+  </div>
+  <footer class="footer text-center">
+    <div id="bottom-inner">
+        <a class="bottom-item" href="#" target="_blank"></a>做点记录,省得忘了</a> ｜
+        <a class="bottom-item" href="http://beian.miit.gov.cn/" target="_blank" rel="noopener">蜀ICP备19032943号-1</a>
+       </br>
+       <a class="bottom-item" href="https://github.com/iWzl" target="_blank">GitHub</a> |
+       <!-- <a class="bottom-item" href="">友情链接</a> | -->
+       <a class="bottom-item" href="https://hexo.io" target="_blank">Powered by hexo</a> |
+       <a class="bottom-item" href="https://github.com/fooying/hexo-theme-xoxo-plus" target="_blank">Theme by xoxo-plus</a> 
+       <!-- <a class="bottom-item" href="/atom.xml">RSS</a> | -->
+    </div>
+</footer>
+
+  
+
+<script>
+  (function(window, document, undefined) {
+
+    var timer = null;
+
+    function returnTop() {
+      cancelAnimationFrame(timer);
+      timer = requestAnimationFrame(function fn() {
+        var oTop = document.body.scrollTop || document.documentElement.scrollTop;
+        if (oTop > 0) {
+          document.body.scrollTop = document.documentElement.scrollTop = oTop - 50;
+          timer = requestAnimationFrame(fn);
+        } else {
+          cancelAnimationFrame(timer);
+        }
+      });
+    }
+
+    var hearts = [];
+    window.requestAnimationFrame = (function() {
+      return window.requestAnimationFrame ||
+        window.webkitRequestAnimationFrame ||
+        window.mozRequestAnimationFrame ||
+        window.oRequestAnimationFrame ||
+        window.msRequestAnimationFrame ||
+        function(callback) {
+          setTimeout(callback, 1000 / 60);
+        }
+    })();
+    init();
+
+    function init() {
+      css(".heart{z-index:9999;width: 10px;height: 10px;position: fixed;background: #f00;transform: rotate(45deg);-webkit-transform: rotate(45deg);-moz-transform: rotate(45deg);}.heart:after,.heart:before{content: '';width: inherit;height: inherit;background: inherit;border-radius: 50%;-webkit-border-radius: 50%;-moz-border-radius: 50%;position: absolute;}.heart:after{top: -5px;}.heart:before{left: -5px;}");
+      attachEvent();
+      gameloop();
+      addMenuEvent();
+    }
+
+    function gameloop() {
+      for (var i = 0; i < hearts.length; i++) {
+        if (hearts[i].alpha <= 0) {
+          document.body.removeChild(hearts[i].el);
+          hearts.splice(i, 1);
+          continue;
+        }
+        hearts[i].y--;
+        hearts[i].scale += 0.004;
+        hearts[i].alpha -= 0.013;
+        hearts[i].el.style.cssText = "left:" + hearts[i].x + "px;top:" + hearts[i].y + "px;opacity:" + hearts[i].alpha + ";transform:scale(" + hearts[i].scale + "," + hearts[i].scale + ") rotate(45deg);background:" + hearts[i].color;
+      }
+      requestAnimationFrame(gameloop);
+    }
+
+    /**
+     * 给logo设置点击事件
+     * 
+     * - 回到顶部
+     * - 出现爱心
+     */
+    function attachEvent() {
+      var old = typeof window.onclick === "function" && window.onclick;
+      var logo = document.getElementById("logo");
+      if (logo) {
+        logo.onclick = function(event) {
+          returnTop();
+          old && old();
+          createHeart(event);
+        }
+      }
+      
+    }
+
+    function createHeart(event) {
+      var d = document.createElement("div");
+      d.className = "heart";
+      hearts.push({
+        el: d,
+        x: event.clientX - 5,
+        y: event.clientY - 5,
+        scale: 1,
+        alpha: 1,
+        color: randomColor()
+      });
+      document.body.appendChild(d);
+    }
+
+    function css(css) {
+      var style = document.createElement("style");
+      style.type = "text/css";
+      try {
+        style.appendChild(document.createTextNode(css));
+      } catch (ex) {
+        style.styleSheet.cssText = css;
+      }
+      document.getElementsByTagName('head')[0].appendChild(style);
+    }
+
+    function randomColor() {
+      // return "rgb(" + (~~(Math.random() * 255)) + "," + (~~(Math.random() * 255)) + "," + (~~(Math.random() * 255)) + ")";
+      return "#F44336";
+    }
+
+    function addMenuEvent() {
+      var menu = document.getElementById('menu-main-post');
+      if (menu) {
+        var toc = document.getElementById('toc');
+        if (toc) {
+          menu.onclick = function() {
+            if (toc) {
+              if (toc.style.display == 'block') {
+                toc.style.display = 'none';
+              } else {
+                toc.style.display = 'block';
+              }
+            }
+          };
+        } else {
+          menu.style.display = 'none';
+        }
+      }
+    }
+
+  })(window, document);
+</script>
+
+  
+
+
+
+  
+<script>
+  (function(){
+      var bp = document.createElement('script');
+      var curProtocol = window.location.protocol.split(':')[0];
+      if (curProtocol === 'https') {
+          bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else {
+          bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(bp, s);
+  })();
+</script>
+
+
+</body>
+</html>
