@@ -1,97 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
-    <title>Maven-XML-Details</title>
-    <url>/2020/11/13/Maven-XML-Details/</url>
+    <title>Trochilidae-Core-Design-001</title>
+    <url>/2020/11/13/Trochilidae-Core-Design-001/</url>
     <content><![CDATA[]]></content>
-  </entry>
-  <entry>
-    <title>Java Microbenchmark Harness微基准测试陷阱</title>
-    <url>/2020/07/09/Java-Microbenchmark-Harness-Test-Trap/</url>
-    <content><![CDATA[<blockquote>
-<p><strong>天下之事，闻者不如见者知之为详，见者不如居者知之为尽。——宋-陆游</strong></p>
-<p><strong>你要知道梨子的滋味，就要亲口尝一下。——毛泽东</strong></p>
-</blockquote>
-<p>俗话说，没有实践就没有发言权，自己实践才能知之为尽，Benchmark 为应用提供了数据支持，是评价和比较方法好坏的基准，Benchmark 的准确性，多样性便显得尤为重要。JMH为Java方法的基准水平提供了很好的量化标准，也为剖析系统性能和技术选型提供的更为有效切可靠的实现手段。</p>
-<p>以下记录在使用Java Microbenchmark Harness做微基准测试容易遇见的误区和相关陷阱，便于之后的查找和说明。</p>
-<a id="more"></a>
-
-<h2 id="代码预热"><a href="#代码预热" class="headerlink" title="代码预热"></a>代码预热</h2><blockquote>
-<p><strong>Warmup = waiting for the transient responses to settle down</strong></p>
-</blockquote>
-<p>随着JVM虚拟机的优化，JIT的存在，代码的执行往往前期执行结果没有后期的执行结果好。 <code>Benchmark</code> 产生更可靠的结果的原因是，它只度量稳定状态下<code>方法任务</code>的执行时间，而不理会最初的性能。大多数 Java 实现具有复杂的性能生命周期。一般来说，最初的性能往往相当低，然后性能显著提高（常常出现几次性能跃升），直到到达稳定状态。</p>
-<h3 id="类装载"><a href="#类装载" class="headerlink" title="类装载"></a>类装载</h3><p>JVM 通常只在类的第一次使用类时装载它们。所以,方法任务的第一次执行时间包含装载它使用的所有类的时间（如果这些类还没有装载的话）。因为类装载往往涉及磁盘 I/O、解析和检验，这会显著增加<code>方法任务</code>的第一次执行时间。<strong>常常</strong>可以通过多次执行<code>方法任务</code>来消除这种影响。</p>
-<blockquote>
-<p>PS:  <strong>常常</strong>而不是<strong>总是</strong>，这是因为 <code>方法任务</code> 可能具有复杂的分支行为，这可能导致它在任何给定的执行过程中并不使用所有可能用到的类。幸运的是，如果执行任务足够多次，就可能经历所有分支，因此很快就会装载所有相关类）。</p>
-</blockquote>
-<p>如果使用定制的类装载器，就有另一个问题：JVM 可能认为一些类已经成了垃圾，因此决定卸载它。这不太可能严重影响性能，但是仍然会使基准测试结果产生偏差。</p>
-<h3 id="混合模式"><a href="#混合模式" class="headerlink" title="混合模式"></a>混合模式</h3><p>在执行即时（Just-in-time，JIT）编译之前，现代的 JVM 通常会运行代码一段时间（常常是纯解释式运行），从而收集剖析信息。这对基准测试的影响在于，任务可能需要执行许多次，才能达到稳定状态。</p>
-<p>一般来说对稳定状态下的基准测试至少需要以下步骤：</p>
-<ol>
-<li>执行 <code>方法任务</code> 一次，以便装载所有类。</li>
-<li>执行 <code>方法任务</code> 足够多次，以确保出现稳定状态的执行数据。</li>
-</ol>
-<h2 id="陷阱一-死码消除"><a href="#陷阱一-死码消除" class="headerlink" title="陷阱一: 死码消除"></a>陷阱一: 死码消除</h2><p><a href="[https://zh.wikipedia.org/zh-cn/%E6%AD%BB%E7%A2%BC%E5%88%AA%E9%99%A4](https://zh.wikipedia.org/zh-cn/死碼刪除)">死码消除</a>(Dead code elimination）是一种编译最优化技术,在某些情况下，编译器可以判断出某些代码根本不影响输出，所以编译器会消除这些代码,例如注释的代码，不可达的代码块，可达但不被使用的代码，会被判断为死码而在Javac的时候被消除。</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">ErrorBenchmark</span> </span>&#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">double</span> PI = Math.PI;</span><br><span class="line">  </span><br><span class="line">    <span class="meta">@Benchmark</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">benchmarkNothing</span><span class="params">()</span></span>&#123;</span><br><span class="line">        <span class="comment">// 19873732.412 ± 6783114.266  ops/ms</span></span><br><span class="line">        <span class="comment">//do nothing </span></span><br><span class="line">    &#125;</span><br><span class="line">  </span><br><span class="line">    <span class="meta">@Benchmark</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">benchmarkWrong</span><span class="params">()</span></span>&#123;</span><br><span class="line">        <span class="comment">//  20988076.131 ± 7282548.202  ops/ms</span></span><br><span class="line">        Math.log(PI);  <span class="comment">// DCE 会被判断为死码而被消除</span></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Benchmark</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">double</span> <span class="title">benchmarkRight</span><span class="params">()</span></span>&#123;</span><br><span class="line">       <span class="comment">// 306740.041 ±   52692.696  ops/ms</span></span><br><span class="line">        <span class="keyword">return</span> Math.log(PI);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>在做测试时，需要注意方法会不会有死码的存在，否者可能会带来一些不合理的测试结果和意外。对于会被判断为死码但又需要进行执行测试方法来说，可以想办法去除孤立的方法执行，例如增加方法返回值，或者使用JMH的提供的API<strong>Blackhole</strong>。</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="meta">@Benchmark</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">benchmarkRight</span><span class="params">(Blackhole bh)</span> </span>&#123;</span><br><span class="line">    bh.consume(Math.log(PI));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<h2 id="陷阱二：常量折叠与常量传播"><a href="#陷阱二：常量折叠与常量传播" class="headerlink" title="陷阱二：常量折叠与常量传播"></a>陷阱二：常量折叠与常量传播</h2><p><a href="[https://zh.wikipedia.org/wiki/%E5%B8%B8%E6%95%B8%E6%8A%98%E7%96%8A#%E5%B8%B8%E6%95%B8%E5%82%B3%E6%92%AD](https://zh.wikipedia.org/wiki/常數折疊#常數傳播)">常数折叠</a>（Constant folding）以及常数传播（constant propagation）都是<a href="https://zh.wikipedia.org/w/index.php?title=編譯器最佳化&action=edit&redlink=1" target="_blank" rel="noopener">编译器最佳化</a>技术。是一个在编译时期简化常数的一个过程。常数在表示式中仅仅代表一个简单的数值，就算一个变数从未被修改也可作为常数，或者直接将一个变数被明确地被标注为常数。</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">long</span> number = <span class="number">2</span> * <span class="number">600</span> * <span class="number">200</span>;</span><br></pre></td></tr></table></figure>
-
-<p>多数的现代编译器不会真的产生两个乘法的指令再将结果储存下来，取而代之的，他们会辨识出语句的结构，并在编译时期将数值直接计算出来。常数折叠的时机取决于编译器，有的在编译前期完成，有的在较后期进行。</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="keyword">double</span> x = Math.PI;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 编译器会对 final 变量特殊处理 </span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">final</span> <span class="keyword">double</span> wrongX = Math.PI;</span><br><span class="line"></span><br><span class="line"><span class="meta">@Benchmark</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">double</span> <span class="title">baseline</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="comment">// 2.220 ± 0.352 ns/op</span></span><br><span class="line">    <span class="keyword">return</span> Math.PI;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="meta">@Benchmark</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">double</span> <span class="title">measureWrong_1</span><span class="params">()</span> </span>&#123; </span><br><span class="line">    <span class="comment">// 2.220 ± 0.352 ns/op</span></span><br><span class="line">    <span class="comment">// 错误，结果可以被预测，会发生常量折叠</span></span><br><span class="line">    <span class="keyword">return</span> Math.log(Math.PI);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="meta">@Benchmark</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">double</span> <span class="title">measureWrong_2</span><span class="params">()</span> </span>&#123; </span><br><span class="line">    <span class="comment">// 2.220 ± 0.352 ns/op</span></span><br><span class="line">    <span class="comment">// 错误，结果可以被预测，会发生常量折叠</span></span><br><span class="line">    <span class="keyword">return</span> Math.log(wrongX);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="meta">@Benchmark</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">double</span> <span class="title">measureRight</span><span class="params">()</span> </span>&#123; </span><br><span class="line">    <span class="comment">// 22.590 ± 2.636  ns/op</span></span><br><span class="line">    <span class="keyword">return</span> Math.log(x);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>由于发生了常量折叠，相同实现下的执行销量完全不同，这个测试在一定程度上说明了final的定义对于方法执行结果的影响。</p>
-<p>此外<strong>常数传播 (</strong>Constant propagation<strong>)</strong> 是一个替代表示式中已知常数的过程，也是在编译时期进行，包含前述所定义，内建函数也适用于常数。</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">int</span> x = <span class="number">520</span>;</span><br><span class="line"><span class="keyword">int</span> y = <span class="number">260</span> - <span class="number">520</span> / <span class="number">2</span>;</span><br><span class="line"><span class="keyword">return</span> y * (<span class="number">1314</span> / x + <span class="number">2</span>);</span><br></pre></td></tr></table></figure>
-
-<p>传播可以理解变量的替换，如果进行持续传播，上式则可写成如下</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">int</span> x = <span class="number">14</span>;</span><br><span class="line"><span class="keyword">int</span> y = <span class="number">0</span>;</span><br><span class="line"><span class="keyword">return</span> <span class="number">0</span>;</span><br></pre></td></tr></table></figure>
-
-<h2 id="陷阱三：不要在测试中写循环"><a href="#陷阱三：不要在测试中写循环" class="headerlink" title="陷阱三：不要在测试中写循环"></a>陷阱三：不要在测试中写循环</h2><h2 id="为什么要使用JMH"><a href="#为什么要使用JMH" class="headerlink" title="为什么要使用JMH"></a>为什么要使用JMH</h2><p>对于传统的接口调用测试，可能会使用以下的方式测试</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">long</span> startTime = System.currentTimeMillis();</span><br><span class="line">benchmarkTestMethod();</span><br><span class="line">System.out.println(System.currentTimeMillis()-startTime);</span><br></pre></td></tr></table></figure>
-
-<p>而JMH则使用</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="meta">@Benchmark</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">benchmarkTestMethod</span><span class="params">()</span></span>&#123;</span><br><span class="line">  <span class="comment">// do </span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<hr>
-<h2 id="参考和引用"><a href="#参考和引用" class="headerlink" title="参考和引用"></a>参考和引用</h2><ul>
-<li><a href="https://www.ibm.com/developerworks/cn/java/j-benchmark1.html" target="_blank" rel="noopener">IBM Developer Java 代码基准测试的问题</a></li>
-<li><a href="https://www.cnkirito.moe/java-jmh/" target="_blank" rel="noopener">JAVA 拾遗 — JMH 与 8 个测试陷阱</a></li>
-</ul>
-]]></content>
-      <categories>
-        <category>系统调优</category>
-      </categories>
-      <tags>
-        <tag>Java</tag>
-        <tag>基准测试</tag>
-        <tag>系统调优</tag>
-        <tag>误区和陷阱</tag>
-        <tag>JMH</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>现代架构下的即时通讯的实现设计</title>
-    <url>/2020/07/07/Instant-Messaging-System-Design/</url>
-    <content><![CDATA[<div id="hexo-blog-encrypt" data-wpm="Oh, this is an invalid password. Check and try again, please." data-whm="OOPS, these decrypted content may changed, but you can still have a look.">
-  <div class="hbe-input-container">
-  <input type="password" id="hbePass" placeholder="" />
-    <label for="hbePass">查看内容,请输入密码</label>
-    <div class="bottom-line"></div>
-  </div>
-  <script id="hbeData" type="hbeData" data-hmacdigest="5b399cb19b2223a7a234e305c6a313ed4db47217871ba7558ad528234b1780d3">217eb0e2694620ddc0df9ef4c08680f4c1766dfda1eefeee30d7772c817297c6ede2a2f38fef357ac637f0af5dc323e2c0223549d265a78d0b73596631fb3f855dd0429b3e4ccf2fa14f75adcd814da530f300a6295116e5b8aa44d3c59964235ea0be00fb8cbfbdda476224f703e012</script>
-</div>
-<script src="/lib/blog-encrypt.js"></script><link href="/css/blog-encrypt.css" rel="stylesheet" type="text/css">]]></content>
-      <categories>
-        <category>系统实现设计</category>
-      </categories>
-      <tags>
-        <tag>系统实现设计</tag>
-        <tag>即时通讯</tag>
-      </tags>
   </entry>
   <entry>
     <title>ElasticSearch/Kibana/Logstash的搭建安装和部署</title>
@@ -120,6 +32,26 @@
       </categories>
       <tags>
         <tag>ElasticSearch</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>现代架构下的即时通讯的实现设计</title>
+    <url>/2020/07/07/Instant-Messaging-System-Design/</url>
+    <content><![CDATA[<div id="hexo-blog-encrypt" data-wpm="Oh, this is an invalid password. Check and try again, please." data-whm="OOPS, these decrypted content may changed, but you can still have a look.">
+  <div class="hbe-input-container">
+  <input type="password" id="hbePass" placeholder="" />
+    <label for="hbePass">查看内容,请输入密码</label>
+    <div class="bottom-line"></div>
+  </div>
+  <script id="hbeData" type="hbeData" data-hmacdigest="5b399cb19b2223a7a234e305c6a313ed4db47217871ba7558ad528234b1780d3">217eb0e2694620ddc0df9ef4c08680f4c1766dfda1eefeee30d7772c817297c6ede2a2f38fef357ac637f0af5dc323e2c0223549d265a78d0b73596631fb3f855dd0429b3e4ccf2fa14f75adcd814da530f300a6295116e5b8aa44d3c59964235ea0be00fb8cbfbdda476224f703e012</script>
+</div>
+<script src="/lib/blog-encrypt.js"></script><link href="/css/blog-encrypt.css" rel="stylesheet" type="text/css">]]></content>
+      <categories>
+        <category>系统实现设计</category>
+      </categories>
+      <tags>
+        <tag>系统实现设计</tag>
+        <tag>即时通讯</tag>
       </tags>
   </entry>
   <entry>
@@ -207,8 +139,8 @@
       <tags>
         <tag>Java</tag>
         <tag>基准测试</tag>
-        <tag>系统调优</tag>
         <tag>JMH</tag>
+        <tag>系统调优</tag>
         <tag>基础</tag>
       </tags>
   </entry>
@@ -227,6 +159,66 @@
         <tag>Liunx</tag>
         <tag>Jenkins</tag>
         <tag>Springboot</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>Jenkins在CentOS系统环境上的搭建和部署</title>
+    <url>/2020/07/23/Jenkins-programming-environment-setup/</url>
+    <content><![CDATA[<h3 id="Jenkins服务在CentOS系统环境上的搭建和部署"><a href="#Jenkins服务在CentOS系统环境上的搭建和部署" class="headerlink" title="Jenkins服务在CentOS系统环境上的搭建和部署"></a>Jenkins服务在CentOS系统环境上的搭建和部署</h3><blockquote>
+<p><a href="https://www.jenkins.io/zh/" target="_blank" rel="noopener">Jenkins</a> 由Java编写的一个开源的、提供友好操作界面的持续集成(CI)工具，起源于Hudson（Hudson是商用的），主要用于持续、自动的构建/测试软件项目、监控外部任务的运行（这个比较抽象，暂且写上，不做解释）。Jenkins用Java语言编写，可在Tomcat等流行的servlet容器中运行，也可独立运行。通常与版本管理工具(SCM)、构建工具结合使用。常用的版本控制工具有SVN、GIT，构建工具有Maven、Ant、Gradle。</p>
+</blockquote>
+<a id="more"></a>  
+
+<p>CI(Continuous integration，中文意思是持续集成)是一种软件开发时间。持续集成强调开发人员提交了新代码之后，立刻进行构建、（单元）测试。根据测试结果，我们可以确定新代码和原有代码能否正确地集成在一起。借用网络图片对CI加以理解。</p>
+<p><img src="http://img.upuphub.com/6464255-1b6e3bfdbece1492.jpg" alt="CI"></p>
+<p> CD(Continuous Delivery， 中文意思持续交付)是在持续集成的基础上，将集成后的代码部署到更贴近真实运行环境(类生产环境)中。比如，我们完成单元测试后，可以把代码部署到连接数据库的Staging环境中更多的测试。如果代码没有问题，可以继续手动部署到生产环境。下图反应的是CI/CD 的大概工作模式。</p>
+<p><img src="http://img.upuphub.com/6464255-ba088ec7257062c0.jpg" alt="Jenkins"></p>
+<!-- more -->
+
+<h2 id="在线安装Jenkins"><a href="#在线安装Jenkins" class="headerlink" title="在线安装Jenkins"></a>在线安装Jenkins</h2><figure class="highlight shell"><table><tr><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> 获取 repo</span></span><br><span class="line"><span class="meta">$</span><span class="bash"> wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo</span></span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 获取key, 如果之前导入 jenkins 的key, 这一步可以忽略</span></span><br><span class="line"><span class="meta">$</span><span class="bash"> rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key</span></span><br><span class="line"></span><br><span class="line"><span class="meta">$</span><span class="bash"> yum update &amp;&amp; yum install jenkins</span></span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 启用 jenkins</span></span><br><span class="line"><span class="meta">$</span><span class="bash"> systemctl start jenkins</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="离线安装Jenkins"><a href="#离线安装Jenkins" class="headerlink" title="离线安装Jenkins"></a>离线安装Jenkins</h2><figure class="highlight shell"><table><tr><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> 准备安装临时文件夹</span></span><br><span class="line"><span class="meta">$</span><span class="bash"> mkdir jenkins</span></span><br><span class="line"><span class="meta">$</span><span class="bash"> <span class="built_in">cd</span> jenkins</span></span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 获取最新的稳定版本的Jenkins.rpm文件(https://pkg.jenkins.io/redhat-stable/)</span></span><br><span class="line"><span class="meta">$</span><span class="bash"> wget https://pkg.jenkins.io/redhat-stable/jenkins-2.235.2-1.1.noarch.rpm</span></span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 执行本地的Yum安装</span></span><br><span class="line"><span class="meta">$</span><span class="bash"> yum localinstall jenkins-2.235.2-1.1.noarch.rpm</span></span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 启用 jenkins</span></span><br><span class="line"><span class="meta">$</span><span class="bash"> systemctl start jenkins</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="安装异常解决"><a href="#安装异常解决" class="headerlink" title="安装异常解决"></a>安装异常解决</h2><h3 id="异常信息如下"><a href="#异常信息如下" class="headerlink" title="异常信息如下"></a>异常信息如下</h3><figure class="highlight shell"><table><tr><td class="code"><pre><span class="line">[root@Leonardo-iWzl-Server jenkins]# systemctl start jenkins</span><br><span class="line">Job for jenkins.service failed because the control process exited with error code. See "systemctl status jenkins.service" and "journalctl -xe" for details.</span><br><span class="line">[root@Leonardo-iWzl-Server jenkins]# systemctl status jenkins</span><br><span class="line">● jenkins.service - LSB: Jenkins Automation Server</span><br><span class="line">   Loaded: loaded (/etc/rc.d/init.d/jenkins; bad; vendor preset: disabled)</span><br><span class="line">   Active: failed (Result: exit-code) since 四 2020-07-23 10:02:43 EDT; 16s ago</span><br><span class="line">     Docs: man:systemd-sysv-generator(8)</span><br><span class="line">  Process: 23582 ExecStart=/etc/rc.d/init.d/jenkins start (code=exited, status=1/FAILURE)</span><br><span class="line"></span><br><span class="line">7月 23 10:02:43 Leonardo-iWzl-Server systemd[1]: Starting LSB: Jenkins Automation Server...</span><br><span class="line">7月 23 10:02:43 Leonardo-iWzl-Server runuser[23587]: pam_unix(runuser:session): session opened for user jenkins...d=0)</span><br><span class="line">7月 23 10:02:43 Leonardo-iWzl-Server jenkins[23582]: Starting Jenkins bash: /usr/bin/java: No such file or directory</span><br><span class="line">7月 23 10:02:43 Leonardo-iWzl-Server runuser[23587]: pam_unix(runuser:session): session closed for user jenkins</span><br><span class="line">7月 23 10:02:43 Leonardo-iWzl-Server jenkins[23582]: [FAILED]</span><br><span class="line">7月 23 10:02:43 Leonardo-iWzl-Server systemd[1]: jenkins.service: control process exited, code=exited status=1</span><br><span class="line">7月 23 10:02:43 Leonardo-iWzl-Server systemd[1]: Failed to start LSB: Jenkins Automation Server.</span><br><span class="line">7月 23 10:02:43 Leonardo-iWzl-Server systemd[1]: Unit jenkins.service entered failed state.</span><br><span class="line">7月 23 10:02:43 Leonardo-iWzl-Server systemd[1]: jenkins.service failed.</span><br><span class="line">Hint: Some lines were ellipsized, use -l to show in full.</span><br></pre></td></tr></table></figure>
+
+<h3 id="原因说明"><a href="#原因说明" class="headerlink" title="原因说明"></a>原因说明</h3><p>Jenkins 默认会在以下目录按顺序搜寻 JDK，一旦找到一个可用的即返回</p>
+<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line">/etc/alternatives/java</span><br><span class="line">/usr/lib/jvm/java-1.8.0/bin/java</span><br><span class="line">/usr/lib/jvm/jre-1.8.0/bin/java</span><br><span class="line">/usr/lib/jvm/java-1.7.0/bin/java</span><br><span class="line">/usr/lib/jvm/jre-1.7.0/bin/java</span><br><span class="line">/usr/lib/jvm/java-11.0/bin/java</span><br><span class="line">/usr/lib/jvm/jre-11.0/bin/java</span><br><span class="line">/usr/lib/jvm/java-11-openjdk-amd64</span><br><span class="line">/usr/bin/java</span><br></pre></td></tr></table></figure>
+
+<p>如果系统的以上位置都未安装 JDK，启动时就会报错，可以通过建立软连接进行解决</p>
+<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line">ln -s /usr/local/java/jdk1.8.0_261/bin/java /usr/bin/java</span><br></pre></td></tr></table></figure>
+
+<p>完成以上错误处理后,可得到以下输出</p>
+<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line">[root@Leonardo-iWzl-Server jenkins]# systemctl status jenkins</span><br><span class="line">● jenkins.service - LSB: Jenkins Automation Server</span><br><span class="line">   Loaded: loaded (/etc/rc.d/init.d/jenkins; bad; vendor preset: disabled)</span><br><span class="line">   Active: active (running) since 四 2020-07-23 10:10:06 EDT; 4s ago</span><br><span class="line">     Docs: man:systemd-sysv-generator(8)</span><br><span class="line">  Process: 23606 ExecStart=/etc/rc.d/init.d/jenkins start (code=exited, status=0/SUCCESS)</span><br><span class="line">   CGroup: /system.slice/jenkins.service</span><br><span class="line">           └─23630 /usr/bin/java -Dcom.sun.akuma.Daemon=daemonized -Djava.awt.headless=true -DJENKINS_HOME=/var/lib/jenkins -jar /usr/lib/jenkins/jenkins.war --logfile=/var/log/jenkins/jenkins.log --webroot=/var/cache/jenkins/war --dae...</span><br><span class="line"></span><br><span class="line">7月 23 10:10:04 Leonardo-iWzl-Server systemd[1]: Starting LSB: Jenkins Automation Server...</span><br><span class="line">7月 23 10:10:04 Leonardo-iWzl-Server runuser[23611]: pam_unix(runuser:session): session opened for user jenkins by (uid=0)</span><br><span class="line">7月 23 10:10:06 Leonardo-iWzl-Server runuser[23611]: pam_unix(runuser:session): session closed for user jenkins</span><br><span class="line">7月 23 10:10:06 Leonardo-iWzl-Server jenkins[23606]: Starting Jenkins [  OK  ]</span><br><span class="line">7月 23 10:10:06 Leonardo-iWzl-Server systemd[1]: Started LSB: Jenkins Automation Server.</span><br></pre></td></tr></table></figure>
+
+<p> 查看jenkins 的启动参数 <em>ps -ef |grep jenkins</em> </p>
+<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line">[root@Leonardo-iWzl-Server jenkins]# ps -ef |grep jenkins</span><br><span class="line">jenkins  23630     1 49 10:10 ?        00:00:54 /usr/bin/java </span><br><span class="line">		-Dcom.sun.akuma.Daemon=daemonized </span><br><span class="line">		-Djava.awt.headless=true </span><br><span class="line">		-DJENKINS_HOME=/var/lib/jenkins </span><br><span class="line">		-jar /usr/lib/jenkins/jenkins.war </span><br><span class="line">		--logfile=/var/log/jenkins/jenkins.log </span><br><span class="line">		--webroot=/var/cache/jenkins/war </span><br><span class="line">		--daemon </span><br><span class="line">		--httpPort=8080 </span><br><span class="line">		--debug=5 </span><br><span class="line">		--handlerCountMax=100 </span><br><span class="line">		--handlerCountMaxIdle=20</span><br><span class="line">root     23695 23312  0 10:11 pts/0    00:00:00 grep --color=auto jenkins</span><br></pre></td></tr></table></figure>
+
+<p>在这里看到日志的一些配置和相关的端口、可以通过访问<em>「IP」:8080</em>访问到Jenkins服务</p>
+<h3 id="Jenkins的更新"><a href="#Jenkins的更新" class="headerlink" title="Jenkins的更新"></a>Jenkins的更新</h3><p>对于Jenkins更新可以通过</p>
+<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line">yum update jenkins</span><br></pre></td></tr></table></figure>
+
+<p>完成更新后,需要重启Jenkins服务</p>
+<h3 id="Jenkins国内镜像配置"><a href="#Jenkins国内镜像配置" class="headerlink" title="Jenkins国内镜像配置"></a>Jenkins国内镜像配置</h3><p>修改<em>/var/lib/jenkins</em> 目录下的<em>hudson.model.UpdateCenter.xml</em>文件内容如下</p>
+<figure class="highlight xml"><table><tr><td class="code"><pre><span class="line"><span class="meta">&lt;?xml version='1.1' encoding='UTF-8'?&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">sites</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">site</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">id</span>&gt;</span>default<span class="tag">&lt;/<span class="name">id</span>&gt;</span></span><br><span class="line">    <span class="comment">&lt;!-- &lt;url&gt;https://updates.jenkins.io/update-center.json&lt;/url&gt;--&gt;</span></span><br><span class="line">     <span class="tag">&lt;<span class="name">url</span>&gt;</span>https://mirrors.tuna.tsinghua.edu.cn/jenkins/updates/update-center.json/url&gt;</span><br><span class="line">  <span class="tag">&lt;/<span class="name">site</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">sites</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p>修改默认配置json文件<em>/var/lib/jenkins/updates/default.json</em></p>
+<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> 进入响应文件夹</span></span><br><span class="line">cd /var/lib/jenkins/updates</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 备份原始文件</span></span><br><span class="line">cp default.json default.json.bak</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 替换更新下载地址</span></span><br><span class="line">sed -i 's/http:\/\/updates.jenkins-ci.org\/download/https:\/\/mirrors.tuna.tsinghua.edu.cn\/jenkins/g' default.json</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 替换测试URL</span></span><br><span class="line">sed -i 's/http:\/\/www.google.com/https:\/\/www.baidu.com/g' default.json</span><br></pre></td></tr></table></figure>
+
+<p>完成以后重启Jenkins服务</p>
+<h3 id="配置Jenkins服务"><a href="#配置Jenkins服务" class="headerlink" title="配置Jenkins服务"></a>配置Jenkins服务</h3><p>之后按提示和Jenkins可视化引导完成剩余的Jenkins环境的搭建部署</p>
+<h2 id="Jenkins的结构导图"><a href="#Jenkins的结构导图" class="headerlink" title="Jenkins的结构导图"></a>Jenkins的结构导图</h2><p><img src="http://img.upuphub.com/6464255-cc56d3af1fdd96df.png" alt="Jenkins"></p>
+<hr>
+<h2 id="参考和引用"><a href="#参考和引用" class="headerlink" title="参考和引用"></a>参考和引用</h2><p><a href="https://www.jianshu.com/p/5f671aca2b5a" target="_blank" rel="noopener">哥本哈根月光-Jenkins详细教程</a></p>
+<p><a href="https://halo.sherlocky.com/archives/jenkins" target="_blank" rel="noopener">CentOS 安装 Jenkins 及 国内下载加速</a></p>
+]]></content>
+      <categories>
+        <category>DevOps</category>
+      </categories>
+      <tags>
+        <tag>DevOps</tag>
+        <tag>Liunx</tag>
+        <tag>Jenkins</tag>
+        <tag>CentOS</tag>
       </tags>
   </entry>
   <entry>
@@ -453,8 +445,76 @@
       </tags>
   </entry>
   <entry>
-    <title>Trochilidae IOC&amp;DI的设计与实现</title>
-    <url>/2020/11/13/Trochilidae-Core-Design-001/</url>
+    <title>Java Microbenchmark Harness微基准测试陷阱</title>
+    <url>/2020/07/09/Java-Microbenchmark-Harness-Test-Trap/</url>
+    <content><![CDATA[<blockquote>
+<p><strong>天下之事，闻者不如见者知之为详，见者不如居者知之为尽。——宋-陆游</strong></p>
+<p><strong>你要知道梨子的滋味，就要亲口尝一下。——毛泽东</strong></p>
+</blockquote>
+<p>俗话说，没有实践就没有发言权，自己实践才能知之为尽，Benchmark 为应用提供了数据支持，是评价和比较方法好坏的基准，Benchmark 的准确性，多样性便显得尤为重要。JMH为Java方法的基准水平提供了很好的量化标准，也为剖析系统性能和技术选型提供的更为有效切可靠的实现手段。</p>
+<p>以下记录在使用Java Microbenchmark Harness做微基准测试容易遇见的误区和相关陷阱，便于之后的查找和说明。</p>
+<a id="more"></a>
+
+<h2 id="代码预热"><a href="#代码预热" class="headerlink" title="代码预热"></a>代码预热</h2><blockquote>
+<p><strong>Warmup = waiting for the transient responses to settle down</strong></p>
+</blockquote>
+<p>随着JVM虚拟机的优化，JIT的存在，代码的执行往往前期执行结果没有后期的执行结果好。 <code>Benchmark</code> 产生更可靠的结果的原因是，它只度量稳定状态下<code>方法任务</code>的执行时间，而不理会最初的性能。大多数 Java 实现具有复杂的性能生命周期。一般来说，最初的性能往往相当低，然后性能显著提高（常常出现几次性能跃升），直到到达稳定状态。</p>
+<h3 id="类装载"><a href="#类装载" class="headerlink" title="类装载"></a>类装载</h3><p>JVM 通常只在类的第一次使用类时装载它们。所以,方法任务的第一次执行时间包含装载它使用的所有类的时间（如果这些类还没有装载的话）。因为类装载往往涉及磁盘 I/O、解析和检验，这会显著增加<code>方法任务</code>的第一次执行时间。<strong>常常</strong>可以通过多次执行<code>方法任务</code>来消除这种影响。</p>
+<blockquote>
+<p>PS:  <strong>常常</strong>而不是<strong>总是</strong>，这是因为 <code>方法任务</code> 可能具有复杂的分支行为，这可能导致它在任何给定的执行过程中并不使用所有可能用到的类。幸运的是，如果执行任务足够多次，就可能经历所有分支，因此很快就会装载所有相关类）。</p>
+</blockquote>
+<p>如果使用定制的类装载器，就有另一个问题：JVM 可能认为一些类已经成了垃圾，因此决定卸载它。这不太可能严重影响性能，但是仍然会使基准测试结果产生偏差。</p>
+<h3 id="混合模式"><a href="#混合模式" class="headerlink" title="混合模式"></a>混合模式</h3><p>在执行即时（Just-in-time，JIT）编译之前，现代的 JVM 通常会运行代码一段时间（常常是纯解释式运行），从而收集剖析信息。这对基准测试的影响在于，任务可能需要执行许多次，才能达到稳定状态。</p>
+<p>一般来说对稳定状态下的基准测试至少需要以下步骤：</p>
+<ol>
+<li>执行 <code>方法任务</code> 一次，以便装载所有类。</li>
+<li>执行 <code>方法任务</code> 足够多次，以确保出现稳定状态的执行数据。</li>
+</ol>
+<h2 id="陷阱一-死码消除"><a href="#陷阱一-死码消除" class="headerlink" title="陷阱一: 死码消除"></a>陷阱一: 死码消除</h2><p><a href="[https://zh.wikipedia.org/zh-cn/%E6%AD%BB%E7%A2%BC%E5%88%AA%E9%99%A4](https://zh.wikipedia.org/zh-cn/死碼刪除)">死码消除</a>(Dead code elimination）是一种编译最优化技术,在某些情况下，编译器可以判断出某些代码根本不影响输出，所以编译器会消除这些代码,例如注释的代码，不可达的代码块，可达但不被使用的代码，会被判断为死码而在Javac的时候被消除。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">ErrorBenchmark</span> </span>&#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">double</span> PI = Math.PI;</span><br><span class="line">  </span><br><span class="line">    <span class="meta">@Benchmark</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">benchmarkNothing</span><span class="params">()</span></span>&#123;</span><br><span class="line">        <span class="comment">// 19873732.412 ± 6783114.266  ops/ms</span></span><br><span class="line">        <span class="comment">//do nothing </span></span><br><span class="line">    &#125;</span><br><span class="line">  </span><br><span class="line">    <span class="meta">@Benchmark</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">benchmarkWrong</span><span class="params">()</span></span>&#123;</span><br><span class="line">        <span class="comment">//  20988076.131 ± 7282548.202  ops/ms</span></span><br><span class="line">        Math.log(PI);  <span class="comment">// DCE 会被判断为死码而被消除</span></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Benchmark</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">double</span> <span class="title">benchmarkRight</span><span class="params">()</span></span>&#123;</span><br><span class="line">       <span class="comment">// 306740.041 ±   52692.696  ops/ms</span></span><br><span class="line">        <span class="keyword">return</span> Math.log(PI);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在做测试时，需要注意方法会不会有死码的存在，否者可能会带来一些不合理的测试结果和意外。对于会被判断为死码但又需要进行执行测试方法来说，可以想办法去除孤立的方法执行，例如增加方法返回值，或者使用JMH的提供的API<strong>Blackhole</strong>。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="meta">@Benchmark</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">benchmarkRight</span><span class="params">(Blackhole bh)</span> </span>&#123;</span><br><span class="line">    bh.consume(Math.log(PI));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="陷阱二：常量折叠与常量传播"><a href="#陷阱二：常量折叠与常量传播" class="headerlink" title="陷阱二：常量折叠与常量传播"></a>陷阱二：常量折叠与常量传播</h2><p><a href="[https://zh.wikipedia.org/wiki/%E5%B8%B8%E6%95%B8%E6%8A%98%E7%96%8A#%E5%B8%B8%E6%95%B8%E5%82%B3%E6%92%AD](https://zh.wikipedia.org/wiki/常數折疊#常數傳播)">常数折叠</a>（Constant folding）以及常数传播（constant propagation）都是<a href="https://zh.wikipedia.org/w/index.php?title=編譯器最佳化&action=edit&redlink=1" target="_blank" rel="noopener">编译器最佳化</a>技术。是一个在编译时期简化常数的一个过程。常数在表示式中仅仅代表一个简单的数值，就算一个变数从未被修改也可作为常数，或者直接将一个变数被明确地被标注为常数。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">long</span> number = <span class="number">2</span> * <span class="number">600</span> * <span class="number">200</span>;</span><br></pre></td></tr></table></figure>
+
+<p>多数的现代编译器不会真的产生两个乘法的指令再将结果储存下来，取而代之的，他们会辨识出语句的结构，并在编译时期将数值直接计算出来。常数折叠的时机取决于编译器，有的在编译前期完成，有的在较后期进行。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="keyword">double</span> x = Math.PI;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 编译器会对 final 变量特殊处理 </span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">final</span> <span class="keyword">double</span> wrongX = Math.PI;</span><br><span class="line"></span><br><span class="line"><span class="meta">@Benchmark</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">double</span> <span class="title">baseline</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="comment">// 2.220 ± 0.352 ns/op</span></span><br><span class="line">    <span class="keyword">return</span> Math.PI;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="meta">@Benchmark</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">double</span> <span class="title">measureWrong_1</span><span class="params">()</span> </span>&#123; </span><br><span class="line">    <span class="comment">// 2.220 ± 0.352 ns/op</span></span><br><span class="line">    <span class="comment">// 错误，结果可以被预测，会发生常量折叠</span></span><br><span class="line">    <span class="keyword">return</span> Math.log(Math.PI);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="meta">@Benchmark</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">double</span> <span class="title">measureWrong_2</span><span class="params">()</span> </span>&#123; </span><br><span class="line">    <span class="comment">// 2.220 ± 0.352 ns/op</span></span><br><span class="line">    <span class="comment">// 错误，结果可以被预测，会发生常量折叠</span></span><br><span class="line">    <span class="keyword">return</span> Math.log(wrongX);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="meta">@Benchmark</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">double</span> <span class="title">measureRight</span><span class="params">()</span> </span>&#123; </span><br><span class="line">    <span class="comment">// 22.590 ± 2.636  ns/op</span></span><br><span class="line">    <span class="keyword">return</span> Math.log(x);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>由于发生了常量折叠，相同实现下的执行销量完全不同，这个测试在一定程度上说明了final的定义对于方法执行结果的影响。</p>
+<p>此外<strong>常数传播 (</strong>Constant propagation<strong>)</strong> 是一个替代表示式中已知常数的过程，也是在编译时期进行，包含前述所定义，内建函数也适用于常数。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">int</span> x = <span class="number">520</span>;</span><br><span class="line"><span class="keyword">int</span> y = <span class="number">260</span> - <span class="number">520</span> / <span class="number">2</span>;</span><br><span class="line"><span class="keyword">return</span> y * (<span class="number">1314</span> / x + <span class="number">2</span>);</span><br></pre></td></tr></table></figure>
+
+<p>传播可以理解变量的替换，如果进行持续传播，上式则可写成如下</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">int</span> x = <span class="number">14</span>;</span><br><span class="line"><span class="keyword">int</span> y = <span class="number">0</span>;</span><br><span class="line"><span class="keyword">return</span> <span class="number">0</span>;</span><br></pre></td></tr></table></figure>
+
+<h2 id="陷阱三：不要在测试中写循环"><a href="#陷阱三：不要在测试中写循环" class="headerlink" title="陷阱三：不要在测试中写循环"></a>陷阱三：不要在测试中写循环</h2><h2 id="为什么要使用JMH"><a href="#为什么要使用JMH" class="headerlink" title="为什么要使用JMH"></a>为什么要使用JMH</h2><p>对于传统的接口调用测试，可能会使用以下的方式测试</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">long</span> startTime = System.currentTimeMillis();</span><br><span class="line">benchmarkTestMethod();</span><br><span class="line">System.out.println(System.currentTimeMillis()-startTime);</span><br></pre></td></tr></table></figure>
+
+<p>而JMH则使用</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="meta">@Benchmark</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">benchmarkTestMethod</span><span class="params">()</span></span>&#123;</span><br><span class="line">  <span class="comment">// do </span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="参考和引用"><a href="#参考和引用" class="headerlink" title="参考和引用"></a>参考和引用</h2><ul>
+<li><a href="https://www.ibm.com/developerworks/cn/java/j-benchmark1.html" target="_blank" rel="noopener">IBM Developer Java 代码基准测试的问题</a></li>
+<li><a href="https://www.cnkirito.moe/java-jmh/" target="_blank" rel="noopener">JAVA 拾遗 — JMH 与 8 个测试陷阱</a></li>
+</ul>
+]]></content>
+      <categories>
+        <category>系统调优</category>
+      </categories>
+      <tags>
+        <tag>Java</tag>
+        <tag>基准测试</tag>
+        <tag>JMH</tag>
+        <tag>系统调优</tag>
+        <tag>误区和陷阱</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>Maven项目管理详细</title>
+    <url>/2020/11/13/Maven-XML-Details/</url>
     <content><![CDATA[<p><strong>pom.xml</strong> 就像 Make 的 MakeFile、Ant 的 build.xml 一样，Maven 项目的核心是 pom.xml。POM( Project Object Model，项目对象模型 ) 定义了项目的基本信息，用于描述项目如何构建，声明项目依赖，等等。</p>
 <p>在版本号的说明  :  SNAPSHOT – 快照版本，ALPHA – 内侧版本，BETA – 公测版本，RELEASE – 稳定版本，GA – 正式发布</p>
 <a id="more"></a>
@@ -467,66 +527,6 @@
       </categories>
       <tags>
         <tag>maven</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>Jenkins在CentOS系统环境上的搭建和部署</title>
-    <url>/2020/07/23/Jenkins-programming-environment-setup/</url>
-    <content><![CDATA[<h3 id="Jenkins服务在CentOS系统环境上的搭建和部署"><a href="#Jenkins服务在CentOS系统环境上的搭建和部署" class="headerlink" title="Jenkins服务在CentOS系统环境上的搭建和部署"></a>Jenkins服务在CentOS系统环境上的搭建和部署</h3><blockquote>
-<p><a href="https://www.jenkins.io/zh/" target="_blank" rel="noopener">Jenkins</a> 由Java编写的一个开源的、提供友好操作界面的持续集成(CI)工具，起源于Hudson（Hudson是商用的），主要用于持续、自动的构建/测试软件项目、监控外部任务的运行（这个比较抽象，暂且写上，不做解释）。Jenkins用Java语言编写，可在Tomcat等流行的servlet容器中运行，也可独立运行。通常与版本管理工具(SCM)、构建工具结合使用。常用的版本控制工具有SVN、GIT，构建工具有Maven、Ant、Gradle。</p>
-</blockquote>
-<a id="more"></a>  
-
-<p>CI(Continuous integration，中文意思是持续集成)是一种软件开发时间。持续集成强调开发人员提交了新代码之后，立刻进行构建、（单元）测试。根据测试结果，我们可以确定新代码和原有代码能否正确地集成在一起。借用网络图片对CI加以理解。</p>
-<p><img src="http://img.upuphub.com/6464255-1b6e3bfdbece1492.jpg" alt="CI"></p>
-<p> CD(Continuous Delivery， 中文意思持续交付)是在持续集成的基础上，将集成后的代码部署到更贴近真实运行环境(类生产环境)中。比如，我们完成单元测试后，可以把代码部署到连接数据库的Staging环境中更多的测试。如果代码没有问题，可以继续手动部署到生产环境。下图反应的是CI/CD 的大概工作模式。</p>
-<p><img src="http://img.upuphub.com/6464255-ba088ec7257062c0.jpg" alt="Jenkins"></p>
-<!-- more -->
-
-<h2 id="在线安装Jenkins"><a href="#在线安装Jenkins" class="headerlink" title="在线安装Jenkins"></a>在线安装Jenkins</h2><figure class="highlight shell"><table><tr><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> 获取 repo</span></span><br><span class="line"><span class="meta">$</span><span class="bash"> wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo</span></span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 获取key, 如果之前导入 jenkins 的key, 这一步可以忽略</span></span><br><span class="line"><span class="meta">$</span><span class="bash"> rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key</span></span><br><span class="line"></span><br><span class="line"><span class="meta">$</span><span class="bash"> yum update &amp;&amp; yum install jenkins</span></span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 启用 jenkins</span></span><br><span class="line"><span class="meta">$</span><span class="bash"> systemctl start jenkins</span></span><br></pre></td></tr></table></figure>
-
-<h2 id="离线安装Jenkins"><a href="#离线安装Jenkins" class="headerlink" title="离线安装Jenkins"></a>离线安装Jenkins</h2><figure class="highlight shell"><table><tr><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> 准备安装临时文件夹</span></span><br><span class="line"><span class="meta">$</span><span class="bash"> mkdir jenkins</span></span><br><span class="line"><span class="meta">$</span><span class="bash"> <span class="built_in">cd</span> jenkins</span></span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 获取最新的稳定版本的Jenkins.rpm文件(https://pkg.jenkins.io/redhat-stable/)</span></span><br><span class="line"><span class="meta">$</span><span class="bash"> wget https://pkg.jenkins.io/redhat-stable/jenkins-2.235.2-1.1.noarch.rpm</span></span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 执行本地的Yum安装</span></span><br><span class="line"><span class="meta">$</span><span class="bash"> yum localinstall jenkins-2.235.2-1.1.noarch.rpm</span></span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 启用 jenkins</span></span><br><span class="line"><span class="meta">$</span><span class="bash"> systemctl start jenkins</span></span><br></pre></td></tr></table></figure>
-
-<h2 id="安装异常解决"><a href="#安装异常解决" class="headerlink" title="安装异常解决"></a>安装异常解决</h2><h3 id="异常信息如下"><a href="#异常信息如下" class="headerlink" title="异常信息如下"></a>异常信息如下</h3><figure class="highlight shell"><table><tr><td class="code"><pre><span class="line">[root@Leonardo-iWzl-Server jenkins]# systemctl start jenkins</span><br><span class="line">Job for jenkins.service failed because the control process exited with error code. See "systemctl status jenkins.service" and "journalctl -xe" for details.</span><br><span class="line">[root@Leonardo-iWzl-Server jenkins]# systemctl status jenkins</span><br><span class="line">● jenkins.service - LSB: Jenkins Automation Server</span><br><span class="line">   Loaded: loaded (/etc/rc.d/init.d/jenkins; bad; vendor preset: disabled)</span><br><span class="line">   Active: failed (Result: exit-code) since 四 2020-07-23 10:02:43 EDT; 16s ago</span><br><span class="line">     Docs: man:systemd-sysv-generator(8)</span><br><span class="line">  Process: 23582 ExecStart=/etc/rc.d/init.d/jenkins start (code=exited, status=1/FAILURE)</span><br><span class="line"></span><br><span class="line">7月 23 10:02:43 Leonardo-iWzl-Server systemd[1]: Starting LSB: Jenkins Automation Server...</span><br><span class="line">7月 23 10:02:43 Leonardo-iWzl-Server runuser[23587]: pam_unix(runuser:session): session opened for user jenkins...d=0)</span><br><span class="line">7月 23 10:02:43 Leonardo-iWzl-Server jenkins[23582]: Starting Jenkins bash: /usr/bin/java: No such file or directory</span><br><span class="line">7月 23 10:02:43 Leonardo-iWzl-Server runuser[23587]: pam_unix(runuser:session): session closed for user jenkins</span><br><span class="line">7月 23 10:02:43 Leonardo-iWzl-Server jenkins[23582]: [FAILED]</span><br><span class="line">7月 23 10:02:43 Leonardo-iWzl-Server systemd[1]: jenkins.service: control process exited, code=exited status=1</span><br><span class="line">7月 23 10:02:43 Leonardo-iWzl-Server systemd[1]: Failed to start LSB: Jenkins Automation Server.</span><br><span class="line">7月 23 10:02:43 Leonardo-iWzl-Server systemd[1]: Unit jenkins.service entered failed state.</span><br><span class="line">7月 23 10:02:43 Leonardo-iWzl-Server systemd[1]: jenkins.service failed.</span><br><span class="line">Hint: Some lines were ellipsized, use -l to show in full.</span><br></pre></td></tr></table></figure>
-
-<h3 id="原因说明"><a href="#原因说明" class="headerlink" title="原因说明"></a>原因说明</h3><p>Jenkins 默认会在以下目录按顺序搜寻 JDK，一旦找到一个可用的即返回</p>
-<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line">/etc/alternatives/java</span><br><span class="line">/usr/lib/jvm/java-1.8.0/bin/java</span><br><span class="line">/usr/lib/jvm/jre-1.8.0/bin/java</span><br><span class="line">/usr/lib/jvm/java-1.7.0/bin/java</span><br><span class="line">/usr/lib/jvm/jre-1.7.0/bin/java</span><br><span class="line">/usr/lib/jvm/java-11.0/bin/java</span><br><span class="line">/usr/lib/jvm/jre-11.0/bin/java</span><br><span class="line">/usr/lib/jvm/java-11-openjdk-amd64</span><br><span class="line">/usr/bin/java</span><br></pre></td></tr></table></figure>
-
-<p>如果系统的以上位置都未安装 JDK，启动时就会报错，可以通过建立软连接进行解决</p>
-<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line">ln -s /usr/local/java/jdk1.8.0_261/bin/java /usr/bin/java</span><br></pre></td></tr></table></figure>
-
-<p>完成以上错误处理后,可得到以下输出</p>
-<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line">[root@Leonardo-iWzl-Server jenkins]# systemctl status jenkins</span><br><span class="line">● jenkins.service - LSB: Jenkins Automation Server</span><br><span class="line">   Loaded: loaded (/etc/rc.d/init.d/jenkins; bad; vendor preset: disabled)</span><br><span class="line">   Active: active (running) since 四 2020-07-23 10:10:06 EDT; 4s ago</span><br><span class="line">     Docs: man:systemd-sysv-generator(8)</span><br><span class="line">  Process: 23606 ExecStart=/etc/rc.d/init.d/jenkins start (code=exited, status=0/SUCCESS)</span><br><span class="line">   CGroup: /system.slice/jenkins.service</span><br><span class="line">           └─23630 /usr/bin/java -Dcom.sun.akuma.Daemon=daemonized -Djava.awt.headless=true -DJENKINS_HOME=/var/lib/jenkins -jar /usr/lib/jenkins/jenkins.war --logfile=/var/log/jenkins/jenkins.log --webroot=/var/cache/jenkins/war --dae...</span><br><span class="line"></span><br><span class="line">7月 23 10:10:04 Leonardo-iWzl-Server systemd[1]: Starting LSB: Jenkins Automation Server...</span><br><span class="line">7月 23 10:10:04 Leonardo-iWzl-Server runuser[23611]: pam_unix(runuser:session): session opened for user jenkins by (uid=0)</span><br><span class="line">7月 23 10:10:06 Leonardo-iWzl-Server runuser[23611]: pam_unix(runuser:session): session closed for user jenkins</span><br><span class="line">7月 23 10:10:06 Leonardo-iWzl-Server jenkins[23606]: Starting Jenkins [  OK  ]</span><br><span class="line">7月 23 10:10:06 Leonardo-iWzl-Server systemd[1]: Started LSB: Jenkins Automation Server.</span><br></pre></td></tr></table></figure>
-
-<p> 查看jenkins 的启动参数 <em>ps -ef |grep jenkins</em> </p>
-<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line">[root@Leonardo-iWzl-Server jenkins]# ps -ef |grep jenkins</span><br><span class="line">jenkins  23630     1 49 10:10 ?        00:00:54 /usr/bin/java </span><br><span class="line">		-Dcom.sun.akuma.Daemon=daemonized </span><br><span class="line">		-Djava.awt.headless=true </span><br><span class="line">		-DJENKINS_HOME=/var/lib/jenkins </span><br><span class="line">		-jar /usr/lib/jenkins/jenkins.war </span><br><span class="line">		--logfile=/var/log/jenkins/jenkins.log </span><br><span class="line">		--webroot=/var/cache/jenkins/war </span><br><span class="line">		--daemon </span><br><span class="line">		--httpPort=8080 </span><br><span class="line">		--debug=5 </span><br><span class="line">		--handlerCountMax=100 </span><br><span class="line">		--handlerCountMaxIdle=20</span><br><span class="line">root     23695 23312  0 10:11 pts/0    00:00:00 grep --color=auto jenkins</span><br></pre></td></tr></table></figure>
-
-<p>在这里看到日志的一些配置和相关的端口、可以通过访问<em>「IP」:8080</em>访问到Jenkins服务</p>
-<h3 id="Jenkins的更新"><a href="#Jenkins的更新" class="headerlink" title="Jenkins的更新"></a>Jenkins的更新</h3><p>对于Jenkins更新可以通过</p>
-<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line">yum update jenkins</span><br></pre></td></tr></table></figure>
-
-<p>完成更新后,需要重启Jenkins服务</p>
-<h3 id="Jenkins国内镜像配置"><a href="#Jenkins国内镜像配置" class="headerlink" title="Jenkins国内镜像配置"></a>Jenkins国内镜像配置</h3><p>修改<em>/var/lib/jenkins</em> 目录下的<em>hudson.model.UpdateCenter.xml</em>文件内容如下</p>
-<figure class="highlight xml"><table><tr><td class="code"><pre><span class="line"><span class="meta">&lt;?xml version='1.1' encoding='UTF-8'?&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">sites</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">site</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">id</span>&gt;</span>default<span class="tag">&lt;/<span class="name">id</span>&gt;</span></span><br><span class="line">    <span class="comment">&lt;!-- &lt;url&gt;https://updates.jenkins.io/update-center.json&lt;/url&gt;--&gt;</span></span><br><span class="line">     <span class="tag">&lt;<span class="name">url</span>&gt;</span>https://mirrors.tuna.tsinghua.edu.cn/jenkins/updates/update-center.json/url&gt;</span><br><span class="line">  <span class="tag">&lt;/<span class="name">site</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">sites</span>&gt;</span></span><br></pre></td></tr></table></figure>
-
-<p>修改默认配置json文件<em>/var/lib/jenkins/updates/default.json</em></p>
-<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> 进入响应文件夹</span></span><br><span class="line">cd /var/lib/jenkins/updates</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 备份原始文件</span></span><br><span class="line">cp default.json default.json.bak</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 替换更新下载地址</span></span><br><span class="line">sed -i 's/http:\/\/updates.jenkins-ci.org\/download/https:\/\/mirrors.tuna.tsinghua.edu.cn\/jenkins/g' default.json</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 替换测试URL</span></span><br><span class="line">sed -i 's/http:\/\/www.google.com/https:\/\/www.baidu.com/g' default.json</span><br></pre></td></tr></table></figure>
-
-<p>完成以后重启Jenkins服务</p>
-<h3 id="配置Jenkins服务"><a href="#配置Jenkins服务" class="headerlink" title="配置Jenkins服务"></a>配置Jenkins服务</h3><p>之后按提示和Jenkins可视化引导完成剩余的Jenkins环境的搭建部署</p>
-<h2 id="Jenkins的结构导图"><a href="#Jenkins的结构导图" class="headerlink" title="Jenkins的结构导图"></a>Jenkins的结构导图</h2><p><img src="http://img.upuphub.com/6464255-cc56d3af1fdd96df.png" alt="Jenkins"></p>
-<hr>
-<h2 id="参考和引用"><a href="#参考和引用" class="headerlink" title="参考和引用"></a>参考和引用</h2><p><a href="https://www.jianshu.com/p/5f671aca2b5a" target="_blank" rel="noopener">哥本哈根月光-Jenkins详细教程</a></p>
-<p><a href="https://halo.sherlocky.com/archives/jenkins" target="_blank" rel="noopener">CentOS 安装 Jenkins 及 国内下载加速</a></p>
-]]></content>
-      <categories>
-        <category>DevOps</category>
-      </categories>
-      <tags>
-        <tag>DevOps</tag>
-        <tag>Liunx</tag>
-        <tag>Jenkins</tag>
-        <tag>CentOS</tag>
       </tags>
   </entry>
   <entry>
@@ -581,6 +581,29 @@
       <tags>
         <tag>Java</tag>
         <tag>系统调优</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>高并发网络应用的关键-Unix系统下的五种IO模型</title>
+    <url>/2020/11/22/Unix-IO-5-Model/</url>
+    <content><![CDATA[<p>Unix 中提供了五种 IO 模型，分别是<strong>阻塞式IO、非阻塞式IO、IO复用、信号驱动式IO、异步IO</strong>。</p>
+<p>一个IO操作通常包括两个阶段：</p>
+<ol>
+<li>等待数据准备好；</li>
+<li>从内核向进程复制数据；</li>
+</ol>
+<p>对于一个套接字上的输入操作，<strong>第一步通常涉及等待数据从网络中到达</strong>。当所等待分组到达时，它被复制到内核中的某个缓冲区。第二步就是把数据从内核缓冲区复制到应用进程缓冲区。</p>
+<p>实际应用程序在系统调用完成上面的 2 步操作时，调用方式的阻塞、非阻塞，操作系统在处理应用程序请求时，处理方式的同步、异步处理的不同，可以分为 5 种 I/O 模型。</p>
+<p>*注：recvfrom 函数(经 Socket 接收数据)，这里把它视为系统调用</p>
+<a id="more"></a>
+
+]]></content>
+      <categories>
+        <category>Unix网络编程</category>
+      </categories>
+      <tags>
+        <tag>Unix</tag>
+        <tag>IO</tag>
       </tags>
   </entry>
 </search>

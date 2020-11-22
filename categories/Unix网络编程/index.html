@@ -21,7 +21,7 @@
   
   <link rel="icon" type="image/x-icon" href="/images/footer-logo.png">
   
-  <title>Trochilidae-Core-Design-001 [ LeoWang ]</title>
+  <title>category: Unix网络编程 [ LeoWang ]</title>
   
     <!-- stylesheets list from config.yml -->
     
@@ -51,13 +51,13 @@
       
           
             
-              <li class="pure-menu-item pure-menu-has-children pure-menu-allow-hover">
+              <li class="pure-menu-item pure-menu-has-children pure-menu-allow-hover actived">
             
               <a href="#" id="post" class="pure-menu-link">Blog</a>
               <ul class="pure-menu-children">
               
                   
-                    <li class="pure-menu-item"><a href="/categories" style="color:#202020;" class="pure-menu-link">Categories</a></li>
+                    <li class="pure-menu-item"><a href="/categories" class="pure-menu-link">Categories</a></li>
                   
               
                   
@@ -92,73 +92,47 @@
 
   <div class="container" id="content-outer">
     <div class="inner" id="content-inner">
-      <div class="post-container">
-  <article class="post" id="post">
-    <header class="post-header text-center">
-      <h1 class="title">
-        Trochilidae-Core-Design-001
-      </h1>
-      <span>
-        
-        <time class="time" datetime="2020-11-13T06:39:33.525Z">
-        2020-11-13
-      </time>
-        
-      </span>
-      <span class="slash">/</span>
-      <span class="post-meta">
-      <span class="post-tags">
-        
-      </span>
-    </span>
-      <span class="slash">/</span>
-      <span class="read">
-      <span id="busuanzi_value_page_pv"></span> 点击
-    </span>
-      <span class="slash">/</span>
-      <span class="read">阅读耗时 1 分钟</span>
-    </header>
-
-    <div class="post-content">
       
-    </div>
 
-  </article>
-  <div class="toc-container">
+  
+  
     
-
-  </div>
-</div>
-<div class="copyright">
-    <span>本作品采用</span>
-    <a href="http://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener">知识共享署名-非商业性使用 4.0 国际许可协议</a>
-    <span>进行许可。 转载时请注明原文链接。</span>
-</div>
-
-
+    
+    <section class="post page archives">
+      <h3 class="archive-year-wrap">
+        <a href="/archives/2020" class="archive-year">
+          2020
+        </a>
+      </h3>
+      <div class="archives">
   
-    <div class="post-nav">
-      <div class="post-nav-item post-nav-next">
-        
-          <span>〈 </span>
-          <a href="/2020/08/14/Liunx-Tips-001-Grep-Awk-Sed/" rel="next" title="Liuns系统高效文件处理三剑客-Grep/Awk/Sed">
-          Liuns系统高效文件处理三剑客-Grep/Awk/Sed
-          </a>
-        
-      </div>
-  
-      <div class="post-nav-item post-nav-prev">
-          
-          <a href="/2020/11/13/Maven-XML-Details/" rel="prev" title="Maven项目管理详细">
-            Maven项目管理详细
-          </a>
-          <span>〉</span>
-        
-      </div>
+  <div class="archive" >
+  <a class="post-go" href="/2020/11/22/Unix-IO-5-Model/">
+    <div>
+      <span class="date">
+        11-22
+      </span>
+      <span class="slash">/</span>
+      高并发网络应用的关键-Unix系统下的五种IO模型
     </div>
-  
+
+    <!--<div class="excerpt">-->
+      <!--<p>Unix 中提供了五种 IO 模型，分别是<strong>阻塞式IO、非阻塞式IO、IO复用、信号驱动式IO、异步IO</strong>。</p>
+<p>一个IO操作通常包括两个阶段：</p>
+<ol>
+<li>等待数据准备好；</li>
+<li>从内核向进程复制数据；</li>
+</ol>
+<p>对于一个套接字上的输入操作，<strong>第一步通常涉及等待数据从网络中到达</strong>。当所等待分组到达时，它被复制到内核中的某个缓冲区。第二步就是把数据从内核缓冲区复制到应用进程缓冲区。</p>
+<p>实际应用程序在系统调用完成上面的 2 步操作时，调用方式的阻塞、非阻塞，操作系统在处理应用程序请求时，处理方式的同步、异步处理的不同，可以分为 5 种 I/O 模型。</p>
+<p>*注：recvfrom 函数(经 Socket 接收数据)，这里把它视为系统调用</p>-->
+    <!--</div>-->
+  </a>
+
+</div>
 
 
+  </div></section>
 
     </div>
 

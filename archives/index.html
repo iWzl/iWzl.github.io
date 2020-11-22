@@ -107,18 +107,25 @@
       <div class="archives">
   
   <div class="archive" >
-  <a class="post-go" href="/2020/11/13/Trochilidae-Core-Design-001/">
+  <a class="post-go" href="/2020/11/22/Unix-IO-5-Model/">
     <div>
       <span class="date">
-        11-13
+        11-22
       </span>
       <span class="slash">/</span>
-      Trochilidae IOC&DI的设计与实现
+      高并发网络应用的关键-Unix系统下的五种IO模型
     </div>
 
     <!--<div class="excerpt">-->
-      <!--<p><strong>pom.xml</strong> 就像 Make 的 MakeFile、Ant 的 build.xml 一样，Maven 项目的核心是 pom.xml。POM( Project Object Model，项目对象模型 ) 定义了项目的基本信息，用于描述项目如何构建，声明项目依赖，等等。</p>
-<p>在版本号的说明  :  SNAPSHOT – 快照版本，ALPHA – 内侧版本，BETA – 公测版本，RELEASE – 稳定版本，GA – 正式发布</p>-->
+      <!--<p>Unix 中提供了五种 IO 模型，分别是<strong>阻塞式IO、非阻塞式IO、IO复用、信号驱动式IO、异步IO</strong>。</p>
+<p>一个IO操作通常包括两个阶段：</p>
+<ol>
+<li>等待数据准备好；</li>
+<li>从内核向进程复制数据；</li>
+</ol>
+<p>对于一个套接字上的输入操作，<strong>第一步通常涉及等待数据从网络中到达</strong>。当所等待分组到达时，它被复制到内核中的某个缓冲区。第二步就是把数据从内核缓冲区复制到应用进程缓冲区。</p>
+<p>实际应用程序在系统调用完成上面的 2 步操作时，调用方式的阻塞、非阻塞，操作系统在处理应用程序请求时，处理方式的同步、异步处理的不同，可以分为 5 种 I/O 模型。</p>
+<p>*注：recvfrom 函数(经 Socket 接收数据)，这里把它视为系统调用</p>-->
     <!--</div>-->
   </a>
 
@@ -133,7 +140,27 @@
         11-13
       </span>
       <span class="slash">/</span>
-      Maven-XML-Details
+      Maven项目管理详细
+    </div>
+
+    <!--<div class="excerpt">-->
+      <!--<p><strong>pom.xml</strong> 就像 Make 的 MakeFile、Ant 的 build.xml 一样，Maven 项目的核心是 pom.xml。POM( Project Object Model，项目对象模型 ) 定义了项目的基本信息，用于描述项目如何构建，声明项目依赖，等等。</p>
+<p>在版本号的说明  :  SNAPSHOT – 快照版本，ALPHA – 内侧版本，BETA – 公测版本，RELEASE – 稳定版本，GA – 正式发布</p>-->
+    <!--</div>-->
+  </a>
+
+</div>
+
+  
+  
+  <div class="archive" >
+  <a class="post-go" href="/2020/11/13/Trochilidae-Core-Design-001/">
+    <div>
+      <span class="date">
+        11-13
+      </span>
+      <span class="slash">/</span>
+      Trochilidae-Core-Design-001
     </div>
 
     <!--<div class="excerpt">-->
@@ -256,25 +283,6 @@
   
   
   <div class="archive" >
-  <a class="post-go" href="/2020/07/07/Instant-Messaging-System-Design/">
-    <div>
-      <span class="date">
-        07-07
-      </span>
-      <span class="slash">/</span>
-      现代架构下的即时通讯的实现设计
-    </div>
-
-    <!--<div class="excerpt">-->
-      <!--这是一篇加密文章，内容可能是未完成文章、私有文档或其他非公开资料。如果你确实想看，请与我联系。-->
-    <!--</div>-->
-  </a>
-
-</div>
-
-  
-  
-  <div class="archive" >
   <a class="post-go" href="/2020/07/07/ES-001/">
     <div>
       <span class="date">
@@ -294,22 +302,17 @@
   
   
   <div class="archive" >
-  <a class="post-go" href="/2020/07/04/Nginx-under-CentOS-installation/">
+  <a class="post-go" href="/2020/07/07/Instant-Messaging-System-Design/">
     <div>
       <span class="date">
-        07-04
+        07-07
       </span>
       <span class="slash">/</span>
-      CentOS下Nginx支持SSL协议的编译安装
+      现代架构下的即时通讯的实现设计
     </div>
 
     <!--<div class="excerpt">-->
-      <!--<h2 id="Nginx及其衍生的其他相关优秀开源产品"><a href="#Nginx及其衍生的其他相关优秀开源产品" class="headerlink" title="Nginx及其衍生的其他相关优秀开源产品"></a>Nginx及其衍生的其他相关优秀开源产品</h2><ul>
-<li><a href="http://nginx.org/" target="_blank" rel="noopener">NGINX</a> 是开源、高性能、高可靠的 Web 和反向代理服务器</li>
-<li><a href="https://tengine.taobao.org/" target="_blank" rel="noopener">Tengine</a> Tengine是由淘宝网发起基于Nginx的Web服务器项目</li>
-<li><a href="https://openresty.org/cn/" target="_blank" rel="noopener">OpenResty</a> OpenResty® 是一个基于 Nginx 与 Lua 的高性能 Web 平台</li>
-</ul>
-<h2 id="下载Nginx稳定版包并解压"><a href="#下载Nginx稳定版包并解压" class="headerlink" title="下载Nginx稳定版包并解压"></a>下载Nginx稳定版包并解压</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">wget http://nginx.org/download/nginx-x.x.x.tar.gz</span><br><span class="line">tar zxvf nginx-x.x.x.tar.gz</span><br><span class="line"><span class="built_in">cd</span> nginx-x.x.x</span><br></pre></td></tr></table></figure>-->
+      <!--这是一篇加密文章，内容可能是未完成文章、私有文档或其他非公开资料。如果你确实想看，请与我联系。-->
     <!--</div>-->
   </a>
 
