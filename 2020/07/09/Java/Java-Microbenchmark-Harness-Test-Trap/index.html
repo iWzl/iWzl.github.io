@@ -1,0 +1,388 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#202020"/>
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  <script src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+  
+  
+    <meta name="keywords" content="Java,基准测试,JMH,系统调优,误区和陷阱," />
+  
+
+  
+    <meta name="description" content="做点记录,省的忘了" />
+  
+  
+  
+  <link rel="icon" type="image/x-icon" href="/images/footer-logo.png">
+  
+  <title>Java Microbenchmark Harness微基准测试陷阱 [ LeoWang ]</title>
+  
+    <!-- stylesheets list from config.yml -->
+    
+      <link rel="stylesheet" href="//cdn.bootcss.com/pure/1.0.0/pure-min.css">
+    
+      <link rel="stylesheet" href="/css/xoxo.css">
+    
+  
+<meta name="generator" content="Hexo 4.2.1"></head>
+
+
+<body>
+  <div class="nav-container">
+    <nav class="home-menu pure-menu pure-menu-horizontal">
+  <a class="pure-menu-heading" href="/">
+    
+    <span class="title" style="text-transform:none">LeoWang</span>
+  </a>
+
+  <ul class="pure-menu-list clearfix">
+      
+          
+            
+              <li class="pure-menu-item"><a href="/" class="pure-menu-link">Home</a></li>
+            
+          
+      
+          
+            
+              <li class="pure-menu-item pure-menu-has-children pure-menu-allow-hover">
+            
+              <a href="#" id="post" class="pure-menu-link">Blog</a>
+              <ul class="pure-menu-children">
+              
+                  
+                    <li class="pure-menu-item"><a href="/categories" style="color:#202020;" class="pure-menu-link">Categories</a></li>
+                  
+              
+                  
+                    <li class="pure-menu-item"><a href="/archives" style="color:#202020;" class="pure-menu-link">Archives</a></li>
+                  
+              
+                  
+                    <li class="pure-menu-item"><a href="/tags" style="color:#202020;" class="pure-menu-link">Tags</a></li>
+                  
+              
+              </ul>
+            </li>
+          
+      
+          
+            
+              <li class="pure-menu-item"><a href="/project" class="pure-menu-link">Project</a></li>
+            
+          
+      
+          
+            
+              <li class="pure-menu-item"><a href="/search" class="pure-menu-link">Search</a></li>
+            
+          
+      
+  </ul>
+   
+</nav>
+
+  </div>
+
+  <div class="container" id="content-outer">
+    <div class="inner" id="content-inner">
+      <div class="post-container">
+  <article class="post" id="post">
+    <header class="post-header text-center">
+      <h1 class="title">
+        Java Microbenchmark Harness微基准测试陷阱
+      </h1>
+      <span>
+        
+        <time class="time" datetime="2020-07-09T14:15:59.000Z">
+        2020-07-09
+      </time>
+        
+      </span>
+      <span class="slash">/</span>
+      <span class="post-meta">
+      <span class="post-tags">
+        <ul class="article-tag-list" itemprop="keywords"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/JMH/" rel="tag">JMH</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Java/" rel="tag">Java</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/%E5%9F%BA%E5%87%86%E6%B5%8B%E8%AF%95/" rel="tag">基准测试</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/%E7%B3%BB%E7%BB%9F%E8%B0%83%E4%BC%98/" rel="tag">系统调优</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/%E8%AF%AF%E5%8C%BA%E5%92%8C%E9%99%B7%E9%98%B1/" rel="tag">误区和陷阱</a></li></ul>
+      </span>
+    </span>
+      <span class="slash">/</span>
+      <span class="read">
+      <span id="busuanzi_value_page_pv"></span> 点击
+    </span>
+      <span class="slash">/</span>
+      <span class="read">阅读耗时 11 分钟</span>
+    </header>
+
+    <div class="post-content">
+      <blockquote>
+<p><strong>天下之事，闻者不如见者知之为详，见者不如居者知之为尽。——宋-陆游</strong></p>
+<p><strong>你要知道梨子的滋味，就要亲口尝一下。——毛泽东</strong></p>
+</blockquote>
+<p>俗话说，没有实践就没有发言权，自己实践才能知之为尽，Benchmark 为应用提供了数据支持，是评价和比较方法好坏的基准，Benchmark 的准确性，多样性便显得尤为重要。JMH为Java方法的基准水平提供了很好的量化标准，也为剖析系统性能和技术选型提供的更为有效切可靠的实现手段。</p>
+<p>以下记录在使用Java Microbenchmark Harness做微基准测试容易遇见的误区和相关陷阱，便于之后的查找和说明。</p>
+<a id="more"></a>
+
+<h2 id="代码预热"><a href="#代码预热" class="headerlink" title="代码预热"></a>代码预热</h2><blockquote>
+<p><strong>Warmup = waiting for the transient responses to settle down</strong></p>
+</blockquote>
+<p>随着JVM虚拟机的优化，JIT的存在，代码的执行往往前期执行结果没有后期的执行结果好。 <code>Benchmark</code> 产生更可靠的结果的原因是，它只度量稳定状态下<code>方法任务</code>的执行时间，而不理会最初的性能。大多数 Java 实现具有复杂的性能生命周期。一般来说，最初的性能往往相当低，然后性能显著提高（常常出现几次性能跃升），直到到达稳定状态。</p>
+<h3 id="类装载"><a href="#类装载" class="headerlink" title="类装载"></a>类装载</h3><p>JVM 通常只在类的第一次使用类时装载它们。所以,方法任务的第一次执行时间包含装载它使用的所有类的时间（如果这些类还没有装载的话）。因为类装载往往涉及磁盘 I/O、解析和检验，这会显著增加<code>方法任务</code>的第一次执行时间。<strong>常常</strong>可以通过多次执行<code>方法任务</code>来消除这种影响。</p>
+<blockquote>
+<p>PS:  <strong>常常</strong>而不是<strong>总是</strong>，这是因为 <code>方法任务</code> 可能具有复杂的分支行为，这可能导致它在任何给定的执行过程中并不使用所有可能用到的类。幸运的是，如果执行任务足够多次，就可能经历所有分支，因此很快就会装载所有相关类）。</p>
+</blockquote>
+<p>如果使用定制的类装载器，就有另一个问题：JVM 可能认为一些类已经成了垃圾，因此决定卸载它。这不太可能严重影响性能，但是仍然会使基准测试结果产生偏差。</p>
+<h3 id="混合模式"><a href="#混合模式" class="headerlink" title="混合模式"></a>混合模式</h3><p>在执行即时（Just-in-time，JIT）编译之前，现代的 JVM 通常会运行代码一段时间（常常是纯解释式运行），从而收集剖析信息。这对基准测试的影响在于，任务可能需要执行许多次，才能达到稳定状态。</p>
+<p>一般来说对稳定状态下的基准测试至少需要以下步骤：</p>
+<ol>
+<li>执行 <code>方法任务</code> 一次，以便装载所有类。</li>
+<li>执行 <code>方法任务</code> 足够多次，以确保出现稳定状态的执行数据。</li>
+</ol>
+<h2 id="陷阱一-死码消除"><a href="#陷阱一-死码消除" class="headerlink" title="陷阱一: 死码消除"></a>陷阱一: 死码消除</h2><p><a href="[https://zh.wikipedia.org/zh-cn/%E6%AD%BB%E7%A2%BC%E5%88%AA%E9%99%A4](https://zh.wikipedia.org/zh-cn/死碼刪除)">死码消除</a>(Dead code elimination）是一种编译最优化技术,在某些情况下，编译器可以判断出某些代码根本不影响输出，所以编译器会消除这些代码,例如注释的代码，不可达的代码块，可达但不被使用的代码，会被判断为死码而在Javac的时候被消除。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">ErrorBenchmark</span> </span>&#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">double</span> PI = Math.PI;</span><br><span class="line">  </span><br><span class="line">    <span class="meta">@Benchmark</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">benchmarkNothing</span><span class="params">()</span></span>&#123;</span><br><span class="line">        <span class="comment">// 19873732.412 ± 6783114.266  ops/ms</span></span><br><span class="line">        <span class="comment">//do nothing </span></span><br><span class="line">    &#125;</span><br><span class="line">  </span><br><span class="line">    <span class="meta">@Benchmark</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">benchmarkWrong</span><span class="params">()</span></span>&#123;</span><br><span class="line">        <span class="comment">//  20988076.131 ± 7282548.202  ops/ms</span></span><br><span class="line">        Math.log(PI);  <span class="comment">// DCE 会被判断为死码而被消除</span></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Benchmark</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">double</span> <span class="title">benchmarkRight</span><span class="params">()</span></span>&#123;</span><br><span class="line">       <span class="comment">// 306740.041 ±   52692.696  ops/ms</span></span><br><span class="line">        <span class="keyword">return</span> Math.log(PI);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在做测试时，需要注意方法会不会有死码的存在，否者可能会带来一些不合理的测试结果和意外。对于会被判断为死码但又需要进行执行测试方法来说，可以想办法去除孤立的方法执行，例如增加方法返回值，或者使用JMH的提供的API<strong>Blackhole</strong>。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Benchmark</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">benchmarkRight</span><span class="params">(Blackhole bh)</span> </span>&#123;</span><br><span class="line">    bh.consume(Math.log(PI));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="陷阱二：常量折叠与常量传播"><a href="#陷阱二：常量折叠与常量传播" class="headerlink" title="陷阱二：常量折叠与常量传播"></a>陷阱二：常量折叠与常量传播</h2><p><a href="[https://zh.wikipedia.org/wiki/%E5%B8%B8%E6%95%B8%E6%8A%98%E7%96%8A#%E5%B8%B8%E6%95%B8%E5%82%B3%E6%92%AD](https://zh.wikipedia.org/wiki/常數折疊#常數傳播)">常数折叠</a>（Constant folding）以及常数传播（constant propagation）都是<a href="https://zh.wikipedia.org/w/index.php?title=編譯器最佳化&action=edit&redlink=1" target="_blank" rel="noopener">编译器最佳化</a>技术。是一个在编译时期简化常数的一个过程。常数在表示式中仅仅代表一个简单的数值，就算一个变数从未被修改也可作为常数，或者直接将一个变数被明确地被标注为常数。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">long</span> number = <span class="number">2</span> * <span class="number">600</span> * <span class="number">200</span>;</span><br></pre></td></tr></table></figure>
+
+<p>多数的现代编译器不会真的产生两个乘法的指令再将结果储存下来，取而代之的，他们会辨识出语句的结构，并在编译时期将数值直接计算出来。常数折叠的时机取决于编译器，有的在编译前期完成，有的在较后期进行。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="keyword">double</span> x = Math.PI;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 编译器会对 final 变量特殊处理 </span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">final</span> <span class="keyword">double</span> wrongX = Math.PI;</span><br><span class="line"></span><br><span class="line"><span class="meta">@Benchmark</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">double</span> <span class="title">baseline</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="comment">// 2.220 ± 0.352 ns/op</span></span><br><span class="line">    <span class="keyword">return</span> Math.PI;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="meta">@Benchmark</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">double</span> <span class="title">measureWrong_1</span><span class="params">()</span> </span>&#123; </span><br><span class="line">    <span class="comment">// 2.220 ± 0.352 ns/op</span></span><br><span class="line">    <span class="comment">// 错误，结果可以被预测，会发生常量折叠</span></span><br><span class="line">    <span class="keyword">return</span> Math.log(Math.PI);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="meta">@Benchmark</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">double</span> <span class="title">measureWrong_2</span><span class="params">()</span> </span>&#123; </span><br><span class="line">    <span class="comment">// 2.220 ± 0.352 ns/op</span></span><br><span class="line">    <span class="comment">// 错误，结果可以被预测，会发生常量折叠</span></span><br><span class="line">    <span class="keyword">return</span> Math.log(wrongX);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="meta">@Benchmark</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">double</span> <span class="title">measureRight</span><span class="params">()</span> </span>&#123; </span><br><span class="line">    <span class="comment">// 22.590 ± 2.636  ns/op</span></span><br><span class="line">    <span class="keyword">return</span> Math.log(x);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>由于发生了常量折叠，相同实现下的执行销量完全不同，这个测试在一定程度上说明了final的定义对于方法执行结果的影响。</p>
+<p>此外<strong>常数传播 (</strong>Constant propagation<strong>)</strong> 是一个替代表示式中已知常数的过程，也是在编译时期进行，包含前述所定义，内建函数也适用于常数。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">int</span> x = <span class="number">520</span>;</span><br><span class="line"><span class="keyword">int</span> y = <span class="number">260</span> - <span class="number">520</span> / <span class="number">2</span>;</span><br><span class="line"><span class="keyword">return</span> y * (<span class="number">1314</span> / x + <span class="number">2</span>);</span><br></pre></td></tr></table></figure>
+
+<p>传播可以理解变量的替换，如果进行持续传播，上式则可写成如下</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">int</span> x = <span class="number">14</span>;</span><br><span class="line"><span class="keyword">int</span> y = <span class="number">0</span>;</span><br><span class="line"><span class="keyword">return</span> <span class="number">0</span>;</span><br></pre></td></tr></table></figure>
+
+<h2 id="陷阱三：不要在测试中写循环"><a href="#陷阱三：不要在测试中写循环" class="headerlink" title="陷阱三：不要在测试中写循环"></a>陷阱三：不要在测试中写循环</h2><h2 id="为什么要使用JMH"><a href="#为什么要使用JMH" class="headerlink" title="为什么要使用JMH"></a>为什么要使用JMH</h2><p>对于传统的接口调用测试，可能会使用以下的方式测试</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">long</span> startTime = System.currentTimeMillis();</span><br><span class="line">benchmarkTestMethod();</span><br><span class="line">System.out.println(System.currentTimeMillis()-startTime);</span><br></pre></td></tr></table></figure>
+
+<p>而JMH则使用</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Benchmark</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">benchmarkTestMethod</span><span class="params">()</span></span>&#123;</span><br><span class="line">  <span class="comment">// do </span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="参考和引用"><a href="#参考和引用" class="headerlink" title="参考和引用"></a>参考和引用</h2><ul>
+<li><a href="https://www.ibm.com/developerworks/cn/java/j-benchmark1.html" target="_blank" rel="noopener">IBM Developer Java 代码基准测试的问题</a></li>
+<li><a href="https://www.cnkirito.moe/java-jmh/" target="_blank" rel="noopener">JAVA 拾遗 — JMH 与 8 个测试陷阱</a></li>
+</ul>
+
+    </div>
+
+  </article>
+  <div class="toc-container">
+    
+  <div id="toc" class="toc-article">
+    <strong class="toc-title">Posts</strong>
+    <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#代码预热"><span class="toc-text">代码预热</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#类装载"><span class="toc-text">类装载</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#混合模式"><span class="toc-text">混合模式</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#陷阱一-死码消除"><span class="toc-text">陷阱一: 死码消除</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#陷阱二：常量折叠与常量传播"><span class="toc-text">陷阱二：常量折叠与常量传播</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#陷阱三：不要在测试中写循环"><span class="toc-text">陷阱三：不要在测试中写循环</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#为什么要使用JMH"><span class="toc-text">为什么要使用JMH</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#参考和引用"><span class="toc-text">参考和引用</span></a></li></ol>
+  </div>
+
+
+  </div>
+</div>
+<div class="copyright">
+    <span>本作品采用</span>
+    <a href="http://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener">知识共享署名-非商业性使用 4.0 国际许可协议</a>
+    <span>进行许可。 转载时请注明原文链接。</span>
+</div>
+
+
+  
+    <div class="post-nav">
+      <div class="post-nav-item post-nav-next">
+        
+          <span>〈 </span>
+          <a href="/2020/07/07/Java/Java-Microbenchmark-Harness-Basic/" rel="next" title="Java Microbenchmark Harness微基准测试基础">
+          Java Microbenchmark Harness微基准测试基础
+          </a>
+        
+      </div>
+  
+      <div class="post-nav-item post-nav-prev">
+          
+          <a href="/2020/07/23/Tools/Jenkins-programming-environment-setup/" rel="prev" title="Jenkins在CentOS系统环境上的搭建和部署">
+            Jenkins在CentOS系统环境上的搭建和部署
+          </a>
+          <span>〉</span>
+        
+      </div>
+    </div>
+  
+
+
+
+    </div>
+
+    
+
+  </div>
+  <footer class="footer text-center">
+    <div id="bottom-inner">
+        <a class="bottom-item" href="#" target="_blank"></a>做点记录,省得忘了</a> ｜
+        <a class="bottom-item" href="http://beian.miit.gov.cn/" target="_blank" rel="noopener">蜀ICP备19032943号-1</a>
+       </br>
+       <a class="bottom-item" href="https://github.com/iWzl" target="_blank">GitHub</a> |
+       <!-- <a class="bottom-item" href="">友情链接</a> | -->
+       <a class="bottom-item" href="https://hexo.io" target="_blank">Powered by hexo</a> |
+       <a class="bottom-item" href="https://github.com/fooying/hexo-theme-xoxo-plus" target="_blank">Theme by xoxo-plus</a> 
+       <!-- <a class="bottom-item" href="/atom.xml">RSS</a> | -->
+    </div>
+</footer>
+
+  
+
+<script>
+  (function(window, document, undefined) {
+
+    var timer = null;
+
+    function returnTop() {
+      cancelAnimationFrame(timer);
+      timer = requestAnimationFrame(function fn() {
+        var oTop = document.body.scrollTop || document.documentElement.scrollTop;
+        if (oTop > 0) {
+          document.body.scrollTop = document.documentElement.scrollTop = oTop - 50;
+          timer = requestAnimationFrame(fn);
+        } else {
+          cancelAnimationFrame(timer);
+        }
+      });
+    }
+
+    var hearts = [];
+    window.requestAnimationFrame = (function() {
+      return window.requestAnimationFrame ||
+        window.webkitRequestAnimationFrame ||
+        window.mozRequestAnimationFrame ||
+        window.oRequestAnimationFrame ||
+        window.msRequestAnimationFrame ||
+        function(callback) {
+          setTimeout(callback, 1000 / 60);
+        }
+    })();
+    init();
+
+    function init() {
+      css(".heart{z-index:9999;width: 10px;height: 10px;position: fixed;background: #f00;transform: rotate(45deg);-webkit-transform: rotate(45deg);-moz-transform: rotate(45deg);}.heart:after,.heart:before{content: '';width: inherit;height: inherit;background: inherit;border-radius: 50%;-webkit-border-radius: 50%;-moz-border-radius: 50%;position: absolute;}.heart:after{top: -5px;}.heart:before{left: -5px;}");
+      attachEvent();
+      gameloop();
+      addMenuEvent();
+    }
+
+    function gameloop() {
+      for (var i = 0; i < hearts.length; i++) {
+        if (hearts[i].alpha <= 0) {
+          document.body.removeChild(hearts[i].el);
+          hearts.splice(i, 1);
+          continue;
+        }
+        hearts[i].y--;
+        hearts[i].scale += 0.004;
+        hearts[i].alpha -= 0.013;
+        hearts[i].el.style.cssText = "left:" + hearts[i].x + "px;top:" + hearts[i].y + "px;opacity:" + hearts[i].alpha + ";transform:scale(" + hearts[i].scale + "," + hearts[i].scale + ") rotate(45deg);background:" + hearts[i].color;
+      }
+      requestAnimationFrame(gameloop);
+    }
+
+    /**
+     * 给logo设置点击事件
+     * 
+     * - 回到顶部
+     * - 出现爱心
+     */
+    function attachEvent() {
+      var old = typeof window.onclick === "function" && window.onclick;
+      var logo = document.getElementById("logo");
+      if (logo) {
+        logo.onclick = function(event) {
+          returnTop();
+          old && old();
+          createHeart(event);
+        }
+      }
+      
+    }
+
+    function createHeart(event) {
+      var d = document.createElement("div");
+      d.className = "heart";
+      hearts.push({
+        el: d,
+        x: event.clientX - 5,
+        y: event.clientY - 5,
+        scale: 1,
+        alpha: 1,
+        color: randomColor()
+      });
+      document.body.appendChild(d);
+    }
+
+    function css(css) {
+      var style = document.createElement("style");
+      style.type = "text/css";
+      try {
+        style.appendChild(document.createTextNode(css));
+      } catch (ex) {
+        style.styleSheet.cssText = css;
+      }
+      document.getElementsByTagName('head')[0].appendChild(style);
+    }
+
+    function randomColor() {
+      // return "rgb(" + (~~(Math.random() * 255)) + "," + (~~(Math.random() * 255)) + "," + (~~(Math.random() * 255)) + ")";
+      return "#F44336";
+    }
+
+    function addMenuEvent() {
+      var menu = document.getElementById('menu-main-post');
+      if (menu) {
+        var toc = document.getElementById('toc');
+        if (toc) {
+          menu.onclick = function() {
+            if (toc) {
+              if (toc.style.display == 'block') {
+                toc.style.display = 'none';
+              } else {
+                toc.style.display = 'block';
+              }
+            }
+          };
+        } else {
+          menu.style.display = 'none';
+        }
+      }
+    }
+
+  })(window, document);
+</script>
+
+  
+
+
+
+  
+<script>
+  (function(){
+      var bp = document.createElement('script');
+      var curProtocol = window.location.protocol.split(':')[0];
+      if (curProtocol === 'https') {
+          bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else {
+          bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(bp, s);
+  })();
+</script>
+
+
+</body>
+</html>

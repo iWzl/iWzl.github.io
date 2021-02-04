@@ -1,0 +1,353 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#202020"/>
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  <script src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+  
+  
+    <meta name="keywords" content="ElasticSearch," />
+  
+
+  
+    <meta name="description" content="做点记录,省的忘了" />
+  
+  
+  
+  <link rel="icon" type="image/x-icon" href="/images/footer-logo.png">
+  
+  <title>ElasticSearch/Kibana/Logstash的搭建安装和部署 [ LeoWang ]</title>
+  
+    <!-- stylesheets list from config.yml -->
+    
+      <link rel="stylesheet" href="//cdn.bootcss.com/pure/1.0.0/pure-min.css">
+    
+      <link rel="stylesheet" href="/css/xoxo.css">
+    
+  
+<meta name="generator" content="Hexo 4.2.1"></head>
+
+
+<body>
+  <div class="nav-container">
+    <nav class="home-menu pure-menu pure-menu-horizontal">
+  <a class="pure-menu-heading" href="/">
+    
+    <span class="title" style="text-transform:none">LeoWang</span>
+  </a>
+
+  <ul class="pure-menu-list clearfix">
+      
+          
+            
+              <li class="pure-menu-item"><a href="/" class="pure-menu-link">Home</a></li>
+            
+          
+      
+          
+            
+              <li class="pure-menu-item pure-menu-has-children pure-menu-allow-hover">
+            
+              <a href="#" id="post" class="pure-menu-link">Blog</a>
+              <ul class="pure-menu-children">
+              
+                  
+                    <li class="pure-menu-item"><a href="/categories" style="color:#202020;" class="pure-menu-link">Categories</a></li>
+                  
+              
+                  
+                    <li class="pure-menu-item"><a href="/archives" style="color:#202020;" class="pure-menu-link">Archives</a></li>
+                  
+              
+                  
+                    <li class="pure-menu-item"><a href="/tags" style="color:#202020;" class="pure-menu-link">Tags</a></li>
+                  
+              
+              </ul>
+            </li>
+          
+      
+          
+            
+              <li class="pure-menu-item"><a href="/project" class="pure-menu-link">Project</a></li>
+            
+          
+      
+          
+            
+              <li class="pure-menu-item"><a href="/search" class="pure-menu-link">Search</a></li>
+            
+          
+      
+  </ul>
+   
+</nav>
+
+  </div>
+
+  <div class="container" id="content-outer">
+    <div class="inner" id="content-inner">
+      <div class="post-container">
+  <article class="post" id="post">
+    <header class="post-header text-center">
+      <h1 class="title">
+        ElasticSearch/Kibana/Logstash的搭建安装和部署
+      </h1>
+      <span>
+        
+        <time class="time" datetime="2020-07-07T09:24:35.000Z">
+        2020-07-07
+      </time>
+        
+      </span>
+      <span class="slash">/</span>
+      <span class="post-meta">
+      <span class="post-tags">
+        <ul class="article-tag-list" itemprop="keywords"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/ElasticSearch/" rel="tag">ElasticSearch</a></li></ul>
+      </span>
+    </span>
+      <span class="slash">/</span>
+      <span class="read">
+      <span id="busuanzi_value_page_pv"></span> 点击
+    </span>
+      <span class="slash">/</span>
+      <span class="read">阅读耗时 13 分钟</span>
+    </header>
+
+    <div class="post-content">
+      <h2 id="ElasticSearch的搭建安装和部署"><a href="#ElasticSearch的搭建安装和部署" class="headerlink" title="ElasticSearch的搭建安装和部署"></a>ElasticSearch的搭建安装和部署</h2><h3 id="文件目录结构"><a href="#文件目录结构" class="headerlink" title="文件目录结构"></a>文件目录结构</h3><p><img src="http://img.upuphub.com/image-20200920121905162-0575808.png" alt="项目文件结构"></p>
+<ul>
+<li>bin：脚本文件、包括启动ES、安装插件。运行数据统计等。</li>
+<li>condig：配置文件、USER、集群、Role Base的相关配置</li>
+<li>jdk.app：Java运行环境</li>
+<li>lib：Java类库</li>
+<li>logs：日志</li>
+<li>modules：包含所有的ES模块</li>
+<li>plugins：包含所有已安装的插件</li>
+</ul>
+<p>启动：<strong>➜  bin ./elasticsearch</strong></p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br></pre></td><td class="code"><pre><span class="line">➜  bin ./elasticsearch</span><br><span class="line">[2020-09-20T12:10:45,058][INFO ][o.e.n.Node               ] [LeoWangdeMacBook-Pro.local] version[7.9.1], pid[54756], build[default/tar/083627f112ba94dffc1232e8b42b73492789ef91/2020-09-01T21:22:21.964974Z], OS[Mac OS X/10.15.6/x86_64], JVM[AdoptOpenJDK/OpenJDK 64-Bit Server VM/14.0.1/14.0.1+7]</span><br><span class="line">[2020-09-20T12:10:45,062][INFO ][o.e.n.Node               ] [LeoWangdeMacBook-Pro.local] JVM home [/Users/leo/Tools/elasticsearch-7.9.1/jdk.app/Contents/Home]</span><br><span class="line">[2020-09-20T12:10:45,062][INFO ][o.e.n.Node               ] [LeoWangdeMacBook-Pro.local] JVM arguments [-Xshare:auto, -Des.networkaddress.cache.ttl=60, -Des.networkaddress.cache.negative.ttl=10, -XX:+AlwaysPreTouch, -Xss1m, -Djava.awt.headless=true, -Dfile.encoding=UTF-8, -Djna.nosys=true, -XX:-OmitStackTraceInFastThrow, -XX:+ShowCodeDetailsInExceptionMessages, -Dio.netty.noUnsafe=true, -Dio.netty.noKeySetOptimization=true, -Dio.netty.recycler.maxCapacityPerThread=0, -Dio.netty.allocator.numDirectArenas=0, -Dlog4j.shutdownHookEnabled=false, -Dlog4j2.disable.jmx=true, -Djava.locale.providers=SPI,COMPAT, -Xms1g, -Xmx1g, -XX:+UseG1GC, -XX:G1ReservePercent=25, -XX:InitiatingHeapOccupancyPercent=30, -Djava.io.tmpdir=/var/folders/pr/1s6y6x8s4_798www9hyr0p0m0000gn/T/elasticsearch-12523685105788999697, -XX:+HeapDumpOnOutOfMemoryError, -XX:HeapDumpPath=data, -XX:ErrorFile=logs/hs_err_pid%p.log, -Xlog:gc*,gc+age=trace,safepoint:file=logs/gc.log:utctime,pid,tags:filecount=32,filesize=64m, -XX:MaxDirectMemorySize=536870912, -Des.path.home=/Users/leo/Tools/elasticsearch-7.9.1, -Des.path.conf=/Users/leo/Tools/elasticsearch-7.9.1/config, -Des.distribution.flavor=default, -Des.distribution.type=tar, -Des.bundled_jdk=true]</span><br><span class="line">[2020-09-20T12:10:46,910][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [aggs-matrix-stats]</span><br><span class="line">[2020-09-20T12:10:46,911][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [analysis-common]</span><br><span class="line">[2020-09-20T12:10:46,911][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [constant-keyword]</span><br><span class="line">[2020-09-20T12:10:46,911][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [flattened]</span><br><span class="line">[2020-09-20T12:10:46,912][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [frozen-indices]</span><br><span class="line">[2020-09-20T12:10:46,912][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [ingest-common]</span><br><span class="line">[2020-09-20T12:10:46,912][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [ingest-geoip]</span><br><span class="line">[2020-09-20T12:10:46,912][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [ingest-user-agent]</span><br><span class="line">[2020-09-20T12:10:46,912][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [kibana]</span><br><span class="line">[2020-09-20T12:10:46,913][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [lang-expression]</span><br><span class="line">[2020-09-20T12:10:46,913][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [lang-mustache]</span><br><span class="line">[2020-09-20T12:10:46,913][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [lang-painless]</span><br><span class="line">[2020-09-20T12:10:46,913][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [mapper-extras]</span><br><span class="line">[2020-09-20T12:10:46,913][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [parent-join]</span><br><span class="line">[2020-09-20T12:10:46,913][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [percolator]</span><br><span class="line">[2020-09-20T12:10:46,914][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [rank-eval]</span><br><span class="line">[2020-09-20T12:10:46,914][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [reindex]</span><br><span class="line">[2020-09-20T12:10:46,914][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [repository-url]</span><br><span class="line">[2020-09-20T12:10:46,914][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [search-business-rules]</span><br><span class="line">[2020-09-20T12:10:46,915][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [searchable-snapshots]</span><br><span class="line">[2020-09-20T12:10:46,915][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [spatial]</span><br><span class="line">[2020-09-20T12:10:46,915][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [tasks]</span><br><span class="line">[2020-09-20T12:10:46,915][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [transform]</span><br><span class="line">[2020-09-20T12:10:46,915][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [transport-netty4]</span><br><span class="line">[2020-09-20T12:10:46,916][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [vectors]</span><br><span class="line">[2020-09-20T12:10:46,916][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [wildcard]</span><br><span class="line">[2020-09-20T12:10:46,916][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [x-pack-analytics]</span><br><span class="line">[2020-09-20T12:10:46,916][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [x-pack-async]</span><br><span class="line">[2020-09-20T12:10:46,916][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [x-pack-async-search]</span><br><span class="line">[2020-09-20T12:10:46,916][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [x-pack-autoscaling]</span><br><span class="line">[2020-09-20T12:10:46,917][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [x-pack-ccr]</span><br><span class="line">[2020-09-20T12:10:46,917][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [x-pack-core]</span><br><span class="line">[2020-09-20T12:10:46,917][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [x-pack-data-streams]</span><br><span class="line">[2020-09-20T12:10:46,917][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [x-pack-deprecation]</span><br><span class="line">[2020-09-20T12:10:46,917][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [x-pack-enrich]</span><br><span class="line">[2020-09-20T12:10:46,917][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [x-pack-eql]</span><br><span class="line">[2020-09-20T12:10:46,918][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [x-pack-graph]</span><br><span class="line">[2020-09-20T12:10:46,918][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [x-pack-identity-provider]</span><br><span class="line">[2020-09-20T12:10:46,918][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [x-pack-ilm]</span><br><span class="line">[2020-09-20T12:10:46,918][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [x-pack-logstash]</span><br><span class="line">[2020-09-20T12:10:46,918][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [x-pack-ml]</span><br><span class="line">[2020-09-20T12:10:46,919][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [x-pack-monitoring]</span><br><span class="line">[2020-09-20T12:10:46,919][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [x-pack-ql]</span><br><span class="line">[2020-09-20T12:10:46,919][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [x-pack-rollup]</span><br><span class="line">[2020-09-20T12:10:46,919][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [x-pack-security]</span><br><span class="line">[2020-09-20T12:10:46,919][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [x-pack-sql]</span><br><span class="line">[2020-09-20T12:10:46,919][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [x-pack-stack]</span><br><span class="line">[2020-09-20T12:10:46,919][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [x-pack-voting-only-node]</span><br><span class="line">[2020-09-20T12:10:46,920][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded module [x-pack-watcher]</span><br><span class="line">[2020-09-20T12:10:46,920][INFO ][o.e.p.PluginsService     ] [LeoWangdeMacBook-Pro.local] loaded plugin [analysis-icu]</span><br><span class="line">[2020-09-20T12:10:46,960][INFO ][o.e.e.NodeEnvironment    ] [LeoWangdeMacBook-Pro.local] using [1] data paths, mounts [[/System/Volumes/Data (/dev/disk1s1)]], net usable_space [149.5gb], net total_space [233.4gb], types [apfs]</span><br><span class="line">[2020-09-20T12:10:46,960][INFO ][o.e.e.NodeEnvironment    ] [LeoWangdeMacBook-Pro.local] heap size [1gb], compressed ordinary object pointers [true]</span><br><span class="line">[2020-09-20T12:10:47,060][INFO ][o.e.n.Node               ] [LeoWangdeMacBook-Pro.local] node name [LeoWangdeMacBook-Pro.local], node ID [YxIXbsumQAeVzuxPgWwQvA], cluster name [elasticsearch]</span><br><span class="line">[2020-09-20T12:10:50,165][INFO ][o.e.x.m.p.l.CppLogMessageHandler] [LeoWangdeMacBook-Pro.local] [controller/54798] [Main.cc@114] controller (64 bit): Version 7.9.1 (Build 6ed2566ba11bb5) Copyright (c) 2020 Elasticsearch BV</span><br><span class="line">[2020-09-20T12:10:50,997][INFO ][o.e.x.s.a.s.FileRolesStore] [LeoWangdeMacBook-Pro.local] parsed [0] roles from file [/Users/leo/Tools/elasticsearch-7.9.1/config/roles.yml]</span><br><span class="line">[2020-09-20T12:10:51,861][INFO ][o.e.d.DiscoveryModule    ] [LeoWangdeMacBook-Pro.local] using discovery type [zen] and seed hosts providers [settings]</span><br><span class="line">[2020-09-20T12:10:52,299][WARN ][o.e.g.DanglingIndicesState] [LeoWangdeMacBook-Pro.local] gateway.auto_import_dangling_indices is disabled, dangling indices will not be automatically detected or imported and must be managed manually</span><br><span class="line">[2020-09-20T12:10:52,630][INFO ][o.e.n.Node               ] [LeoWangdeMacBook-Pro.local] initialized</span><br><span class="line">[2020-09-20T12:10:52,630][INFO ][o.e.n.Node               ] [LeoWangdeMacBook-Pro.local] starting ...</span><br><span class="line">[2020-09-20T12:10:57,772][INFO ][o.e.t.TransportService   ] [LeoWangdeMacBook-Pro.local] publish_address &#123;127.0.0.1:9300&#125;, bound_addresses &#123;[::1]:9300&#125;, &#123;127.0.0.1:9300&#125;</span><br><span class="line">[2020-09-20T12:10:58,048][WARN ][o.e.b.BootstrapChecks    ] [LeoWangdeMacBook-Pro.local] the default discovery settings are unsuitable for production use; at least one of [discovery.seed_hosts, discovery.seed_providers, cluster.initial_master_nodes] must be configured</span><br><span class="line">[2020-09-20T12:10:58,049][INFO ][o.e.c.c.Coordinator      ] [LeoWangdeMacBook-Pro.local] cluster UUID [QcR_jXXaRB6DKSkYv_IDcQ]</span><br><span class="line">[2020-09-20T12:10:58,056][INFO ][o.e.c.c.ClusterBootstrapService] [LeoWangdeMacBook-Pro.local] no discovery configuration found, will perform best-effort cluster bootstrapping after [3s] unless existing master is discovered</span><br><span class="line">[2020-09-20T12:10:58,155][INFO ][o.e.c.s.MasterService    ] [LeoWangdeMacBook-Pro.local] elected-as-master ([1] nodes joined)[&#123;LeoWangdeMacBook-Pro.local&#125;&#123;YxIXbsumQAeVzuxPgWwQvA&#125;&#123;1VVNmpljRGGTot4vIl_h5Q&#125;&#123;127.0.0.1&#125;&#123;127.0.0.1:9300&#125;&#123;dilmrt&#125;&#123;ml.machine_memory=17179869184, xpack.installed=true, transform.node=true, ml.max_open_jobs=20&#125; elect leader, _BECOME_MASTER_TASK_, _FINISH_ELECTION_], term: 2, version: 36, delta: master node changed &#123;previous [], current [&#123;LeoWangdeMacBook-Pro.local&#125;&#123;YxIXbsumQAeVzuxPgWwQvA&#125;&#123;1VVNmpljRGGTot4vIl_h5Q&#125;&#123;127.0.0.1&#125;&#123;127.0.0.1:9300&#125;&#123;dilmrt&#125;&#123;ml.machine_memory=17179869184, xpack.installed=true, transform.node=true, ml.max_open_jobs=20&#125;]&#125;</span><br><span class="line">[2020-09-20T12:10:58,219][INFO ][o.e.c.s.ClusterApplierService] [LeoWangdeMacBook-Pro.local] master node changed &#123;previous [], current [&#123;LeoWangdeMacBook-Pro.local&#125;&#123;YxIXbsumQAeVzuxPgWwQvA&#125;&#123;1VVNmpljRGGTot4vIl_h5Q&#125;&#123;127.0.0.1&#125;&#123;127.0.0.1:9300&#125;&#123;dilmrt&#125;&#123;ml.machine_memory=17179869184, xpack.installed=true, transform.node=true, ml.max_open_jobs=20&#125;]&#125;, term: 2, version: 36, reason: Publication&#123;term=2, version=36&#125;</span><br><span class="line">[2020-09-20T12:10:58,253][INFO ][o.e.h.AbstractHttpServerTransport] [LeoWangdeMacBook-Pro.local] publish_address &#123;127.0.0.1:9200&#125;, bound_addresses &#123;[::1]:9200&#125;, &#123;127.0.0.1:9200&#125;</span><br><span class="line">[2020-09-20T12:10:58,254][INFO ][o.e.n.Node               ] [LeoWangdeMacBook-Pro.local] started</span><br><span class="line">[2020-09-20T12:10:58,408][INFO ][o.e.l.LicenseService     ] [LeoWangdeMacBook-Pro.local] license [322a2d29-7ef9-439a-99f5-69074647e8ab] mode [basic] - valid</span><br><span class="line">[2020-09-20T12:10:58,410][INFO ][o.e.x.s.s.SecurityStatusChangeListener] [LeoWangdeMacBook-Pro.local] Active license is now [BASIC]; Security is disabled</span><br><span class="line">[2020-09-20T12:10:58,416][INFO ][o.e.g.GatewayService     ] [LeoWangdeMacBook-Pro.local] recovered [0] indices into cluster_state</span><br></pre></td></tr></table></figure>
+
+<p>➜ 访问：<a href="http://localhost:9200/" target="_blank" rel="noopener">http://localhost:9200/</a></p>
+<p><img src="http://img.upuphub.com/image-20200920122055780-0575998.png" alt="安装部署成功"></p>
+<h3 id="插件安装"><a href="#插件安装" class="headerlink" title="插件安装"></a>插件安装</h3><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">➜  bin ./elasticsearch-plugin list</span><br><span class="line">➜  bin ./elasticsearch-plugin install analysis-icu</span><br><span class="line"><span class="meta">-&gt;</span><span class="bash"> Installing analysis-icu</span></span><br><span class="line"><span class="meta">-&gt;</span><span class="bash"> Downloading analysis-icu from elastic</span></span><br><span class="line">[=================================================] 100%</span><br><span class="line"><span class="meta">-&gt;</span><span class="bash"> Installed analysis-icu</span></span><br><span class="line">➜  bin ./elasticsearch-plugin list</span><br><span class="line">analysis-icu</span><br></pre></td></tr></table></figure>
+
+<p><img src="http://img.upuphub.com/image-20200920121717443.png" alt="插件安装"></p>
+<h2 id="Kibana的搭建安装和部署"><a href="#Kibana的搭建安装和部署" class="headerlink" title="Kibana的搭建安装和部署"></a>Kibana的搭建安装和部署</h2>
+    </div>
+
+  </article>
+  <div class="toc-container">
+    
+  <div id="toc" class="toc-article">
+    <strong class="toc-title">Posts</strong>
+    <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#ElasticSearch的搭建安装和部署"><span class="toc-text">ElasticSearch的搭建安装和部署</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#文件目录结构"><span class="toc-text">文件目录结构</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#插件安装"><span class="toc-text">插件安装</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Kibana的搭建安装和部署"><span class="toc-text">Kibana的搭建安装和部署</span></a></li></ol>
+  </div>
+
+
+  </div>
+</div>
+<div class="copyright">
+    <span>本作品采用</span>
+    <a href="http://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener">知识共享署名-非商业性使用 4.0 国际许可协议</a>
+    <span>进行许可。 转载时请注明原文链接。</span>
+</div>
+
+
+  
+    <div class="post-nav">
+      <div class="post-nav-item post-nav-next">
+        
+          <span>〈 </span>
+          <a href="/2020/07/04/Tools/Nginx-under-CentOS-installation/" rel="next" title="CentOS下Nginx支持SSL协议的编译安装">
+          CentOS下Nginx支持SSL协议的编译安装
+          </a>
+        
+      </div>
+  
+      <div class="post-nav-item post-nav-prev">
+          
+          <a href="/2020/07/07/IM/Instant-Messaging-System-Design/" rel="prev" title="现代架构下的即时通讯的实现设计">
+            现代架构下的即时通讯的实现设计
+          </a>
+          <span>〉</span>
+        
+      </div>
+    </div>
+  
+
+
+
+    </div>
+
+    
+
+  </div>
+  <footer class="footer text-center">
+    <div id="bottom-inner">
+        <a class="bottom-item" href="#" target="_blank"></a>做点记录,省得忘了</a> ｜
+        <a class="bottom-item" href="http://beian.miit.gov.cn/" target="_blank" rel="noopener">蜀ICP备19032943号-1</a>
+       </br>
+       <a class="bottom-item" href="https://github.com/iWzl" target="_blank">GitHub</a> |
+       <!-- <a class="bottom-item" href="">友情链接</a> | -->
+       <a class="bottom-item" href="https://hexo.io" target="_blank">Powered by hexo</a> |
+       <a class="bottom-item" href="https://github.com/fooying/hexo-theme-xoxo-plus" target="_blank">Theme by xoxo-plus</a> 
+       <!-- <a class="bottom-item" href="/atom.xml">RSS</a> | -->
+    </div>
+</footer>
+
+  
+
+<script>
+  (function(window, document, undefined) {
+
+    var timer = null;
+
+    function returnTop() {
+      cancelAnimationFrame(timer);
+      timer = requestAnimationFrame(function fn() {
+        var oTop = document.body.scrollTop || document.documentElement.scrollTop;
+        if (oTop > 0) {
+          document.body.scrollTop = document.documentElement.scrollTop = oTop - 50;
+          timer = requestAnimationFrame(fn);
+        } else {
+          cancelAnimationFrame(timer);
+        }
+      });
+    }
+
+    var hearts = [];
+    window.requestAnimationFrame = (function() {
+      return window.requestAnimationFrame ||
+        window.webkitRequestAnimationFrame ||
+        window.mozRequestAnimationFrame ||
+        window.oRequestAnimationFrame ||
+        window.msRequestAnimationFrame ||
+        function(callback) {
+          setTimeout(callback, 1000 / 60);
+        }
+    })();
+    init();
+
+    function init() {
+      css(".heart{z-index:9999;width: 10px;height: 10px;position: fixed;background: #f00;transform: rotate(45deg);-webkit-transform: rotate(45deg);-moz-transform: rotate(45deg);}.heart:after,.heart:before{content: '';width: inherit;height: inherit;background: inherit;border-radius: 50%;-webkit-border-radius: 50%;-moz-border-radius: 50%;position: absolute;}.heart:after{top: -5px;}.heart:before{left: -5px;}");
+      attachEvent();
+      gameloop();
+      addMenuEvent();
+    }
+
+    function gameloop() {
+      for (var i = 0; i < hearts.length; i++) {
+        if (hearts[i].alpha <= 0) {
+          document.body.removeChild(hearts[i].el);
+          hearts.splice(i, 1);
+          continue;
+        }
+        hearts[i].y--;
+        hearts[i].scale += 0.004;
+        hearts[i].alpha -= 0.013;
+        hearts[i].el.style.cssText = "left:" + hearts[i].x + "px;top:" + hearts[i].y + "px;opacity:" + hearts[i].alpha + ";transform:scale(" + hearts[i].scale + "," + hearts[i].scale + ") rotate(45deg);background:" + hearts[i].color;
+      }
+      requestAnimationFrame(gameloop);
+    }
+
+    /**
+     * 给logo设置点击事件
+     * 
+     * - 回到顶部
+     * - 出现爱心
+     */
+    function attachEvent() {
+      var old = typeof window.onclick === "function" && window.onclick;
+      var logo = document.getElementById("logo");
+      if (logo) {
+        logo.onclick = function(event) {
+          returnTop();
+          old && old();
+          createHeart(event);
+        }
+      }
+      
+    }
+
+    function createHeart(event) {
+      var d = document.createElement("div");
+      d.className = "heart";
+      hearts.push({
+        el: d,
+        x: event.clientX - 5,
+        y: event.clientY - 5,
+        scale: 1,
+        alpha: 1,
+        color: randomColor()
+      });
+      document.body.appendChild(d);
+    }
+
+    function css(css) {
+      var style = document.createElement("style");
+      style.type = "text/css";
+      try {
+        style.appendChild(document.createTextNode(css));
+      } catch (ex) {
+        style.styleSheet.cssText = css;
+      }
+      document.getElementsByTagName('head')[0].appendChild(style);
+    }
+
+    function randomColor() {
+      // return "rgb(" + (~~(Math.random() * 255)) + "," + (~~(Math.random() * 255)) + "," + (~~(Math.random() * 255)) + ")";
+      return "#F44336";
+    }
+
+    function addMenuEvent() {
+      var menu = document.getElementById('menu-main-post');
+      if (menu) {
+        var toc = document.getElementById('toc');
+        if (toc) {
+          menu.onclick = function() {
+            if (toc) {
+              if (toc.style.display == 'block') {
+                toc.style.display = 'none';
+              } else {
+                toc.style.display = 'block';
+              }
+            }
+          };
+        } else {
+          menu.style.display = 'none';
+        }
+      }
+    }
+
+  })(window, document);
+</script>
+
+  
+
+
+
+  
+<script>
+  (function(){
+      var bp = document.createElement('script');
+      var curProtocol = window.location.protocol.split(':')[0];
+      if (curProtocol === 'https') {
+          bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else {
+          bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(bp, s);
+  })();
+</script>
+
+
+</body>
+</html>
