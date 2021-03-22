@@ -121,19 +121,19 @@
     <div id="post0" class="else">
         <p class="animated fadeInDown">
             
-            <a href="/categories/Spring"><b>「
-                </b>SPRING<b> 」</b></a>
+            <a href="/categories/Unix网络编程"><b>「
+                </b>UNIX网络编程<b> 」</b></a>
             
-            February 04, 2021
+            November 22, 2020
         </p>
         <h3 class="post-title animated fadeInDown">
-            <a href="/2021/02/04/Spring/Bean%E5%AE%B9%E5%99%A8%E7%9A%84%E5%AE%9E%E7%8E%B0/" title="Spring容器的基本实现" class="posttitle">Spring容器的基本实现</a></h3>
+            <a href="/2020/11/22/Network/Unix-IO-5-Model/" title="高并发网络应用的关键-Unix系统下的五种IO模型" class="posttitle">高并发网络应用的关键-Unix系统下的五种IO模型</a></h3>
         
         <p class="post-count animated fadeInDown">
             
             <span>
                 <b class="iconfont icon-text2"></b> <i>Words count</i>
-                1.2k
+                415
             </span>
             
             
@@ -146,14 +146,19 @@
         </p>
         
         
-        <ul class="animated fadeInDown post-tags-list" itemprop="keywords"><li class="animated fadeInDown post-tags-list-item"><a class="animated fadeInDown post-tags-list-link" href="/tags/Spring/" rel="tag">Spring</a></li><li class="animated fadeInDown post-tags-list-item"><a class="animated fadeInDown post-tags-list-link" href="/tags/Spring-Framework/" rel="tag">Spring Framework</a></li></ul>
+        <ul class="animated fadeInDown post-tags-list" itemprop="keywords"><li class="animated fadeInDown post-tags-list-item"><a class="animated fadeInDown post-tags-list-link" href="/tags/IO/" rel="tag">IO</a></li><li class="animated fadeInDown post-tags-list-item"><a class="animated fadeInDown post-tags-list-link" href="/tags/Unix/" rel="tag">Unix</a></li></ul>
         
         <div class="md-content animated fadeIn">
             
-            <h3 id="Spring的容器的基本实现"><a href="#Spring的容器的基本实现" class="headerlink" title="Spring的容器的基本实现"></a>Spring的容器的基本实现</h3><pre><code class="xml">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;
-&lt;beans xmlns=&quot...</code></pre>
+            <p>Unix 中提供了五种 IO 模型，分别是<strong>阻塞式IO、非阻塞式IO、IO复用、信号驱动式IO、异步IO</strong>。</p>
+<p>一个IO操作通常包括两个阶段：</p>
+<ol>
+<li>等待数据准备好；</li>
+<li>从内核向进程复制数据；</li>
+</ol>
+<p>对于一个套接字上...</p>
             
-            <span class="read-more"><a href="/2021/02/04/Spring/Bean%E5%AE%B9%E5%99%A8%E7%9A%84%E5%AE%9E%E7%8E%B0/" title="Read article" class="posttitle">Read article</a>
+            <span class="read-more"><a href="/2020/11/22/Network/Unix-IO-5-Model/" title="Read article" class="posttitle">Read article</a>
                 <b class="iconfont icon-arrow-right- gradient-text"></b></span>
         </div>
     </div>
@@ -174,59 +179,6 @@
 
     <div id="primary">
         
-<div class="post" id="post">
-    <div class="post-cover animated fadeIn" style="
-            background-image:
-            radial-gradient(ellipse closest-side, rgba(0, 0, 0, 0.65), #100e17),
-            url(http://img.upuphub.com/wallhaven-g78rle.jpeg);">
-    </div>
-    <div class="else">
-        <p class="animated fadeInDown">
-            
-                <a href="/categories/Unix网络编程">
-                  <b>「 </b>UNIX网络编程<b> 」</b>
-                </a>
-            
-            November 22, 2020
-        </p>
-        <h3 class="post-title animated fadeInDown"><a href="/2020/11/22/Network/Unix-IO-5-Model/" title="高并发网络应用的关键-Unix系统下的五种IO模型" class="posttitle">高并发网络应用的关键-Unix系统下的五种IO模型</a></h3>
-        
-            <p class="post-count animated fadeInDown">
-                
-                    <span>
-                        <b class="iconfont icon-text2"></b> <i>Words count</i>
-                        415
-                    </span>
-                
-                
-                    <span>
-                        <b class="iconfont icon-timer__s"></b> <i>Reading time</i>
-                        1 mins.
-                    </span>
-                
-                
-            </p>
-            
-                <ul class="animated fadeInDown post-tags-list" itemprop="keywords"><li class="animated fadeInDown post-tags-list-item"><a class="animated fadeInDown post-tags-list-link" href="/tags/IO/" rel="tag">IO</a></li><li class="animated fadeInDown post-tags-list-item"><a class="animated fadeInDown post-tags-list-link" href="/tags/Unix/" rel="tag">Unix</a></li></ul>
-            
-        
-        <div class="md-content animated fadeIn">
-            
-                <p>Unix 中提供了五种 IO 模型，分别是<strong>阻塞式IO、非阻塞式IO、IO复用、信号驱动式IO、异步IO</strong>。</p>
-<p>一个IO操作通常包括两个阶段：</p>
-<ol>
-<li>等待数据准备好；</li>
-<li>从内核向进程复制数据；</li>
-</ol>
-<p>对于一个套接字上的输入操作，<strong>第一步通常涉及等待数据从网络中到达</strong>。当所等待分组到达时，它被复制到内核中的某个缓冲区。第二步就是把数据从内核缓冲区复制到应用进程缓冲区。</p>
-<p>实际应用程序在系统调用完成上面的 2 步操作时，调用方式的阻塞、非阻塞，操作系统在处理应用程序请求时，处理方式的同步、异步处理的不同，可以分为 5 种...</p>
-            
-            <span class="read-more"><a href="/2020/11/22/Network/Unix-IO-5-Model/" title="Read article" class="posttitle">Read article</a> <b class="iconfont icon-arrow-right- gradient-text"></b></span>
-        </div>
-    </div>
-</div>
-
-
 <div class="post" id="post">
     <div class="post-cover animated fadeIn" style="
             background-image:
@@ -533,112 +485,55 @@
     <div class="else">
         <p class="animated fadeInDown">
             
-                <a href="/categories/系统实现设计">
-                  <b>「 </b>系统实现设计<b> 」</b>
+                <a href="/categories/Nginx">
+                  <b>「 </b>NGINX<b> 」</b>
                 </a>
             
-            July 07, 2020
+            July 04, 2020
         </p>
-        <h3 class="post-title animated fadeInDown"><a href="/2020/07/07/IM/Instant-Messaging-System-Design/" title="现代架构下的即时通讯的实现设计" class="posttitle">现代架构下的即时通讯的实现设计</a></h3>
+        <h3 class="post-title animated fadeInDown"><a href="/2020/07/04/Tools/Nginx-under-CentOS-installation/" title="CentOS下Nginx支持SSL协议的编译安装" class="posttitle">CentOS下Nginx支持SSL协议的编译安装</a></h3>
         
             <p class="post-count animated fadeInDown">
                 
                     <span>
                         <b class="iconfont icon-text2"></b> <i>Words count</i>
-                        842
+                        3.9k
                     </span>
                 
                 
                     <span>
                         <b class="iconfont icon-timer__s"></b> <i>Reading time</i>
-                        1 mins.
+                        4 mins.
                     </span>
                 
                 
             </p>
             
-                <ul class="animated fadeInDown post-tags-list" itemprop="keywords"><li class="animated fadeInDown post-tags-list-item"><a class="animated fadeInDown post-tags-list-link" href="/tags/%E5%8D%B3%E6%97%B6%E9%80%9A%E8%AE%AF/" rel="tag">即时通讯</a></li><li class="animated fadeInDown post-tags-list-item"><a class="animated fadeInDown post-tags-list-link" href="/tags/%E7%B3%BB%E7%BB%9F%E5%AE%9E%E7%8E%B0%E8%AE%BE%E8%AE%A1/" rel="tag">系统实现设计</a></li></ul>
+                <ul class="animated fadeInDown post-tags-list" itemprop="keywords"><li class="animated fadeInDown post-tags-list-item"><a class="animated fadeInDown post-tags-list-link" href="/tags/CentOS/" rel="tag">CentOS</a></li><li class="animated fadeInDown post-tags-list-item"><a class="animated fadeInDown post-tags-list-link" href="/tags/Liunx/" rel="tag">Liunx</a></li><li class="animated fadeInDown post-tags-list-item"><a class="animated fadeInDown post-tags-list-link" href="/tags/Nginx/" rel="tag">Nginx</a></li><li class="animated fadeInDown post-tags-list-item"><a class="animated fadeInDown post-tags-list-link" href="/tags/Server/" rel="tag">Server</a></li></ul>
             
         
         <div class="md-content animated fadeIn">
             
-                <div id="hexo-blog-encrypt" data-wpm="Oh, this is an invalid password. Check and try again, please." data-whm="OOPS, these decrypted content may changed, but you can still have a look.">
-  <div class="hbe-input-container">
-  <input type="password" id="hbePass" placeholder>
-    <label for="hbePass">查看内容,请输入密码</label>
-    <div class="bottom-line"></div>
-  </div>
-  
-</div>
-<link href="/css/blog-encrypt.css" rel="stylesheet" type="text/css">
-            
-            <span class="read-more"><a href="/2020/07/07/IM/Instant-Messaging-System-Design/" title="Read article" class="posttitle">Read article</a> <b class="iconfont icon-arrow-right- gradient-text"></b></span>
-        </div>
-    </div>
-</div>
-
-
-<div class="post" id="post">
-    <div class="post-cover animated fadeIn" style="
-            background-image:
-            radial-gradient(ellipse closest-side, rgba(0, 0, 0, 0.65), #100e17),
-            url(http://img.upuphub.com/wallhaven-g78rle.jpeg);">
-    </div>
-    <div class="else">
-        <p class="animated fadeInDown">
-            
-                <a href="/categories/Elastic">
-                  <b>「 </b>ELASTIC<b> 」</b>
-                </a>
-            
-            July 07, 2020
-        </p>
-        <h3 class="post-title animated fadeInDown"><a href="/2020/07/07/Search/ES-001/" title="ElasticSearch&#x2F;Kibana&#x2F;Logstash的搭建安装和部署" class="posttitle">ElasticSearch&#x2F;Kibana&#x2F;Logstash的搭建安装和部署</a></h3>
-        
-            <p class="post-count animated fadeInDown">
-                
-                    <span>
-                        <b class="iconfont icon-text2"></b> <i>Words count</i>
-                        13k
-                    </span>
-                
-                
-                    <span>
-                        <b class="iconfont icon-timer__s"></b> <i>Reading time</i>
-                        12 mins.
-                    </span>
-                
-                
-            </p>
-            
-                <ul class="animated fadeInDown post-tags-list" itemprop="keywords"><li class="animated fadeInDown post-tags-list-item"><a class="animated fadeInDown post-tags-list-link" href="/tags/ElasticSearch/" rel="tag">ElasticSearch</a></li></ul>
-            
-        
-        <div class="md-content animated fadeIn">
-            
-                <h3 id="文件目录结构"><a href="#文件目录结构" class="headerlink" title="文件目录结构"></a>文件目录结构</h3><p></p>
-<ul>
-<li>bin：脚本文件、包括启动ES、安装插件。运行数据统计等。</li>
-<li>condig：配置文件、USER、集群、Role Base的相关配置</li>
-<li>jdk.app：Java运行环境</li>
-<li>lib：Java类库</li>
-<li>logs：日志</li>
-<li>modules：包含所有的ES模块</li>
-<li>plugins：包含所有已安装的插件</li>
+                <ul>
+<li><a href="http://nginx.org/" target="_blank" rel="noopener">NGINX</a> 是开源、高性能、高可靠的 Web 和反向代理服务器</li>
+<li><a href="https://tengine.taobao.org/" target="_blank" rel="noopener">Tengine</a> Tengine是由淘宝网发起基于Nginx的Web服务器项目</li>
+<li><a href="https://openresty.org/cn/" target="_blank" rel="noopener">OpenResty</a> OpenResty® 是一个基于 Nginx 与 Lua 的高性能 Web 平台</li>
 </ul>
-<p>启动：<strong>➜  bin ./elasticsearch</strong></p>
-<pre><code class="shell">➜  bin ./elasticsearch
-[2020-09-20T12:10:45,058][INFO ][o.e.n.Node               ] [LeoWangdeMacBook...</code></pre>
+<pre><code class="bash">wget http://nginx.org/download/nginx-x.x.x.tar.gz
+tar zxvf nginx-x.x.x.tar.gz
+cd nginx-x.x.x</code></pre>
+<a id="more"></a>
+
+<pre><code class="bash">yum install gcc-c++
+yum install ...</code></pre>
             
-            <span class="read-more"><a href="/2020/07/07/Search/ES-001/" title="Read article" class="posttitle">Read article</a> <b class="iconfont icon-arrow-right- gradient-text"></b></span>
+            <span class="read-more"><a href="/2020/07/04/Tools/Nginx-under-CentOS-installation/" title="Read article" class="posttitle">Read article</a> <b class="iconfont icon-arrow-right- gradient-text"></b></span>
         </div>
     </div>
 </div>
 
 
     </div>
-    
-    <div id="pager"><a href="/page/2/" class="more" data-loading="加载中..." data-load-more="Load more">Load more</a></div>
     
 </div>
 <div id="preview"></div>
