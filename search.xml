@@ -1,6 +1,245 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
+    <title>IM系统的可靠性保障方案设计</title>
+    <url>/2021/03/23/%E5%8F%8A%E6%97%B6%E9%80%9A%E8%AE%AF/IM%E7%B3%BB%E7%BB%9F%E7%9A%84%E5%8F%AF%E9%9D%A0%E6%80%A7%E4%BF%9D%E9%9A%9C%E6%96%B9%E6%A1%88%E8%AE%BE%E8%AE%A1/</url>
+    <content><![CDATA[<div id="hexo-blog-encrypt" data-wpm="Oh, this is an invalid password. Check and try again, please." data-whm="OOPS, these decrypted content may changed, but you can still have a look.">
+  <div class="hbe-input-container">
+  <input type="password" id="hbePass" placeholder="" />
+    <label for="hbePass">输入密码，查看文章</label>
+    <div class="bottom-line"></div>
+  </div>
+  <script id="hbeData" type="hbeData" data-hmacdigest="eec786a40cf7aea934fb8b407653c706146aee44047d4f82cd2f941341428254">ff2aa2f000186a9810700fce1416f63b</script>
+</div>
+<script src="/lib/blog-encrypt.js"></script><link href="/css/blog-encrypt.css" rel="stylesheet" type="text/css">]]></content>
+      <categories>
+        <category>及时通讯</category>
+      </categories>
+      <tags>
+        <tag>及时通讯</tag>
+        <tag>系统架构</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>支持亿级消息的IM系统模块设计</title>
+    <url>/2021/03/23/%E5%8F%8A%E6%97%B6%E9%80%9A%E8%AE%AF/%E6%94%AF%E6%8C%81%E4%BA%BF%E7%BA%A7%E7%94%A8%E6%88%B7%E7%9A%84IM%E7%B3%BB%E7%BB%9F%E6%A8%A1%E5%9D%97%E8%AE%BE%E8%AE%A1/</url>
+    <content><![CDATA[<h1 id="支持亿级用户的IM系统模块设计"><a href="#支持亿级用户的IM系统模块设计" class="headerlink" title="支持亿级用户的IM系统模块设计"></a>支持亿级用户的IM系统模块设计</h1><p>现代实现的及时通讯系统一般由长连接和短连接配合使用进行实现，一般的实现架构即Connector和Service两个部分,分别对应长连接服务和短连接服务，<strong>长连接服务主要用于服务端对客户端的推送和新消息到达的通知</strong>，<strong>短连接服务主要用于客户端对于消息的拉取和离线(在线)消息的同步</strong>。当用户数据量增大时,其很容易就会出现以下的缺陷:</p>
+<ul>
+<li><strong>复杂性高</strong>：每个模块服务包含的功能职责增多、模块的边界模糊、 依赖关系不清晰、 代码质量参差不齐、 混乱地堆砌在一起。</li>
+<li><strong>可靠性缺失</strong>： 某个核心服务出现问题，例如死循环、内存溢出等， 可能会导致整个系统不能正常使用。</li>
+<li><strong>拓展成本增大</strong>： 当用户体量增大时,部分服务功能会成为系统瓶颈,当进行服务扩容时,因为部分功能瓶颈的原因，就需要将整个服务进行拓展，带来不需要的成本开销。</li>
+</ul>
+<p>为此就需要对常见IM系统架构进行更加细化的服务拆分,以下就IM服务功能拆分提供参考</p>
+<a id="more"></a>
+
+<h2 id="技术指标"><a href="#技术指标" class="headerlink" title="技术指标"></a>技术指标</h2><ul>
+<li><strong>高可靠</strong>：确保不丢消息；</li>
+<li><strong>高可用</strong>：任意机房或者服务器挂掉，不影响服务；</li>
+<li><strong>实时性</strong>：不管用户在哪里，在线用户消息在1秒内达到（我们实际是75%消息可以做到120ms）；</li>
+<li><strong>有序性</strong>：确保用户消息的有序性，不会出现发送和接受的乱序。</li>
+</ul>
+<h2 id="架构拆分"><a href="#架构拆分" class="headerlink" title="架构拆分"></a>架构拆分</h2><p>当需要满足亿级用户量的IM架构时，需要将IM服务的进行更加精细化的服务拆分</p>
+<ul>
+<li><strong>业务系统</strong>：服务及时通讯的业务逻辑</li>
+<li><strong>信令系统</strong>：负责用户登录，用户在线状态的维护，以及在线用户的下行推送</li>
+<li><strong>推送系统</strong>：负责消息的在线推送和离线推送</li>
+<li><strong>持久化系统</strong>：负责消息和文件的存储和查询</li>
+</ul>
+<img src="https://img.hellobyebye.com/doc/2021032318255616164951561616495156116dGPQS7.png" alt="服务架构拆分"/>
+
+<h3 id="业务系统"><a href="#业务系统" class="headerlink" title="业务系统"></a><strong>业务系统</strong></h3><p>业务系统的详细来说在于<strong>专注处理IM相关的业务逻辑</strong>，主要使用短连接进行实现(HTTP协议)</p>
+<ul>
+<li>消息发送的鉴权和支持(optional)：客户端通过短连接发送消息</li>
+<li>维护用户数据：用户基本信息等</li>
+<li>维护好友关系：好友请求、好友列表、好友信息等</li>
+<li>维护群组信息：群创建、解散、成员管理等</li>
+<li>提供数据：在线消息(optional)、离线拉取、历史记录同步</li>
+<li>其它逻辑：比如通过存储和推送系统，存储消息和发送通知</li>
+</ul>
+<p>其功能和实际的架构可以根据具体的业务量和自身的系统架构进行更加细化的服务细分</p>
+<h3 id="信令系统"><a href="#信令系统" class="headerlink" title="信令系统"></a><strong>信令系统</strong></h3><p>对于IM系统来说，是最主要和最核心的需求和职责，主要维护服务端与客户端的长连接(socket)，其主要职责包含以下3个部分</p>
+<h4 id="维护用户在线状态"><a href="#维护用户在线状态" class="headerlink" title="维护用户在线状态"></a><strong>维护用户在线状态</strong></h4><p>当用户体量大时，需要建立大量的Socket连接和用户接入，为此单台机器是不能满足业务需求的，其落地和必然是集群化的服务，多台服务未用户提供连接服务。当用户A需要给用户B发送消息时,是需要知道用户B当前连接上了那个服务器上，然后通过该台服务器上的Socket连接向用户发送下行通知信息。</p>
+<h4 id="下行通知数据下发"><a href="#下行通知数据下发" class="headerlink" title="下行通知数据下发"></a><strong>下行通知数据下发</strong></h4><p>与维护用户在线状态的职责相关，当用户在线的时，如果有其它用户给他发消息，就需要走在线的系统推送，直接将新消息告知到客户端，而不是走离线推送信息。</p>
+<h4 id="业务协议内容的分发"><a href="#业务协议内容的分发" class="headerlink" title="业务协议内容的分发"></a><strong>业务协议内容的分发</strong></h4><p>信令服务不只可以处理IM请求，也可以处理其它类型的业务请求。为了处理不同的业务，就需要有分发能力。一般来说会使用Protobuf定义下发的业务协议，其中可能会包括SVID(Service Id)或是CMD(Commond)字段来标识消息数据类型，用户通过该标识能表明当前业务包的功能(eg:心跳和连接授权、QoS、消息到达、用户特权变更等)并交由业务服务进行处理。</p>
+<p>这样不管用户有多少的业务或是多少的实现表达，客户端与服务器端仅需要维护一个Socket连接。</p>
+<h4 id="信令服务的服务拆分"><a href="#信令服务的服务拆分" class="headerlink" title="信令服务的服务拆分"></a><strong>信令服务的服务拆分</strong></h4><p>信令系统为了实现以上这3个职责，同时要确保我们服务可平行扩展的能力和稳定性，在实际的技术实现上，我们实际上把信令服务分拆为3个服务模块。</p>
+<p><strong>- 连接授权和维护(Login服务)</strong></p>
+<ul>
+<li><em>主要负责维护用户长链接：</em></li>
+</ul>
+<p>客户端与服务器之间长连接的维护、长连接的连接认证、连接的心跳。用户完成业务模块的登陆操作后，会持有登陆完成后授权给用户Token或者相关凭证、Login服务会接受客户端的连接并对用户心跳包持有的Token进行验证、如果成功就将认证结果发送到Online服务，当授权验证不通过时,直接关闭该次连接。</p>
+<p>Login对并发要求比较高，一般要支持TCP+UDP+Websocket几种方式，单服务可以做到10-250万之间。从服务稳定性角度触发，建议是控制VM的CPU/内存，单服务器以20-50万为合适。</p>
+<p>Login服务器本身没有状态，任何一个Login服务断掉，客户端检测到以后重连另一个Login服务器并发送心跳包，对整体服务可靠性基本没有影响。</p>
+<p><strong>- 在线信息的维护和同步(Online服务)</strong></p>
+<ul>
+<li><em>主要负责维护用户的在线信息:</em></li>
+</ul>
+<p>当用户掉线或者根本不在线，Online服务里用户相关信息就是空</p>
+<p>当用户在线时，Online就能找到用户登录在哪个集群，哪个Login服务器上</p>
+<p>多个Login服务器会连接到Online，定期同步用户登录和离线信息，把用户状态信息存储在共有的存储服务中(Redis集群)。因此也是无状态的，任何一个Online服务挂掉，不影响整体服务能力。当集群规模不大，用户规模也不大时，Online服务也可以收到Login服务里去。</p>
+<p>当规模比较大，建议分拆出来，一方面简化Login的逻辑复杂度，同时避免写共有的存储服务的慢操作，在Login服务里。因为Login要同时处理50万以上的并发链接，不适合在循环里嵌入慢操作。</p>
+<p><strong>- 协议的解析和业务的路由(Route服务)</strong></p>
+<ul>
+<li><em>主要负责信令系统跟其它子系统的交互：</em></li>
+</ul>
+<p>Route下接Login服务，可以接受用户业务信息（IM），也可以往用户推送下行消息。多个后端业务系统可以接入到Route，按照服务类型（SVID、CMD）注册。</p>
+<p>IM服务可以接入到Route, 注册SVID_IM或CMD_IM。这样Login接收到SVID=SVID_IM、或者CMD_IM的消息，转发给Route，Route就可以根据SVID转发给IM相关的服务。</p>
+<p>Route只做转发，不处理具体的业务逻辑，因此也是无状态的。一个信令集群可以有多个Route服务，任何服务挂了不影响整体服务能力。</p>
+<h3 id="推送系统"><a href="#推送系统" class="headerlink" title="推送系统"></a>推送系统</h3><p>接收服务端给用户发送下行消息的请求后，通过信令服务查询用户是否在线，如果在线走信令服务器进行在线推送，如果不在线走离线推送。</p>
+<p>推送服务可能出现大规模并发蜂拥，可能会触发亿级的TPS。为此可以用Kafka或其他消息中间件做削峰。具体的服务实现模块可主要由以下4个部分组成:</p>
+<ul>
+<li>PushProxy：接受服务端给用户发送的下行消息，写入消息中间件</li>
+<li>消息中间件(Kafka)：缓存推送服务消息并做削峰，并完成消息任务的推送</li>
+<li>PushServer：监听来自消息中间件的请求，消费消息，完成用的在线、离线状态的判断，调用PushWorker</li>
+<li>PushWorker：真正推送给信令或者APNS、Firebase、或其他推送平台</li>
+</ul>
+<p>因此除了中间件以外的每个服务都是无状态的、因此也可以实现平行拓展和容错，任何服务挂点都不会对整体服务可用性产生影响。</p>
+<h3 id="持久化系统"><a href="#持久化系统" class="headerlink" title="持久化系统"></a>持久化系统</h3><p>当用户数据产生后，必然是需要伴随消息的存储和持久化的，因此持久化系统主要负责消息的存储和查询，已实现离线消息的拉取、漫游等的相关附属功能。因为消息量巨大，对存储服务的并发能力和存储量要求巨大。为了平衡性能、空间和成本，存储服务按数据的热度进行了分级和区别对待。</p>
+<ul>
+<li>短期消息(7天)：存储在Redis里</li>
+<li>近期消息(1-3个月)：存储在Mysql里，以备用户实时查询</li>
+<li>历史信息：存储在HBase里，作为历史数据慢查询</li>
+</ul>
+<p>为了应对超大群的大量消息处理，存储服务在实际的技术实现上，也做了比较细的分拆</p>
+<p><strong>具体的业务划分</strong></p>
+<ul>
+<li>MsgProxy：负责接受业务系统的存储请求，写入消息中间件</li>
+<li>MsgWriter：从消息中间件获取写请求，按需写入Redis和Mysql</li>
+<li>MsgReader：接受用户的消息查询请求，从Redis，Mysql或者HBase读数据</li>
+</ul>
+<p>部署上可能是3-4个MsgProxy，后端可以对应15个左右的MsgWriter。MsgWriter是比较慢的，需要同时操作多个数据库，还要保证操作的原子性。</p>
+]]></content>
+      <categories>
+        <category>及时通讯</category>
+      </categories>
+      <tags>
+        <tag>及时通讯</tag>
+        <tag>系统架构</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>Java Microbenchmark Harness微基准测试陷阱</title>
+    <url>/2020/07/09/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Java-Microbenchmark-Harness-Test-Trap/</url>
+    <content><![CDATA[<blockquote>
+<p><strong>天下之事，闻者不如见者知之为详，见者不如居者知之为尽。——宋-陆游</strong></p>
+<p><strong>你要知道梨子的滋味，就要亲口尝一下。——毛泽东</strong></p>
+</blockquote>
+<p>俗话说，没有实践就没有发言权，自己实践才能知之为尽，Benchmark 为应用提供了数据支持，是评价和比较方法好坏的基准，Benchmark 的准确性，多样性便显得尤为重要。JMH为Java方法的基准水平提供了很好的量化标准，也为剖析系统性能和技术选型提供的更为有效切可靠的实现手段。</p>
+<p>以下记录在使用Java Microbenchmark Harness做微基准测试容易遇见的误区和相关陷阱，便于之后的查找和说明。</p>
+<a id="more"></a>
+
+<h2 id="代码预热"><a href="#代码预热" class="headerlink" title="代码预热"></a>代码预热</h2><blockquote>
+<p><strong>Warmup = waiting for the transient responses to settle down</strong></p>
+</blockquote>
+<p>随着JVM虚拟机的优化，JIT的存在，代码的执行往往前期执行结果没有后期的执行结果好。 <code>Benchmark</code> 产生更可靠的结果的原因是，它只度量稳定状态下<code>方法任务</code>的执行时间，而不理会最初的性能。大多数 Java 实现具有复杂的性能生命周期。一般来说，最初的性能往往相当低，然后性能显著提高（常常出现几次性能跃升），直到到达稳定状态。</p>
+<h3 id="类装载"><a href="#类装载" class="headerlink" title="类装载"></a>类装载</h3><p>JVM 通常只在类的第一次使用类时装载它们。所以,方法任务的第一次执行时间包含装载它使用的所有类的时间（如果这些类还没有装载的话）。因为类装载往往涉及磁盘 I/O、解析和检验，这会显著增加<code>方法任务</code>的第一次执行时间。<strong>常常</strong>可以通过多次执行<code>方法任务</code>来消除这种影响。</p>
+<blockquote>
+<p>PS:  <strong>常常</strong>而不是<strong>总是</strong>，这是因为 <code>方法任务</code> 可能具有复杂的分支行为，这可能导致它在任何给定的执行过程中并不使用所有可能用到的类。幸运的是，如果执行任务足够多次，就可能经历所有分支，因此很快就会装载所有相关类）。</p>
+</blockquote>
+<p>如果使用定制的类装载器，就有另一个问题：JVM 可能认为一些类已经成了垃圾，因此决定卸载它。这不太可能严重影响性能，但是仍然会使基准测试结果产生偏差。</p>
+<h3 id="混合模式"><a href="#混合模式" class="headerlink" title="混合模式"></a>混合模式</h3><p>在执行即时（Just-in-time，JIT）编译之前，现代的 JVM 通常会运行代码一段时间（常常是纯解释式运行），从而收集剖析信息。这对基准测试的影响在于，任务可能需要执行许多次，才能达到稳定状态。</p>
+<p>一般来说对稳定状态下的基准测试至少需要以下步骤：</p>
+<ol>
+<li>执行 <code>方法任务</code> 一次，以便装载所有类。</li>
+<li>执行 <code>方法任务</code> 足够多次，以确保出现稳定状态的执行数据。</li>
+</ol>
+<h2 id="陷阱一-死码消除"><a href="#陷阱一-死码消除" class="headerlink" title="陷阱一: 死码消除"></a>陷阱一: 死码消除</h2><p><a href="[https://zh.wikipedia.org/zh-cn/%E6%AD%BB%E7%A2%BC%E5%88%AA%E9%99%A4](https://zh.wikipedia.org/zh-cn/死碼刪除)">死码消除</a>(Dead code elimination）是一种编译最优化技术,在某些情况下，编译器可以判断出某些代码根本不影响输出，所以编译器会消除这些代码,例如注释的代码，不可达的代码块，可达但不被使用的代码，会被判断为死码而在Javac的时候被消除。</p>
+<pre><code class="java">public class ErrorBenchmark {
+    private double PI = Math.PI;
+
+    @Benchmark
+    public void benchmarkNothing(){
+        // 19873732.412 ± 6783114.266  ops/ms
+        //do nothing 
+    }
+
+    @Benchmark
+    public void benchmarkWrong(){
+        //  20988076.131 ± 7282548.202  ops/ms
+        Math.log(PI);  // DCE 会被判断为死码而被消除
+    }
+
+    @Benchmark
+    public double benchmarkRight(){
+       // 306740.041 ±   52692.696  ops/ms
+        return Math.log(PI);
+    }
+
+}</code></pre>
+<p>在做测试时，需要注意方法会不会有死码的存在，否者可能会带来一些不合理的测试结果和意外。对于会被判断为死码但又需要进行执行测试方法来说，可以想办法去除孤立的方法执行，例如增加方法返回值，或者使用JMH的提供的API<strong>Blackhole</strong>。</p>
+<pre><code class="java">@Benchmark
+public void benchmarkRight(Blackhole bh) {
+    bh.consume(Math.log(PI));
+}</code></pre>
+<h2 id="陷阱二：常量折叠与常量传播"><a href="#陷阱二：常量折叠与常量传播" class="headerlink" title="陷阱二：常量折叠与常量传播"></a>陷阱二：常量折叠与常量传播</h2><p><a href="[https://zh.wikipedia.org/wiki/%E5%B8%B8%E6%95%B8%E6%8A%98%E7%96%8A#%E5%B8%B8%E6%95%B8%E5%82%B3%E6%92%AD](https://zh.wikipedia.org/wiki/常數折疊#常數傳播)">常数折叠</a>（Constant folding）以及常数传播（constant propagation）都是<a href="https://zh.wikipedia.org/w/index.php?title=編譯器最佳化&action=edit&redlink=1" target="_blank" rel="noopener">编译器最佳化</a>技术。是一个在编译时期简化常数的一个过程。常数在表示式中仅仅代表一个简单的数值，就算一个变数从未被修改也可作为常数，或者直接将一个变数被明确地被标注为常数。</p>
+<pre><code class="java">long number = 2 * 600 * 200;</code></pre>
+<p>多数的现代编译器不会真的产生两个乘法的指令再将结果储存下来，取而代之的，他们会辨识出语句的结构，并在编译时期将数值直接计算出来。常数折叠的时机取决于编译器，有的在编译前期完成，有的在较后期进行。</p>
+<pre><code class="java">private double x = Math.PI;
+
+// 编译器会对 final 变量特殊处理 
+private final double wrongX = Math.PI;
+
+@Benchmark
+public double baseline() {
+    // 2.220 ± 0.352 ns/op
+    return Math.PI;
+}
+
+@Benchmark
+public double measureWrong_1() { 
+    // 2.220 ± 0.352 ns/op
+    // 错误，结果可以被预测，会发生常量折叠
+    return Math.log(Math.PI);
+}
+
+@Benchmark
+public double measureWrong_2() { 
+    // 2.220 ± 0.352 ns/op
+    // 错误，结果可以被预测，会发生常量折叠
+    return Math.log(wrongX);
+}
+
+@Benchmark
+public double measureRight() { 
+    // 22.590 ± 2.636  ns/op
+    return Math.log(x);
+}</code></pre>
+<p>由于发生了常量折叠，相同实现下的执行销量完全不同，这个测试在一定程度上说明了final的定义对于方法执行结果的影响。</p>
+<p>此外<strong>常数传播 (</strong>Constant propagation<strong>)</strong> 是一个替代表示式中已知常数的过程，也是在编译时期进行，包含前述所定义，内建函数也适用于常数。</p>
+<pre><code class="java">int x = 520;
+int y = 260 - 520 / 2;
+return y * (1314 / x + 2);</code></pre>
+<p>传播可以理解变量的替换，如果进行持续传播，上式则可写成如下</p>
+<pre><code class="java">int x = 14;
+int y = 0;
+return 0;</code></pre>
+<h2 id="陷阱三：不要在测试中写循环"><a href="#陷阱三：不要在测试中写循环" class="headerlink" title="陷阱三：不要在测试中写循环"></a>陷阱三：不要在测试中写循环</h2><h2 id="为什么要使用JMH"><a href="#为什么要使用JMH" class="headerlink" title="为什么要使用JMH"></a>为什么要使用JMH</h2><p>对于传统的接口调用测试，可能会使用以下的方式测试</p>
+<pre><code class="java">long startTime = System.currentTimeMillis();
+benchmarkTestMethod();
+System.out.println(System.currentTimeMillis()-startTime);</code></pre>
+<p>而JMH则使用</p>
+<pre><code class="java">@Benchmark
+public void benchmarkTestMethod(){
+  // do 
+}</code></pre>
+<hr>
+<h2 id="参考和引用"><a href="#参考和引用" class="headerlink" title="参考和引用"></a>参考和引用</h2><ul>
+<li><a href="https://www.ibm.com/developerworks/cn/java/j-benchmark1.html" target="_blank" rel="noopener">IBM Developer Java 代码基准测试的问题</a></li>
+<li><a href="https://www.cnkirito.moe/java-jmh/" target="_blank" rel="noopener">JAVA 拾遗 — JMH 与 8 个测试陷阱</a></li>
+</ul>
+]]></content>
+      <categories>
+        <category>系统调优</category>
+      </categories>
+      <tags>
+        <tag>Java</tag>
+        <tag>基准测试</tag>
+        <tag>系统调优</tag>
+        <tag>误区和陷阱</tag>
+        <tag>JMH</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>Java Microbenchmark Harness微基准测试基础</title>
     <url>/2020/07/07/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Java-Microbenchmark-Harness-Basic/</url>
     <content><![CDATA[<blockquote>
@@ -236,131 +475,9 @@ StringBuilderBenchmark.testStringBuilderAdd  thrpt   20  45051.713 ± 7496.158  
       <tags>
         <tag>Java</tag>
         <tag>基准测试</tag>
-        <tag>JMH</tag>
         <tag>系统调优</tag>
+        <tag>JMH</tag>
         <tag>基础</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>Java Microbenchmark Harness微基准测试陷阱</title>
-    <url>/2020/07/09/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Java-Microbenchmark-Harness-Test-Trap/</url>
-    <content><![CDATA[<blockquote>
-<p><strong>天下之事，闻者不如见者知之为详，见者不如居者知之为尽。——宋-陆游</strong></p>
-<p><strong>你要知道梨子的滋味，就要亲口尝一下。——毛泽东</strong></p>
-</blockquote>
-<p>俗话说，没有实践就没有发言权，自己实践才能知之为尽，Benchmark 为应用提供了数据支持，是评价和比较方法好坏的基准，Benchmark 的准确性，多样性便显得尤为重要。JMH为Java方法的基准水平提供了很好的量化标准，也为剖析系统性能和技术选型提供的更为有效切可靠的实现手段。</p>
-<p>以下记录在使用Java Microbenchmark Harness做微基准测试容易遇见的误区和相关陷阱，便于之后的查找和说明。</p>
-<a id="more"></a>
-
-<h2 id="代码预热"><a href="#代码预热" class="headerlink" title="代码预热"></a>代码预热</h2><blockquote>
-<p><strong>Warmup = waiting for the transient responses to settle down</strong></p>
-</blockquote>
-<p>随着JVM虚拟机的优化，JIT的存在，代码的执行往往前期执行结果没有后期的执行结果好。 <code>Benchmark</code> 产生更可靠的结果的原因是，它只度量稳定状态下<code>方法任务</code>的执行时间，而不理会最初的性能。大多数 Java 实现具有复杂的性能生命周期。一般来说，最初的性能往往相当低，然后性能显著提高（常常出现几次性能跃升），直到到达稳定状态。</p>
-<h3 id="类装载"><a href="#类装载" class="headerlink" title="类装载"></a>类装载</h3><p>JVM 通常只在类的第一次使用类时装载它们。所以,方法任务的第一次执行时间包含装载它使用的所有类的时间（如果这些类还没有装载的话）。因为类装载往往涉及磁盘 I/O、解析和检验，这会显著增加<code>方法任务</code>的第一次执行时间。<strong>常常</strong>可以通过多次执行<code>方法任务</code>来消除这种影响。</p>
-<blockquote>
-<p>PS:  <strong>常常</strong>而不是<strong>总是</strong>，这是因为 <code>方法任务</code> 可能具有复杂的分支行为，这可能导致它在任何给定的执行过程中并不使用所有可能用到的类。幸运的是，如果执行任务足够多次，就可能经历所有分支，因此很快就会装载所有相关类）。</p>
-</blockquote>
-<p>如果使用定制的类装载器，就有另一个问题：JVM 可能认为一些类已经成了垃圾，因此决定卸载它。这不太可能严重影响性能，但是仍然会使基准测试结果产生偏差。</p>
-<h3 id="混合模式"><a href="#混合模式" class="headerlink" title="混合模式"></a>混合模式</h3><p>在执行即时（Just-in-time，JIT）编译之前，现代的 JVM 通常会运行代码一段时间（常常是纯解释式运行），从而收集剖析信息。这对基准测试的影响在于，任务可能需要执行许多次，才能达到稳定状态。</p>
-<p>一般来说对稳定状态下的基准测试至少需要以下步骤：</p>
-<ol>
-<li>执行 <code>方法任务</code> 一次，以便装载所有类。</li>
-<li>执行 <code>方法任务</code> 足够多次，以确保出现稳定状态的执行数据。</li>
-</ol>
-<h2 id="陷阱一-死码消除"><a href="#陷阱一-死码消除" class="headerlink" title="陷阱一: 死码消除"></a>陷阱一: 死码消除</h2><p><a href="[https://zh.wikipedia.org/zh-cn/%E6%AD%BB%E7%A2%BC%E5%88%AA%E9%99%A4](https://zh.wikipedia.org/zh-cn/死碼刪除)">死码消除</a>(Dead code elimination）是一种编译最优化技术,在某些情况下，编译器可以判断出某些代码根本不影响输出，所以编译器会消除这些代码,例如注释的代码，不可达的代码块，可达但不被使用的代码，会被判断为死码而在Javac的时候被消除。</p>
-<pre><code class="java">public class ErrorBenchmark {
-    private double PI = Math.PI;
-
-    @Benchmark
-    public void benchmarkNothing(){
-        // 19873732.412 ± 6783114.266  ops/ms
-        //do nothing 
-    }
-
-    @Benchmark
-    public void benchmarkWrong(){
-        //  20988076.131 ± 7282548.202  ops/ms
-        Math.log(PI);  // DCE 会被判断为死码而被消除
-    }
-
-    @Benchmark
-    public double benchmarkRight(){
-       // 306740.041 ±   52692.696  ops/ms
-        return Math.log(PI);
-    }
-
-}</code></pre>
-<p>在做测试时，需要注意方法会不会有死码的存在，否者可能会带来一些不合理的测试结果和意外。对于会被判断为死码但又需要进行执行测试方法来说，可以想办法去除孤立的方法执行，例如增加方法返回值，或者使用JMH的提供的API<strong>Blackhole</strong>。</p>
-<pre><code class="java">@Benchmark
-public void benchmarkRight(Blackhole bh) {
-    bh.consume(Math.log(PI));
-}</code></pre>
-<h2 id="陷阱二：常量折叠与常量传播"><a href="#陷阱二：常量折叠与常量传播" class="headerlink" title="陷阱二：常量折叠与常量传播"></a>陷阱二：常量折叠与常量传播</h2><p><a href="[https://zh.wikipedia.org/wiki/%E5%B8%B8%E6%95%B8%E6%8A%98%E7%96%8A#%E5%B8%B8%E6%95%B8%E5%82%B3%E6%92%AD](https://zh.wikipedia.org/wiki/常數折疊#常數傳播)">常数折叠</a>（Constant folding）以及常数传播（constant propagation）都是<a href="https://zh.wikipedia.org/w/index.php?title=編譯器最佳化&action=edit&redlink=1" target="_blank" rel="noopener">编译器最佳化</a>技术。是一个在编译时期简化常数的一个过程。常数在表示式中仅仅代表一个简单的数值，就算一个变数从未被修改也可作为常数，或者直接将一个变数被明确地被标注为常数。</p>
-<pre><code class="java">long number = 2 * 600 * 200;</code></pre>
-<p>多数的现代编译器不会真的产生两个乘法的指令再将结果储存下来，取而代之的，他们会辨识出语句的结构，并在编译时期将数值直接计算出来。常数折叠的时机取决于编译器，有的在编译前期完成，有的在较后期进行。</p>
-<pre><code class="java">private double x = Math.PI;
-
-// 编译器会对 final 变量特殊处理 
-private final double wrongX = Math.PI;
-
-@Benchmark
-public double baseline() {
-    // 2.220 ± 0.352 ns/op
-    return Math.PI;
-}
-
-@Benchmark
-public double measureWrong_1() { 
-    // 2.220 ± 0.352 ns/op
-    // 错误，结果可以被预测，会发生常量折叠
-    return Math.log(Math.PI);
-}
-
-@Benchmark
-public double measureWrong_2() { 
-    // 2.220 ± 0.352 ns/op
-    // 错误，结果可以被预测，会发生常量折叠
-    return Math.log(wrongX);
-}
-
-@Benchmark
-public double measureRight() { 
-    // 22.590 ± 2.636  ns/op
-    return Math.log(x);
-}</code></pre>
-<p>由于发生了常量折叠，相同实现下的执行销量完全不同，这个测试在一定程度上说明了final的定义对于方法执行结果的影响。</p>
-<p>此外<strong>常数传播 (</strong>Constant propagation<strong>)</strong> 是一个替代表示式中已知常数的过程，也是在编译时期进行，包含前述所定义，内建函数也适用于常数。</p>
-<pre><code class="java">int x = 520;
-int y = 260 - 520 / 2;
-return y * (1314 / x + 2);</code></pre>
-<p>传播可以理解变量的替换，如果进行持续传播，上式则可写成如下</p>
-<pre><code class="java">int x = 14;
-int y = 0;
-return 0;</code></pre>
-<h2 id="陷阱三：不要在测试中写循环"><a href="#陷阱三：不要在测试中写循环" class="headerlink" title="陷阱三：不要在测试中写循环"></a>陷阱三：不要在测试中写循环</h2><h2 id="为什么要使用JMH"><a href="#为什么要使用JMH" class="headerlink" title="为什么要使用JMH"></a>为什么要使用JMH</h2><p>对于传统的接口调用测试，可能会使用以下的方式测试</p>
-<pre><code class="java">long startTime = System.currentTimeMillis();
-benchmarkTestMethod();
-System.out.println(System.currentTimeMillis()-startTime);</code></pre>
-<p>而JMH则使用</p>
-<pre><code class="java">@Benchmark
-public void benchmarkTestMethod(){
-  // do 
-}</code></pre>
-<hr>
-<h2 id="参考和引用"><a href="#参考和引用" class="headerlink" title="参考和引用"></a>参考和引用</h2><ul>
-<li><a href="https://www.ibm.com/developerworks/cn/java/j-benchmark1.html" target="_blank" rel="noopener">IBM Developer Java 代码基准测试的问题</a></li>
-<li><a href="https://www.cnkirito.moe/java-jmh/" target="_blank" rel="noopener">JAVA 拾遗 — JMH 与 8 个测试陷阱</a></li>
-</ul>
-]]></content>
-      <categories>
-        <category>系统调优</category>
-      </categories>
-      <tags>
-        <tag>Java</tag>
-        <tag>基准测试</tag>
-        <tag>JMH</tag>
-        <tag>系统调优</tag>
-        <tag>误区和陷阱</tag>
       </tags>
   </entry>
   <entry>
@@ -500,6 +617,468 @@ sed -i &#39;s/http:\/\/www.google.com/https:\/\/www.baidu.com/g&#39; default.jso
         <tag>Liunx</tag>
         <tag>Jenkins</tag>
         <tag>CentOS</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>Liuns系统高效文件处理三剑客-Grep/Awk/Sed</title>
+    <url>/2020/08/14/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Liunx-Tips-001-Grep-Awk-Sed/</url>
+    <content><![CDATA[<blockquote>
+<p><strong>子曰：“工欲善其事，必先利其器。居是邦也，事其大夫之贤者，友其士之仁者。”</strong> –论语·卫灵公</p>
+</blockquote>
+<h3 id="Grep"><a href="#Grep" class="headerlink" title="Grep"></a>Grep</h3><p><a href="https://zh.wikipedia.org/wiki/Grep" target="_blank" rel="noopener">Grep</a>(global search regular expression(RE) and print out the line)是一款强大的文本搜索工具，支持正则表达式。来自Unix文本编辑器ed类似操作的命令,最初用于Unix操作系统的命令行工具。在给出文件列表或标准输入后，grep会对匹配一个或多个正则表达式的文本进行搜索，并只输出匹配（或者不匹配）的行或文本。</p>
+<pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# grep --help
+用法: grep [选项]... PATTERN [FILE]...
+Search for PATTERN in each FILE.
+Example: grep -i &#39;hello world&#39; menu.h main.c</code></pre>
+<a id="more"></a>
+
+<pre><code class="shell">Pattern selection and interpretation:
+  -E, --extended-regexp     PATTERN is an extended regular expression
+  -F, --fixed-strings       PATTERN is a set of newline-separated strings
+  -G, --basic-regexp        PATTERN is a basic regular expression (default)
+  -P, --perl-regexp         PATTERN is a Perl regular expression
+  -e, --regexp=PATTERN      用 PATTERN 来进行匹配操作
+  -f, --file=FILE           从 FILE 中取得 PATTERN
+  -i, --ignore-case         忽略大小写
+  -w, --word-regexp         强制 PATTERN 仅完全匹配字词
+  -x, --line-regexp         强制 PATTERN 仅完全匹配一行
+  -z, --null-data           一个 0 字节的数据行，但不是空行
+
+杂项:
+  -s, --no-messages         不显示错误信息
+  -v, --invert-match        选中不匹配的行
+  -V, --version             显示版本信息并退出
+      --help                显示此帮助并退出
+
+Output control:
+  -m, --max-count=NUM       stop after NUM selected lines
+  -b, --byte-offset         print the byte offset with output lines
+  -n, --line-number         print line number with output lines
+      --line-buffered       flush output on every line
+  -H, --with-filename       print file name with output lines
+  -h, --no-filename         suppress the file name prefix on output
+      --label=LABEL         use LABEL as the standard input file name prefix
+  -o, --only-matching       只显示匹配PATTERN 部分的行
+  -q, --quiet, --silent     不显示所有常规输出
+      --binary-files=TYPE   设定二进制文件的TYPE 类型；
+                            TYPE 可以是`binary&#39;, `text&#39;, 或`without-match&#39;
+  -a, --text                等同于 --binary-files=text
+  -I                        equivalent to --binary-files=without-match
+  -d, --directories=ACTION  how to handle directories;
+                            ACTION is &#39;read&#39;, &#39;recurse&#39;, or &#39;skip&#39;
+  -D, --devices=ACTION      how to handle devices, FIFOs and sockets;
+                            ACTION is &#39;read&#39; or &#39;skip&#39;
+  -r, --recursive           like --directories=recurse
+  -R, --dereference-recursive
+                            likewise, but follow all symlinks
+      --include=FILE_PATTERN
+                            search only files that match FILE_PATTERN
+      --exclude=FILE_PATTERN
+                            skip files and directories matching FILE_PATTERN
+      --exclude-from=FILE   skip files matching any file pattern from FILE
+      --exclude-dir=PATTERN directories that match PATTERN will be skipped.
+  -L, --files-without-match print only names of FILEs with no selected lines
+  -l, --files-with-matches  print only names of FILEs with selected lines
+  -c, --count               print only a count of selected lines per FILE
+
+文件控制:
+  -B, --before-context=NUM  打印文本及其前面NUM 行
+  -A, --after-context=NUM   打印文本及其后面NUM 行
+  -C, --context=NUM         打印NUM 行输出文本
+  -NUM                      same as --context=NUM
+      --group-separator=SEP use SEP as a group separator
+      --no-group-separator  use empty string as a group separator
+      --color[=WHEN],
+      --colour[=WHEN]       use markers to highlight the matching strings;
+                            WHEN is &#39;always&#39;, &#39;never&#39;, or &#39;auto&#39;
+  -U, --binary              do not strip CR characters at EOL (MSDOS/Windows)</code></pre>
+<p>常用参数:</p>
+<pre><code class="shell">            -v        取反
+            -i        忽略大小写
+            -c        符合条件的行数
+            -n        输出的同时打印行号
+            ^*        以*开头         
+            *$         以*结尾 
+            ^$         空行 
+
+            -a        不忽略二进制数据
+            -A&lt;n&gt;     除了显示匹配的行外，还显示之后的n行
+            -b        在符合条件的行之前，显示该行第一个字符的编号</code></pre>
+<p>Demo文案</p>
+<pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log
+I came;
+I saw;
+i conquered.
+
+我来了，我看到了，我征服了.   ——凯撒大帝</code></pre>
+<h4 id="查找符合条件的行"><a href="#查找符合条件的行" class="headerlink" title="查找符合条件的行"></a>查找符合条件的行</h4><pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log |grep &#39;I&#39;
+I came;
+I saw;</code></pre>
+<h4 id="查找符合条件的行数"><a href="#查找符合条件的行数" class="headerlink" title="查找符合条件的行数"></a>查找符合条件的行数</h4><pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log |grep &#39;I&#39; -c
+2</code></pre>
+<h4 id="查找不符合条件的行"><a href="#查找不符合条件的行" class="headerlink" title="查找不符合条件的行"></a>查找不符合条件的行</h4><pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log |grep &#39;I&#39; -v
+i conquered.
+
+我来了，我看到了，我征服了.   ——凯撒大帝</code></pre>
+<h4 id="忽略大小写查找"><a href="#忽略大小写查找" class="headerlink" title="忽略大小写查找"></a>忽略大小写查找</h4><pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log |grep &#39;I&#39; -i
+I came;
+I saw;
+i conquered.</code></pre>
+<h4 id="查找符合条件的行并输出行号"><a href="#查找符合条件的行并输出行号" class="headerlink" title="查找符合条件的行并输出行号"></a>查找符合条件的行并输出行号</h4><pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log |grep &#39;I&#39; -n
+1:I came;
+2:I saw;</code></pre>
+<h4 id="以’-’开头的查询"><a href="#以’-’开头的查询" class="headerlink" title="以’*’开头的查询"></a>以’*’开头的查询</h4><pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log |grep &#39;^I&#39;
+I came;
+I saw;</code></pre>
+<h4 id="以’-’结尾的查询"><a href="#以’-’结尾的查询" class="headerlink" title="以’*’结尾的查询"></a>以’*’结尾的查询</h4><pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log |grep &#39;; $&#39;
+I came;
+I saw;</code></pre>
+<hr>
+<h3 id="Awk"><a href="#Awk" class="headerlink" title="Awk"></a>Awk</h3><p>Awk不仅仅是一个小工具，也可以算得上一种小型的编程语言了，支持if判断分支和while循环语句还有它的内置函数等，是一个要比grep和sed更强大的文本处理工具，但也就意味着要学习的东西更多了。由 Alfred Aho 、Peter Weinberger 和 Brian Kernighan 创始,并以姓氏的首个字母命名.</p>
+<h4 id="基本结构和执行"><a href="#基本结构和执行" class="headerlink" title="基本结构和执行"></a>基本结构和执行</h4><pre><code class="shell">awk &#39;{[pattern] action}&#39; {filenames}  
+awk &#39;BEGIN{ commands } pattern{ commands } END{ commands }&#39; {filenames}  </code></pre>
+<p>Awk脚本通常由：BEGIN语句块、能够使用模式匹配的通用语句块、END语句块3部分组成，这三个部分是可选的。任意一个部分都可以不出现在脚本中，脚本通常是被单引号或双引号中.</p>
+<ul>
+<li>第一步：执行BEGIN{ commands }语句块中的语句；</li>
+<li>第二步：从文件或标准输入(stdin)读取一行，然后执行pattern{ commands }语句块，它逐行扫描文件，从第一行到最后一行重复这个过程，直到文件全部被读取完毕。</li>
+<li>第三步：当读至输入流末尾时，执行END{ commands }语句块。</li>
+</ul>
+<p>BEGIN语句块在awk开始从输入流中读取行之前被执行，这是一个可选的语句块，比如变量初始化、打印输出表格的表头等语句通常可以写在BEGIN语句块中。</p>
+<p>END语句块在awk从输入流中读取完所有的行之后即被执行，比如打印所有行的分析结果这类信息汇总都是在END语句块中完成，它也是一个可选语句块。</p>
+<p>Pattern语句块中的通用命令是最重要的部分，它也是可选的。如果没有提供pattern语句块，则默认执行{ print }，即打印每一个读取到的行，awk读取的每一行都会执行该语句块。</p>
+<p>action 在{}内指定，一般用来打印，也可以是一个代码段。也就是commands</p>
+<pre><code class="shell">[root@Leonardo-iWzl-Server ~]# awk --help
+Usage: awk [POSIX or GNU style options] -f progfile [--] file ...
+Usage: awk [POSIX or GNU style options] [--] &#39;program&#39; file ...
+POSIX options:        GNU long options: (standard)
+    -f progfile        --file=progfile
+    -F fs            --field-separator=fs
+    -v var=val        --assign=var=val
+Short options:        GNU long options: (extensions)
+    -b            --characters-as-bytes
+    -c            --traditional
+    -C            --copyright
+    -d[file]        --dump-variables[=file]
+    -e &#39;program-text&#39;    --source=&#39;program-text&#39;
+    -E file            --exec=file
+    -g            --gen-pot
+    -h            --help
+    -L [fatal]        --lint[=fatal]
+    -n            --non-decimal-data
+    -N            --use-lc-numeric
+    -O            --optimize
+    -p[file]        --profile[=file]
+    -P            --posix
+    -r            --re-interval
+    -S            --sandbox
+    -t            --lint-old
+    -V            --version</code></pre>
+<h4 id="内建参数"><a href="#内建参数" class="headerlink" title="内建参数"></a>内建参数</h4><table>
+<thead>
+<tr>
+<th align="left">变量</th>
+<th align="left">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">$n</td>
+<td align="left">当前记录的第n个字段，字段间由FS分隔</td>
+</tr>
+<tr>
+<td align="left">$0</td>
+<td align="left">完整的输入记录</td>
+</tr>
+<tr>
+<td align="left">ARGC</td>
+<td align="left">命令行参数的数目</td>
+</tr>
+<tr>
+<td align="left">ARGIND</td>
+<td align="left">命令行中当前文件的位置(从0开始算)</td>
+</tr>
+<tr>
+<td align="left">ARGV</td>
+<td align="left">包含命令行参数的数组</td>
+</tr>
+<tr>
+<td align="left">CONVFMT</td>
+<td align="left">数字转换格式(默认值为%.6g)ENVIRON环境变量关联数组</td>
+</tr>
+<tr>
+<td align="left">ERRNO</td>
+<td align="left">最后一个系统错误的描述</td>
+</tr>
+<tr>
+<td align="left">FIELDWIDTHS</td>
+<td align="left">字段宽度列表(用空格键分隔)</td>
+</tr>
+<tr>
+<td align="left">FILENAME</td>
+<td align="left">当前文件名</td>
+</tr>
+<tr>
+<td align="left">FNR</td>
+<td align="left">各文件分别计数的行号</td>
+</tr>
+<tr>
+<td align="left">FS</td>
+<td align="left">字段分隔符(默认是任何空格)</td>
+</tr>
+<tr>
+<td align="left">IGNORECASE</td>
+<td align="left">如果为真，则进行忽略大小写的匹配</td>
+</tr>
+<tr>
+<td align="left">NF</td>
+<td align="left">一条记录的字段的数目</td>
+</tr>
+<tr>
+<td align="left">NR</td>
+<td align="left">已经读出的记录数，就是行号，从1开始</td>
+</tr>
+<tr>
+<td align="left">OFMT</td>
+<td align="left">数字的输出格式(默认值是%.6g)</td>
+</tr>
+<tr>
+<td align="left">OFS</td>
+<td align="left">输出记录分隔符（输出换行符），输出时用指定的符号代替换行符</td>
+</tr>
+<tr>
+<td align="left">ORS</td>
+<td align="left">输出记录分隔符(默认值是一个换行符)</td>
+</tr>
+<tr>
+<td align="left">RLENGTH</td>
+<td align="left">由match函数所匹配的字符串的长度</td>
+</tr>
+<tr>
+<td align="left">RS</td>
+<td align="left">记录分隔符(默认是一个换行符)</td>
+</tr>
+<tr>
+<td align="left">RSTART</td>
+<td align="left">由match函数所匹配的字符串的第一个位置</td>
+</tr>
+<tr>
+<td align="left">SUBSEP</td>
+<td align="left">数组下标分隔符(默认值是/034)</td>
+</tr>
+</tbody></table>
+<h4 id="运算支持"><a href="#运算支持" class="headerlink" title="运算支持"></a>运算支持</h4><table>
+<thead>
+<tr>
+<th align="left">运算符</th>
+<th align="left">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">= += -= <em>= /= %= ^= *</em>=</td>
+<td align="left">赋值</td>
+</tr>
+<tr>
+<td align="left">?:</td>
+<td align="left">C条件表达式</td>
+</tr>
+<tr>
+<td align="left">||</td>
+<td align="left">逻辑或</td>
+</tr>
+<tr>
+<td align="left">&amp;&amp;</td>
+<td align="left">逻辑与</td>
+</tr>
+<tr>
+<td align="left">~ 和 !~</td>
+<td align="left">匹配正则表达式和不匹配正则表达式</td>
+</tr>
+<tr>
+<td align="left">&lt; &lt;= &gt; &gt;= != ==</td>
+<td align="left">关系运算符</td>
+</tr>
+<tr>
+<td align="left">空格</td>
+<td align="left">连接</td>
+</tr>
+<tr>
+<td align="left">+ -</td>
+<td align="left">加，减</td>
+</tr>
+<tr>
+<td align="left">* / %</td>
+<td align="left">乘，除与求余</td>
+</tr>
+<tr>
+<td align="left">+ - !</td>
+<td align="left">一元加，减和逻辑非</td>
+</tr>
+<tr>
+<td align="left">^ ***</td>
+<td align="left">求幂</td>
+</tr>
+<tr>
+<td align="left">++ –</td>
+<td align="left">增加或减少，作为前缀或后缀</td>
+</tr>
+<tr>
+<td align="left">$</td>
+<td align="left">字段引用</td>
+</tr>
+<tr>
+<td align="left">in</td>
+<td align="left">数组成员</td>
+</tr>
+</tbody></table>
+<p>Demo文案</p>
+<pre><code class="shell">[root@Leonardo-iWzl-Server ~]# cat demo.log
+小米 20 成都 172 60 女
+小张 21 杭州 182 79 男
+小文 19 长沙 178 70 男
+小紫 22 北京 168 50 女</code></pre>
+<h4 id="输出指定位置的文档"><a href="#输出指定位置的文档" class="headerlink" title="输出指定位置的文档"></a>输出指定位置的文档</h4><pre><code class="shell">[root@Leonardo-iWzl-Server ~]# cat demo.log |awk &#39;{print $1,$3,$5}&#39;
+小米 成都 60
+小张 杭州 79
+小文 长沙 70
+小紫 北京 50</code></pre>
+<h4 id="指定分隔符输出文档"><a href="#指定分隔符输出文档" class="headerlink" title="指定分隔符输出文档"></a>指定分隔符输出文档</h4><pre><code class="shell"># 使用&quot;1&quot;分割
+[root@Leonardo-iWzl-Server ~]# cat demo.log |awk -F 1 &#39;{print $1}&#39;
+小米 20 成都
+小张 2
+小文
+小紫 22 北京
+
+# 或者使用内建变量
+[root@Leonardo-iWzl-Server ~]# cat demo.log |awk &#39;BEGIN{FS=&#39;1&#39;} {print $1}&#39;
+小米 20 成都
+小张 2
+小文
+小紫 22 北京
+
+# 使用多个分隔符.先使用&quot;1&quot;分割，然后对分割结果再使用&quot;0&quot;分割
+[root@Leonardo-iWzl-Server ~]# cat demo.log |awk -F &#39;[10]&#39; &#39;{print $1}&#39;
+小米 2
+小张 2
+小文
+小紫 22 北京
+
+# 或者使用内建变量
+[root@Leonardo-iWzl-Server ~]# cat demo.log |awk &#39;BEGIN{FS=&quot;[10]&quot;} {print $1}&#39;
+小米 2
+小张 2
+小文
+小紫 22 北京</code></pre>
+<h4 id="设置计算参数并输出文档"><a href="#设置计算参数并输出文档" class="headerlink" title="设置计算参数并输出文档"></a>设置计算参数并输出文档</h4><pre><code class="shell">#awk -v 设置变量
+[root@Leonardo-iWzl-Server ~]# cat demo.log |awk -v a=100 &#39;{print $1,$2,a-$2}&#39;
+小米 20 80
+小张 21 79
+小文 19 81
+小紫 22 78</code></pre>
+]]></content>
+      <categories>
+        <category>Tips</category>
+      </categories>
+      <tags>
+        <tag>Liunx</tag>
+        <tag>Tools</tag>
+        <tag>Shell</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>CentOS下Nginx支持SSL协议的编译安装</title>
+    <url>/2020/07/04/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Nginx-under-CentOS-installation/</url>
+    <content><![CDATA[<h2 id="Nginx及其衍生的其他相关优秀开源产品"><a href="#Nginx及其衍生的其他相关优秀开源产品" class="headerlink" title="Nginx及其衍生的其他相关优秀开源产品"></a>Nginx及其衍生的其他相关优秀开源产品</h2><ul>
+<li><a href="http://nginx.org/" target="_blank" rel="noopener">NGINX</a> 是开源、高性能、高可靠的 Web 和反向代理服务器</li>
+<li><a href="https://tengine.taobao.org/" target="_blank" rel="noopener">Tengine</a> Tengine是由淘宝网发起基于Nginx的Web服务器项目</li>
+<li><a href="https://openresty.org/cn/" target="_blank" rel="noopener">OpenResty</a> OpenResty® 是一个基于 Nginx 与 Lua 的高性能 Web 平台</li>
+</ul>
+<h2 id="下载Nginx稳定版包并解压"><a href="#下载Nginx稳定版包并解压" class="headerlink" title="下载Nginx稳定版包并解压"></a>下载Nginx稳定版包并解压</h2><pre><code class="bash">wget http://nginx.org/download/nginx-x.x.x.tar.gz
+tar zxvf nginx-x.x.x.tar.gz
+cd nginx-x.x.x</code></pre>
+<a id="more"></a>
+
+<h2 id="补全需要的库依赖"><a href="#补全需要的库依赖" class="headerlink" title="补全需要的库依赖"></a>补全需要的库依赖</h2><pre><code class="bash">yum install gcc-c++
+yum install -y pcre pcre-devel
+yum install -y zlib zlib-devel
+yum install -y openssl openssl-devel</code></pre>
+<h2 id="执行编译安装"><a href="#执行编译安装" class="headerlink" title="执行编译安装"></a>执行编译安装</h2><p>所有文件放在同一个位置,便于统一管理</p>
+<pre><code class="bash">./configure --prefix=/usr/local/nginx  \
+--conf-path=/usr/local/nginx/etc/nginx.conf  \
+--user=nginx --group=nginx  \
+--error-log-path=/usr/local/nginx/nginxlog/error.log  \
+--http-log-path=/usr/local/nginx/nginxlog/access.log  \
+--pid-path=/usr/local/nginx/pids/nginx.pid  \
+--lock-path=/usr/local/nginx/locks/nginx.lock  \
+--with-http_ssl_module  \
+--with-http_stub_status_module  \
+--with-http_gzip_static_module  \
+--http-client-body-temp-path=/usr/local/nginx/tmp/client  \
+--http-proxy-temp-path=/usr/local/nginx/tmp/proxy  \
+--http-fastcgi-temp-path=/usr/local/nginx/tmp/fastcgi  \
+--http-uwsgi-temp-path=/usr/local/nginx/tmp/uwsgi  \
+--http-scgi-temp-path=/usr/local/nginx/tmp/scgi</code></pre>
+<p>编译结果</p>
+<pre><code class="bash">Configuration summary
+  + using system PCRE library
+  + using system OpenSSL library
+  + using system zlib library
+
+  nginx path prefix: &quot;/usr/local/nginx&quot;
+  nginx binary file: &quot;/usr/local/nginx/sbin/nginx&quot;
+  nginx modules path: &quot;/usr/local/nginx/modules&quot;
+  nginx configuration prefix: &quot;/usr/local/nginx/etc&quot;
+  nginx configuration file: &quot;/usr/local/nginx/etc/nginx.conf&quot;
+  nginx pid file: &quot;/usr/local/nginx/pids/nginx.pid&quot;
+  nginx error log file: &quot;/usr/local/nginx/nginxlog/error.log&quot;
+  nginx http access log file: &quot;/usr/local/nginx/nginxlog/access.log&quot;
+  nginx http client request body temporary files: &quot;/usr/local/nginx/tmp/client&quot;
+  nginx http proxy temporary files: &quot;/usr/local/nginx/tmp/proxy&quot;
+  nginx http fastcgi temporary files: &quot;/usr/local/nginx/tmp/fastcgi&quot;
+  nginx http uwsgi temporary files: &quot;/usr/local/nginx/tmp/uwsgi&quot;
+  nginx http scgi temporary files: &quot;/usr/local/nginx/tmp/scgi</code></pre>
+<p>执行安装</p>
+<pre><code class="bash">make &amp;&amp; make install</code></pre>
+<h2 id="安装后处理"><a href="#安装后处理" class="headerlink" title="安装后处理"></a>安装后处理</h2><p>查看文件结构</p>
+<pre><code class="bash">cd /usr/local/nginx/
+tree
+.
+├── etc
+│   ├── fastcgi.conf
+│   ├── fastcgi.conf.default
+│   ├── fastcgi_params
+│   ├── fastcgi_params.default
+│   ├── koi-utf
+│   ├── koi-win
+│   ├── mime.types
+│   ├── mime.types.default
+│   ├── nginx.conf
+│   ├── nginx.conf.default
+│   ├── scgi_params
+│   ├── scgi_params.default
+│   ├── uwsgi_params
+│   ├── uwsgi_params.default
+│   └── win-utf
+├── html
+│   ├── 50x.html
+│   └── index.html
+├── nginxlog
+├── pids
+└── sbin
+    └── nginx</code></pre>
+<p>完善Nginx目录结构</p>
+<pre><code class="bash">mkdir -pv /usr/local/nginx/tmp/{client,proxy,fastcgi,uwsgi,scgi}</code></pre>
+<h2 id="Nginx启动和监听"><a href="#Nginx启动和监听" class="headerlink" title="Nginx启动和监听"></a>Nginx启动和监听</h2><pre><code class="bash"># 启动
+/usr/local/nginx/sbin/nginx
+# 检查是否启动
+ss -tnlp | grep :80</code></pre>
+]]></content>
+      <categories>
+        <category>Nginx</category>
+      </categories>
+      <tags>
+        <tag>Liunx</tag>
+        <tag>CentOS</tag>
+        <tag>Nginx</tag>
+        <tag>Server</tag>
       </tags>
   </entry>
   <entry>
@@ -1161,370 +1740,6 @@ xsi:schemaLocation=&quot;http://maven.apache.org/POM/4.0.0http://maven.apache.or
       </tags>
   </entry>
   <entry>
-    <title>Liuns系统高效文件处理三剑客-Grep/Awk/Sed</title>
-    <url>/2020/08/14/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Liunx-Tips-001-Grep-Awk-Sed/</url>
-    <content><![CDATA[<blockquote>
-<p><strong>子曰：“工欲善其事，必先利其器。居是邦也，事其大夫之贤者，友其士之仁者。”</strong> –论语·卫灵公</p>
-</blockquote>
-<h3 id="Grep"><a href="#Grep" class="headerlink" title="Grep"></a>Grep</h3><p><a href="https://zh.wikipedia.org/wiki/Grep" target="_blank" rel="noopener">Grep</a>(global search regular expression(RE) and print out the line)是一款强大的文本搜索工具，支持正则表达式。来自Unix文本编辑器ed类似操作的命令,最初用于Unix操作系统的命令行工具。在给出文件列表或标准输入后，grep会对匹配一个或多个正则表达式的文本进行搜索，并只输出匹配（或者不匹配）的行或文本。</p>
-<pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# grep --help
-用法: grep [选项]... PATTERN [FILE]...
-Search for PATTERN in each FILE.
-Example: grep -i &#39;hello world&#39; menu.h main.c</code></pre>
-<a id="more"></a>
-
-<pre><code class="shell">Pattern selection and interpretation:
-  -E, --extended-regexp     PATTERN is an extended regular expression
-  -F, --fixed-strings       PATTERN is a set of newline-separated strings
-  -G, --basic-regexp        PATTERN is a basic regular expression (default)
-  -P, --perl-regexp         PATTERN is a Perl regular expression
-  -e, --regexp=PATTERN      用 PATTERN 来进行匹配操作
-  -f, --file=FILE           从 FILE 中取得 PATTERN
-  -i, --ignore-case         忽略大小写
-  -w, --word-regexp         强制 PATTERN 仅完全匹配字词
-  -x, --line-regexp         强制 PATTERN 仅完全匹配一行
-  -z, --null-data           一个 0 字节的数据行，但不是空行
-
-杂项:
-  -s, --no-messages         不显示错误信息
-  -v, --invert-match        选中不匹配的行
-  -V, --version             显示版本信息并退出
-      --help                显示此帮助并退出
-
-Output control:
-  -m, --max-count=NUM       stop after NUM selected lines
-  -b, --byte-offset         print the byte offset with output lines
-  -n, --line-number         print line number with output lines
-      --line-buffered       flush output on every line
-  -H, --with-filename       print file name with output lines
-  -h, --no-filename         suppress the file name prefix on output
-      --label=LABEL         use LABEL as the standard input file name prefix
-  -o, --only-matching       只显示匹配PATTERN 部分的行
-  -q, --quiet, --silent     不显示所有常规输出
-      --binary-files=TYPE   设定二进制文件的TYPE 类型；
-                            TYPE 可以是`binary&#39;, `text&#39;, 或`without-match&#39;
-  -a, --text                等同于 --binary-files=text
-  -I                        equivalent to --binary-files=without-match
-  -d, --directories=ACTION  how to handle directories;
-                            ACTION is &#39;read&#39;, &#39;recurse&#39;, or &#39;skip&#39;
-  -D, --devices=ACTION      how to handle devices, FIFOs and sockets;
-                            ACTION is &#39;read&#39; or &#39;skip&#39;
-  -r, --recursive           like --directories=recurse
-  -R, --dereference-recursive
-                            likewise, but follow all symlinks
-      --include=FILE_PATTERN
-                            search only files that match FILE_PATTERN
-      --exclude=FILE_PATTERN
-                            skip files and directories matching FILE_PATTERN
-      --exclude-from=FILE   skip files matching any file pattern from FILE
-      --exclude-dir=PATTERN directories that match PATTERN will be skipped.
-  -L, --files-without-match print only names of FILEs with no selected lines
-  -l, --files-with-matches  print only names of FILEs with selected lines
-  -c, --count               print only a count of selected lines per FILE
-
-文件控制:
-  -B, --before-context=NUM  打印文本及其前面NUM 行
-  -A, --after-context=NUM   打印文本及其后面NUM 行
-  -C, --context=NUM         打印NUM 行输出文本
-  -NUM                      same as --context=NUM
-      --group-separator=SEP use SEP as a group separator
-      --no-group-separator  use empty string as a group separator
-      --color[=WHEN],
-      --colour[=WHEN]       use markers to highlight the matching strings;
-                            WHEN is &#39;always&#39;, &#39;never&#39;, or &#39;auto&#39;
-  -U, --binary              do not strip CR characters at EOL (MSDOS/Windows)</code></pre>
-<p>常用参数:</p>
-<pre><code class="shell">            -v        取反
-            -i        忽略大小写
-            -c        符合条件的行数
-            -n        输出的同时打印行号
-            ^*        以*开头         
-            *$         以*结尾 
-            ^$         空行 
-
-            -a        不忽略二进制数据
-            -A&lt;n&gt;     除了显示匹配的行外，还显示之后的n行
-            -b        在符合条件的行之前，显示该行第一个字符的编号</code></pre>
-<p>Demo文案</p>
-<pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log
-I came;
-I saw;
-i conquered.
-
-我来了，我看到了，我征服了.   ——凯撒大帝</code></pre>
-<h4 id="查找符合条件的行"><a href="#查找符合条件的行" class="headerlink" title="查找符合条件的行"></a>查找符合条件的行</h4><pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log |grep &#39;I&#39;
-I came;
-I saw;</code></pre>
-<h4 id="查找符合条件的行数"><a href="#查找符合条件的行数" class="headerlink" title="查找符合条件的行数"></a>查找符合条件的行数</h4><pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log |grep &#39;I&#39; -c
-2</code></pre>
-<h4 id="查找不符合条件的行"><a href="#查找不符合条件的行" class="headerlink" title="查找不符合条件的行"></a>查找不符合条件的行</h4><pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log |grep &#39;I&#39; -v
-i conquered.
-
-我来了，我看到了，我征服了.   ——凯撒大帝</code></pre>
-<h4 id="忽略大小写查找"><a href="#忽略大小写查找" class="headerlink" title="忽略大小写查找"></a>忽略大小写查找</h4><pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log |grep &#39;I&#39; -i
-I came;
-I saw;
-i conquered.</code></pre>
-<h4 id="查找符合条件的行并输出行号"><a href="#查找符合条件的行并输出行号" class="headerlink" title="查找符合条件的行并输出行号"></a>查找符合条件的行并输出行号</h4><pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log |grep &#39;I&#39; -n
-1:I came;
-2:I saw;</code></pre>
-<h4 id="以’-’开头的查询"><a href="#以’-’开头的查询" class="headerlink" title="以’*’开头的查询"></a>以’*’开头的查询</h4><pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log |grep &#39;^I&#39;
-I came;
-I saw;</code></pre>
-<h4 id="以’-’结尾的查询"><a href="#以’-’结尾的查询" class="headerlink" title="以’*’结尾的查询"></a>以’*’结尾的查询</h4><pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log |grep &#39;; $&#39;
-I came;
-I saw;</code></pre>
-<hr>
-<h3 id="Awk"><a href="#Awk" class="headerlink" title="Awk"></a>Awk</h3><p>Awk不仅仅是一个小工具，也可以算得上一种小型的编程语言了，支持if判断分支和while循环语句还有它的内置函数等，是一个要比grep和sed更强大的文本处理工具，但也就意味着要学习的东西更多了。由 Alfred Aho 、Peter Weinberger 和 Brian Kernighan 创始,并以姓氏的首个字母命名.</p>
-<h4 id="基本结构和执行"><a href="#基本结构和执行" class="headerlink" title="基本结构和执行"></a>基本结构和执行</h4><pre><code class="shell">awk &#39;{[pattern] action}&#39; {filenames}  
-awk &#39;BEGIN{ commands } pattern{ commands } END{ commands }&#39; {filenames}  </code></pre>
-<p>Awk脚本通常由：BEGIN语句块、能够使用模式匹配的通用语句块、END语句块3部分组成，这三个部分是可选的。任意一个部分都可以不出现在脚本中，脚本通常是被单引号或双引号中.</p>
-<ul>
-<li>第一步：执行BEGIN{ commands }语句块中的语句；</li>
-<li>第二步：从文件或标准输入(stdin)读取一行，然后执行pattern{ commands }语句块，它逐行扫描文件，从第一行到最后一行重复这个过程，直到文件全部被读取完毕。</li>
-<li>第三步：当读至输入流末尾时，执行END{ commands }语句块。</li>
-</ul>
-<p>BEGIN语句块在awk开始从输入流中读取行之前被执行，这是一个可选的语句块，比如变量初始化、打印输出表格的表头等语句通常可以写在BEGIN语句块中。</p>
-<p>END语句块在awk从输入流中读取完所有的行之后即被执行，比如打印所有行的分析结果这类信息汇总都是在END语句块中完成，它也是一个可选语句块。</p>
-<p>Pattern语句块中的通用命令是最重要的部分，它也是可选的。如果没有提供pattern语句块，则默认执行{ print }，即打印每一个读取到的行，awk读取的每一行都会执行该语句块。</p>
-<p>action 在{}内指定，一般用来打印，也可以是一个代码段。也就是commands</p>
-<pre><code class="shell">[root@Leonardo-iWzl-Server ~]# awk --help
-Usage: awk [POSIX or GNU style options] -f progfile [--] file ...
-Usage: awk [POSIX or GNU style options] [--] &#39;program&#39; file ...
-POSIX options:        GNU long options: (standard)
-    -f progfile        --file=progfile
-    -F fs            --field-separator=fs
-    -v var=val        --assign=var=val
-Short options:        GNU long options: (extensions)
-    -b            --characters-as-bytes
-    -c            --traditional
-    -C            --copyright
-    -d[file]        --dump-variables[=file]
-    -e &#39;program-text&#39;    --source=&#39;program-text&#39;
-    -E file            --exec=file
-    -g            --gen-pot
-    -h            --help
-    -L [fatal]        --lint[=fatal]
-    -n            --non-decimal-data
-    -N            --use-lc-numeric
-    -O            --optimize
-    -p[file]        --profile[=file]
-    -P            --posix
-    -r            --re-interval
-    -S            --sandbox
-    -t            --lint-old
-    -V            --version</code></pre>
-<h4 id="内建参数"><a href="#内建参数" class="headerlink" title="内建参数"></a>内建参数</h4><table>
-<thead>
-<tr>
-<th align="left">变量</th>
-<th align="left">描述</th>
-</tr>
-</thead>
-<tbody><tr>
-<td align="left">$n</td>
-<td align="left">当前记录的第n个字段，字段间由FS分隔</td>
-</tr>
-<tr>
-<td align="left">$0</td>
-<td align="left">完整的输入记录</td>
-</tr>
-<tr>
-<td align="left">ARGC</td>
-<td align="left">命令行参数的数目</td>
-</tr>
-<tr>
-<td align="left">ARGIND</td>
-<td align="left">命令行中当前文件的位置(从0开始算)</td>
-</tr>
-<tr>
-<td align="left">ARGV</td>
-<td align="left">包含命令行参数的数组</td>
-</tr>
-<tr>
-<td align="left">CONVFMT</td>
-<td align="left">数字转换格式(默认值为%.6g)ENVIRON环境变量关联数组</td>
-</tr>
-<tr>
-<td align="left">ERRNO</td>
-<td align="left">最后一个系统错误的描述</td>
-</tr>
-<tr>
-<td align="left">FIELDWIDTHS</td>
-<td align="left">字段宽度列表(用空格键分隔)</td>
-</tr>
-<tr>
-<td align="left">FILENAME</td>
-<td align="left">当前文件名</td>
-</tr>
-<tr>
-<td align="left">FNR</td>
-<td align="left">各文件分别计数的行号</td>
-</tr>
-<tr>
-<td align="left">FS</td>
-<td align="left">字段分隔符(默认是任何空格)</td>
-</tr>
-<tr>
-<td align="left">IGNORECASE</td>
-<td align="left">如果为真，则进行忽略大小写的匹配</td>
-</tr>
-<tr>
-<td align="left">NF</td>
-<td align="left">一条记录的字段的数目</td>
-</tr>
-<tr>
-<td align="left">NR</td>
-<td align="left">已经读出的记录数，就是行号，从1开始</td>
-</tr>
-<tr>
-<td align="left">OFMT</td>
-<td align="left">数字的输出格式(默认值是%.6g)</td>
-</tr>
-<tr>
-<td align="left">OFS</td>
-<td align="left">输出记录分隔符（输出换行符），输出时用指定的符号代替换行符</td>
-</tr>
-<tr>
-<td align="left">ORS</td>
-<td align="left">输出记录分隔符(默认值是一个换行符)</td>
-</tr>
-<tr>
-<td align="left">RLENGTH</td>
-<td align="left">由match函数所匹配的字符串的长度</td>
-</tr>
-<tr>
-<td align="left">RS</td>
-<td align="left">记录分隔符(默认是一个换行符)</td>
-</tr>
-<tr>
-<td align="left">RSTART</td>
-<td align="left">由match函数所匹配的字符串的第一个位置</td>
-</tr>
-<tr>
-<td align="left">SUBSEP</td>
-<td align="left">数组下标分隔符(默认值是/034)</td>
-</tr>
-</tbody></table>
-<h4 id="运算支持"><a href="#运算支持" class="headerlink" title="运算支持"></a>运算支持</h4><table>
-<thead>
-<tr>
-<th align="left">运算符</th>
-<th align="left">描述</th>
-</tr>
-</thead>
-<tbody><tr>
-<td align="left">= += -= <em>= /= %= ^= *</em>=</td>
-<td align="left">赋值</td>
-</tr>
-<tr>
-<td align="left">?:</td>
-<td align="left">C条件表达式</td>
-</tr>
-<tr>
-<td align="left">||</td>
-<td align="left">逻辑或</td>
-</tr>
-<tr>
-<td align="left">&amp;&amp;</td>
-<td align="left">逻辑与</td>
-</tr>
-<tr>
-<td align="left">~ 和 !~</td>
-<td align="left">匹配正则表达式和不匹配正则表达式</td>
-</tr>
-<tr>
-<td align="left">&lt; &lt;= &gt; &gt;= != ==</td>
-<td align="left">关系运算符</td>
-</tr>
-<tr>
-<td align="left">空格</td>
-<td align="left">连接</td>
-</tr>
-<tr>
-<td align="left">+ -</td>
-<td align="left">加，减</td>
-</tr>
-<tr>
-<td align="left">* / %</td>
-<td align="left">乘，除与求余</td>
-</tr>
-<tr>
-<td align="left">+ - !</td>
-<td align="left">一元加，减和逻辑非</td>
-</tr>
-<tr>
-<td align="left">^ ***</td>
-<td align="left">求幂</td>
-</tr>
-<tr>
-<td align="left">++ –</td>
-<td align="left">增加或减少，作为前缀或后缀</td>
-</tr>
-<tr>
-<td align="left">$</td>
-<td align="left">字段引用</td>
-</tr>
-<tr>
-<td align="left">in</td>
-<td align="left">数组成员</td>
-</tr>
-</tbody></table>
-<p>Demo文案</p>
-<pre><code class="shell">[root@Leonardo-iWzl-Server ~]# cat demo.log
-小米 20 成都 172 60 女
-小张 21 杭州 182 79 男
-小文 19 长沙 178 70 男
-小紫 22 北京 168 50 女</code></pre>
-<h4 id="输出指定位置的文档"><a href="#输出指定位置的文档" class="headerlink" title="输出指定位置的文档"></a>输出指定位置的文档</h4><pre><code class="shell">[root@Leonardo-iWzl-Server ~]# cat demo.log |awk &#39;{print $1,$3,$5}&#39;
-小米 成都 60
-小张 杭州 79
-小文 长沙 70
-小紫 北京 50</code></pre>
-<h4 id="指定分隔符输出文档"><a href="#指定分隔符输出文档" class="headerlink" title="指定分隔符输出文档"></a>指定分隔符输出文档</h4><pre><code class="shell"># 使用&quot;1&quot;分割
-[root@Leonardo-iWzl-Server ~]# cat demo.log |awk -F 1 &#39;{print $1}&#39;
-小米 20 成都
-小张 2
-小文
-小紫 22 北京
-
-# 或者使用内建变量
-[root@Leonardo-iWzl-Server ~]# cat demo.log |awk &#39;BEGIN{FS=&#39;1&#39;} {print $1}&#39;
-小米 20 成都
-小张 2
-小文
-小紫 22 北京
-
-# 使用多个分隔符.先使用&quot;1&quot;分割，然后对分割结果再使用&quot;0&quot;分割
-[root@Leonardo-iWzl-Server ~]# cat demo.log |awk -F &#39;[10]&#39; &#39;{print $1}&#39;
-小米 2
-小张 2
-小文
-小紫 22 北京
-
-# 或者使用内建变量
-[root@Leonardo-iWzl-Server ~]# cat demo.log |awk &#39;BEGIN{FS=&quot;[10]&quot;} {print $1}&#39;
-小米 2
-小张 2
-小文
-小紫 22 北京</code></pre>
-<h4 id="设置计算参数并输出文档"><a href="#设置计算参数并输出文档" class="headerlink" title="设置计算参数并输出文档"></a>设置计算参数并输出文档</h4><pre><code class="shell">#awk -v 设置变量
-[root@Leonardo-iWzl-Server ~]# cat demo.log |awk -v a=100 &#39;{print $1,$2,a-$2}&#39;
-小米 20 80
-小张 21 79
-小文 19 81
-小紫 22 78</code></pre>
-]]></content>
-      <categories>
-        <category>Tips</category>
-      </categories>
-      <tags>
-        <tag>Liunx</tag>
-        <tag>Tools</tag>
-        <tag>Shell</tag>
-      </tags>
-  </entry>
-  <entry>
     <title>高并发网络应用的关键-Unix系统下的五种IO模型</title>
     <url>/2020/11/22/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Unix-IO-5-Model/</url>
     <content><![CDATA[<p>Unix 中提供了五种 IO 模型，分别是<strong>阻塞式IO、非阻塞式IO、IO复用、信号驱动式IO、异步IO</strong>。</p>
@@ -1545,221 +1760,6 @@ Short options:        GNU long options: (extensions)
       <tags>
         <tag>Unix</tag>
         <tag>IO</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>CentOS下Nginx支持SSL协议的编译安装</title>
-    <url>/2020/07/04/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Nginx-under-CentOS-installation/</url>
-    <content><![CDATA[<h2 id="Nginx及其衍生的其他相关优秀开源产品"><a href="#Nginx及其衍生的其他相关优秀开源产品" class="headerlink" title="Nginx及其衍生的其他相关优秀开源产品"></a>Nginx及其衍生的其他相关优秀开源产品</h2><ul>
-<li><a href="http://nginx.org/" target="_blank" rel="noopener">NGINX</a> 是开源、高性能、高可靠的 Web 和反向代理服务器</li>
-<li><a href="https://tengine.taobao.org/" target="_blank" rel="noopener">Tengine</a> Tengine是由淘宝网发起基于Nginx的Web服务器项目</li>
-<li><a href="https://openresty.org/cn/" target="_blank" rel="noopener">OpenResty</a> OpenResty® 是一个基于 Nginx 与 Lua 的高性能 Web 平台</li>
-</ul>
-<h2 id="下载Nginx稳定版包并解压"><a href="#下载Nginx稳定版包并解压" class="headerlink" title="下载Nginx稳定版包并解压"></a>下载Nginx稳定版包并解压</h2><pre><code class="bash">wget http://nginx.org/download/nginx-x.x.x.tar.gz
-tar zxvf nginx-x.x.x.tar.gz
-cd nginx-x.x.x</code></pre>
-<a id="more"></a>
-
-<h2 id="补全需要的库依赖"><a href="#补全需要的库依赖" class="headerlink" title="补全需要的库依赖"></a>补全需要的库依赖</h2><pre><code class="bash">yum install gcc-c++
-yum install -y pcre pcre-devel
-yum install -y zlib zlib-devel
-yum install -y openssl openssl-devel</code></pre>
-<h2 id="执行编译安装"><a href="#执行编译安装" class="headerlink" title="执行编译安装"></a>执行编译安装</h2><p>所有文件放在同一个位置,便于统一管理</p>
-<pre><code class="bash">./configure --prefix=/usr/local/nginx  \
---conf-path=/usr/local/nginx/etc/nginx.conf  \
---user=nginx --group=nginx  \
---error-log-path=/usr/local/nginx/nginxlog/error.log  \
---http-log-path=/usr/local/nginx/nginxlog/access.log  \
---pid-path=/usr/local/nginx/pids/nginx.pid  \
---lock-path=/usr/local/nginx/locks/nginx.lock  \
---with-http_ssl_module  \
---with-http_stub_status_module  \
---with-http_gzip_static_module  \
---http-client-body-temp-path=/usr/local/nginx/tmp/client  \
---http-proxy-temp-path=/usr/local/nginx/tmp/proxy  \
---http-fastcgi-temp-path=/usr/local/nginx/tmp/fastcgi  \
---http-uwsgi-temp-path=/usr/local/nginx/tmp/uwsgi  \
---http-scgi-temp-path=/usr/local/nginx/tmp/scgi</code></pre>
-<p>编译结果</p>
-<pre><code class="bash">Configuration summary
-  + using system PCRE library
-  + using system OpenSSL library
-  + using system zlib library
-
-  nginx path prefix: &quot;/usr/local/nginx&quot;
-  nginx binary file: &quot;/usr/local/nginx/sbin/nginx&quot;
-  nginx modules path: &quot;/usr/local/nginx/modules&quot;
-  nginx configuration prefix: &quot;/usr/local/nginx/etc&quot;
-  nginx configuration file: &quot;/usr/local/nginx/etc/nginx.conf&quot;
-  nginx pid file: &quot;/usr/local/nginx/pids/nginx.pid&quot;
-  nginx error log file: &quot;/usr/local/nginx/nginxlog/error.log&quot;
-  nginx http access log file: &quot;/usr/local/nginx/nginxlog/access.log&quot;
-  nginx http client request body temporary files: &quot;/usr/local/nginx/tmp/client&quot;
-  nginx http proxy temporary files: &quot;/usr/local/nginx/tmp/proxy&quot;
-  nginx http fastcgi temporary files: &quot;/usr/local/nginx/tmp/fastcgi&quot;
-  nginx http uwsgi temporary files: &quot;/usr/local/nginx/tmp/uwsgi&quot;
-  nginx http scgi temporary files: &quot;/usr/local/nginx/tmp/scgi</code></pre>
-<p>执行安装</p>
-<pre><code class="bash">make &amp;&amp; make install</code></pre>
-<h2 id="安装后处理"><a href="#安装后处理" class="headerlink" title="安装后处理"></a>安装后处理</h2><p>查看文件结构</p>
-<pre><code class="bash">cd /usr/local/nginx/
-tree
-.
-├── etc
-│   ├── fastcgi.conf
-│   ├── fastcgi.conf.default
-│   ├── fastcgi_params
-│   ├── fastcgi_params.default
-│   ├── koi-utf
-│   ├── koi-win
-│   ├── mime.types
-│   ├── mime.types.default
-│   ├── nginx.conf
-│   ├── nginx.conf.default
-│   ├── scgi_params
-│   ├── scgi_params.default
-│   ├── uwsgi_params
-│   ├── uwsgi_params.default
-│   └── win-utf
-├── html
-│   ├── 50x.html
-│   └── index.html
-├── nginxlog
-├── pids
-└── sbin
-    └── nginx</code></pre>
-<p>完善Nginx目录结构</p>
-<pre><code class="bash">mkdir -pv /usr/local/nginx/tmp/{client,proxy,fastcgi,uwsgi,scgi}</code></pre>
-<h2 id="Nginx启动和监听"><a href="#Nginx启动和监听" class="headerlink" title="Nginx启动和监听"></a>Nginx启动和监听</h2><pre><code class="bash"># 启动
-/usr/local/nginx/sbin/nginx
-# 检查是否启动
-ss -tnlp | grep :80</code></pre>
-]]></content>
-      <categories>
-        <category>Nginx</category>
-      </categories>
-      <tags>
-        <tag>Liunx</tag>
-        <tag>CentOS</tag>
-        <tag>Nginx</tag>
-        <tag>Server</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>IM系统的可靠性保障方案设计</title>
-    <url>/2021/03/23/%E5%8F%8A%E6%97%B6%E9%80%9A%E8%AE%AF/IM%E7%B3%BB%E7%BB%9F%E7%9A%84%E5%8F%AF%E9%9D%A0%E6%80%A7%E4%BF%9D%E9%9A%9C%E6%96%B9%E6%A1%88%E8%AE%BE%E8%AE%A1/</url>
-    <content><![CDATA[<div id="hexo-blog-encrypt" data-wpm="Oh, this is an invalid password. Check and try again, please." data-whm="OOPS, these decrypted content may changed, but you can still have a look.">
-  <div class="hbe-input-container">
-  <input type="password" id="hbePass" placeholder="" />
-    <label for="hbePass">输入密码，查看文章</label>
-    <div class="bottom-line"></div>
-  </div>
-  <script id="hbeData" type="hbeData" data-hmacdigest="eec786a40cf7aea934fb8b407653c706146aee44047d4f82cd2f941341428254">ff2aa2f000186a9810700fce1416f63b</script>
-</div>
-<script src="/lib/blog-encrypt.js"></script><link href="/css/blog-encrypt.css" rel="stylesheet" type="text/css">]]></content>
-      <categories>
-        <category>及时通讯</category>
-      </categories>
-      <tags>
-        <tag>及时通讯</tag>
-        <tag>系统架构</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>支持亿级消息的IM系统模块设计</title>
-    <url>/2021/03/23/%E5%8F%8A%E6%97%B6%E9%80%9A%E8%AE%AF/%E6%94%AF%E6%8C%81%E4%BA%BF%E7%BA%A7%E7%94%A8%E6%88%B7%E7%9A%84IM%E7%B3%BB%E7%BB%9F%E6%A8%A1%E5%9D%97%E8%AE%BE%E8%AE%A1/</url>
-    <content><![CDATA[<h1 id="支持亿级用户的IM系统模块设计"><a href="#支持亿级用户的IM系统模块设计" class="headerlink" title="支持亿级用户的IM系统模块设计"></a>支持亿级用户的IM系统模块设计</h1><p>现代实现的及时通讯系统一般由长连接和短连接配合使用进行实现，一般的实现架构即Connector和Service两个部分,分别对应长连接服务和短连接服务，<strong>长连接服务主要用于服务端对客户端的推送和新消息到达的通知</strong>，<strong>短连接服务主要用于客户端对于消息的拉取和离线(在线)消息的同步</strong>。当用户数据量增大时,其很容易就会出现以下的缺陷:</p>
-<ul>
-<li><strong>复杂性高</strong>：每个模块服务包含的功能职责增多、模块的边界模糊、 依赖关系不清晰、 代码质量参差不齐、 混乱地堆砌在一起。</li>
-<li><strong>可靠性缺失</strong>： 某个核心服务出现问题，例如死循环、内存溢出等， 可能会导致整个系统不能正常使用。</li>
-<li><strong>拓展成本增大</strong>： 当用户体量增大时,部分服务功能会成为系统瓶颈,当进行服务扩容时,因为部分功能瓶颈的原因，就需要将整个服务进行拓展，带来不需要的成本开销。</li>
-</ul>
-<p>为此就需要对常见IM系统架构进行更加细化的服务拆分,以下就IM服务功能拆分提供参考</p>
-<a id="more"></a>
-
-<h2 id="技术指标"><a href="#技术指标" class="headerlink" title="技术指标"></a>技术指标</h2><ul>
-<li><strong>高可靠</strong>：确保不丢消息；</li>
-<li><strong>高可用</strong>：任意机房或者服务器挂掉，不影响服务；</li>
-<li><strong>实时性</strong>：不管用户在哪里，在线用户消息在1秒内达到（我们实际是75%消息可以做到120ms）；</li>
-<li><strong>有序性</strong>：确保用户消息的有序性，不会出现发送和接受的乱序。</li>
-</ul>
-<h2 id="架构拆分"><a href="#架构拆分" class="headerlink" title="架构拆分"></a>架构拆分</h2><p>当需要满足亿级用户量的IM架构时，需要将IM服务的进行更加精细化的服务拆分</p>
-<ul>
-<li><strong>业务系统</strong>：服务及时通讯的业务逻辑</li>
-<li><strong>信令系统</strong>：负责用户登录，用户在线状态的维护，以及在线用户的下行推送</li>
-<li><strong>推送系统</strong>：负责消息的在线推送和离线推送</li>
-<li><strong>持久化系统</strong>：负责消息和文件的存储和查询</li>
-</ul>
-<img src="https://img.hellobyebye.com/doc/2021032318255616164951561616495156116dGPQS7.png" alt="服务架构拆分"/>
-
-<h3 id="业务系统"><a href="#业务系统" class="headerlink" title="业务系统"></a><strong>业务系统</strong></h3><p>业务系统的详细来说在于<strong>专注处理IM相关的业务逻辑</strong>，主要使用短连接进行实现(HTTP协议)</p>
-<ul>
-<li>消息发送的鉴权和支持(optional)：客户端通过短连接发送消息</li>
-<li>维护用户数据：用户基本信息等</li>
-<li>维护好友关系：好友请求、好友列表、好友信息等</li>
-<li>维护群组信息：群创建、解散、成员管理等</li>
-<li>提供数据：在线消息(optional)、离线拉取、历史记录同步</li>
-<li>其它逻辑：比如通过存储和推送系统，存储消息和发送通知</li>
-</ul>
-<p>其功能和实际的架构可以根据具体的业务量和自身的系统架构进行更加细化的服务细分</p>
-<h3 id="信令系统"><a href="#信令系统" class="headerlink" title="信令系统"></a><strong>信令系统</strong></h3><p>对于IM系统来说，是最主要和最核心的需求和职责，主要维护服务端与客户端的长连接(socket)，其主要职责包含以下3个部分</p>
-<h4 id="维护用户在线状态"><a href="#维护用户在线状态" class="headerlink" title="维护用户在线状态"></a><strong>维护用户在线状态</strong></h4><p>当用户体量大时，需要建立大量的Socket连接和用户接入，为此单台机器是不能满足业务需求的，其落地和必然是集群化的服务，多台服务未用户提供连接服务。当用户A需要给用户B发送消息时,是需要知道用户B当前连接上了那个服务器上，然后通过该台服务器上的Socket连接向用户发送下行通知信息。</p>
-<h4 id="下行通知数据下发"><a href="#下行通知数据下发" class="headerlink" title="下行通知数据下发"></a><strong>下行通知数据下发</strong></h4><p>与维护用户在线状态的职责相关，当用户在线的时，如果有其它用户给他发消息，就需要走在线的系统推送，直接将新消息告知到客户端，而不是走离线推送信息。</p>
-<h4 id="业务协议内容的分发"><a href="#业务协议内容的分发" class="headerlink" title="业务协议内容的分发"></a><strong>业务协议内容的分发</strong></h4><p>信令服务不只可以处理IM请求，也可以处理其它类型的业务请求。为了处理不同的业务，就需要有分发能力。一般来说会使用Protobuf定义下发的业务协议，其中可能会包括SVID(Service Id)或是CMD(Commond)字段来标识消息数据类型，用户通过该标识能表明当前业务包的功能(eg:心跳和连接授权、QoS、消息到达、用户特权变更等)并交由业务服务进行处理。</p>
-<p>这样不管用户有多少的业务或是多少的实现表达，客户端与服务器端仅需要维护一个Socket连接。</p>
-<h4 id="信令服务的服务拆分"><a href="#信令服务的服务拆分" class="headerlink" title="信令服务的服务拆分"></a><strong>信令服务的服务拆分</strong></h4><p>信令系统为了实现以上这3个职责，同时要确保我们服务可平行扩展的能力和稳定性，在实际的技术实现上，我们实际上把信令服务分拆为3个服务模块。</p>
-<p><strong>- 连接授权和维护(Login服务)</strong></p>
-<ul>
-<li><em>主要负责维护用户长链接：</em></li>
-</ul>
-<p>客户端与服务器之间长连接的维护、长连接的连接认证、连接的心跳。用户完成业务模块的登陆操作后，会持有登陆完成后授权给用户Token或者相关凭证、Login服务会接受客户端的连接并对用户心跳包持有的Token进行验证、如果成功就将认证结果发送到Online服务，当授权验证不通过时,直接关闭该次连接。</p>
-<p>Login对并发要求比较高，一般要支持TCP+UDP+Websocket几种方式，单服务可以做到10-250万之间。从服务稳定性角度触发，建议是控制VM的CPU/内存，单服务器以20-50万为合适。</p>
-<p>Login服务器本身没有状态，任何一个Login服务断掉，客户端检测到以后重连另一个Login服务器并发送心跳包，对整体服务可靠性基本没有影响。</p>
-<p><strong>- 在线信息的维护和同步(Online服务)</strong></p>
-<ul>
-<li><em>主要负责维护用户的在线信息:</em></li>
-</ul>
-<p>当用户掉线或者根本不在线，Online服务里用户相关信息就是空</p>
-<p>当用户在线时，Online就能找到用户登录在哪个集群，哪个Login服务器上</p>
-<p>多个Login服务器会连接到Online，定期同步用户登录和离线信息，把用户状态信息存储在共有的存储服务中(Redis集群)。因此也是无状态的，任何一个Online服务挂掉，不影响整体服务能力。当集群规模不大，用户规模也不大时，Online服务也可以收到Login服务里去。</p>
-<p>当规模比较大，建议分拆出来，一方面简化Login的逻辑复杂度，同时避免写共有的存储服务的慢操作，在Login服务里。因为Login要同时处理50万以上的并发链接，不适合在循环里嵌入慢操作。</p>
-<p><strong>- 协议的解析和业务的路由(Route服务)</strong></p>
-<ul>
-<li><em>主要负责信令系统跟其它子系统的交互：</em></li>
-</ul>
-<p>Route下接Login服务，可以接受用户业务信息（IM），也可以往用户推送下行消息。多个后端业务系统可以接入到Route，按照服务类型（SVID、CMD）注册。</p>
-<p>IM服务可以接入到Route, 注册SVID_IM或CMD_IM。这样Login接收到SVID=SVID_IM、或者CMD_IM的消息，转发给Route，Route就可以根据SVID转发给IM相关的服务。</p>
-<p>Route只做转发，不处理具体的业务逻辑，因此也是无状态的。一个信令集群可以有多个Route服务，任何服务挂了不影响整体服务能力。</p>
-<h3 id="推送系统"><a href="#推送系统" class="headerlink" title="推送系统"></a>推送系统</h3><p>接收服务端给用户发送下行消息的请求后，通过信令服务查询用户是否在线，如果在线走信令服务器进行在线推送，如果不在线走离线推送。</p>
-<p>推送服务可能出现大规模并发蜂拥，可能会触发亿级的TPS。为此可以用Kafka或其他消息中间件做削峰。具体的服务实现模块可主要由以下4个部分组成:</p>
-<ul>
-<li>PushProxy：接受服务端给用户发送的下行消息，写入消息中间件</li>
-<li>消息中间件(Kafka)：缓存推送服务消息并做削峰，并完成消息任务的推送</li>
-<li>PushServer：监听来自消息中间件的请求，消费消息，完成用的在线、离线状态的判断，调用PushWorker</li>
-<li>PushWorker：真正推送给信令或者APNS、Firebase、或其他推送平台</li>
-</ul>
-<p>因此除了中间件以外的每个服务都是无状态的、因此也可以实现平行拓展和容错，任何服务挂点都不会对整体服务可用性产生影响。</p>
-<h3 id="持久化系统"><a href="#持久化系统" class="headerlink" title="持久化系统"></a>持久化系统</h3><p>当用户数据产生后，必然是需要伴随消息的存储和持久化的，因此持久化系统主要负责消息的存储和查询，已实现离线消息的拉取、漫游等的相关附属功能。因为消息量巨大，对存储服务的并发能力和存储量要求巨大。为了平衡性能、空间和成本，存储服务按数据的热度进行了分级和区别对待。</p>
-<ul>
-<li>短期消息(7天)：存储在Redis里</li>
-<li>近期消息(1-3个月)：存储在Mysql里，以备用户实时查询</li>
-<li>历史信息：存储在HBase里，作为历史数据慢查询</li>
-</ul>
-<p>为了应对超大群的大量消息处理，存储服务在实际的技术实现上，也做了比较细的分拆</p>
-<p><strong>具体的业务划分</strong></p>
-<ul>
-<li>MsgProxy：负责接受业务系统的存储请求，写入消息中间件</li>
-<li>MsgWriter：从消息中间件获取写请求，按需写入Redis和Mysql</li>
-<li>MsgReader：接受用户的消息查询请求，从Redis，Mysql或者HBase读数据</li>
-</ul>
-<p>部署上可能是3-4个MsgProxy，后端可以对应15个左右的MsgWriter。MsgWriter是比较慢的，需要同时操作多个数据库，还要保证操作的原子性。</p>
-]]></content>
-      <categories>
-        <category>及时通讯</category>
-      </categories>
-      <tags>
-        <tag>及时通讯</tag>
-        <tag>系统架构</tag>
       </tags>
   </entry>
 </search>
