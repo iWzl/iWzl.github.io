@@ -5,7 +5,7 @@
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
     <meta name="viewport" content="width=device-width, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>支持亿级消息的IM系统模块设计和交互模型 - 王.子靖</title>
+    <title>支持亿级消息的IM系统模块设计 - 王.子靖</title>
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="google" content="notranslate" />
@@ -57,7 +57,7 @@
     <div class="navigation animated fadeIn fast delay-1s">
         <img id="home-icon" class="icon-home" src="/img/favicon.png" alt="" data-url="https://github.com/iWzl">
         <div id="play-icon" title="Play/Pause" class="iconfont icon-play"></div>
-        <h3 class="subtitle">支持亿级消息的IM系统模块设计和交互模型</h3>
+        <h3 class="subtitle">支持亿级消息的IM系统模块设计</h3>
         <div class="social">
             <!--        <div class="like-icon">-->
             <!--            <a href="javascript:;" class="likeThis active"><span class="icon-like"></span><span class="count">76</span></a>-->
@@ -89,20 +89,20 @@
                 
                 March 23, 2021
             </p>
-            <h3 class="post-title animated fadeInDown"><a href="/2021/03/23/%E5%8F%8A%E6%97%B6%E9%80%9A%E8%AE%AF/%E6%94%AF%E6%8C%81%E4%BA%BF%E7%BA%A7%E7%94%A8%E6%88%B7%E7%9A%84IM%E7%B3%BB%E7%BB%9F%E6%A8%A1%E5%9D%97%E8%AE%BE%E8%AE%A1%E5%92%8C%E4%BA%A4%E4%BA%92%E6%A8%A1%E5%9E%8B/" title="支持亿级消息的IM系统模块设计和交互模型" class="">支持亿级消息的IM系统模块设计和交互模型</a>
+            <h3 class="post-title animated fadeInDown"><a href="/2021/03/23/%E5%8F%8A%E6%97%B6%E9%80%9A%E8%AE%AF/%E6%94%AF%E6%8C%81%E4%BA%BF%E7%BA%A7%E7%94%A8%E6%88%B7%E7%9A%84IM%E7%B3%BB%E7%BB%9F%E6%A8%A1%E5%9D%97%E8%AE%BE%E8%AE%A1/" title="支持亿级消息的IM系统模块设计" class="">支持亿级消息的IM系统模块设计</a>
             </h3>
             
             <p class="post-count animated fadeInDown">
                 
                 <span>
                     <b class="iconfont icon-text2"></b> <i>Words count</i>
-                    4.2k
+                    5.2k
                 </span>
                 
                 
                 <span>
                     <b class="iconfont icon-timer__s"></b> <i>Reading time</i>
-                    4 mins.
+                    5 mins.
                 </span>
                 
                 
@@ -194,9 +194,32 @@
 <li><em>主要负责信令系统跟其它子系统的交互：</em></li>
 </ul>
 <p>Route下接Login服务，可以接受用户业务信息（IM），也可以往用户推送下行消息。多个后端业务系统可以接入到Route，按照服务类型（SVID、CMD）注册。</p>
-<p>比如IM服务可以接入到Route, 注册SVID_IM。这样Login接收到SVID=SVID_IM的消息，转发给Route，Route就可以根据SVID转发给IM相关的服务。</p>
-<p>Route简单的根据SVID做转发，不处理具体的业务逻辑，因此也是无状态的。一个信令集群可以有多个Route服务，任何服务挂了不影响整体服务能力。</p>
-<h1 id="支持亿级用户的IM系统的交互模型"><a href="#支持亿级用户的IM系统的交互模型" class="headerlink" title="支持亿级用户的IM系统的交互模型"></a>支持亿级用户的IM系统的交互模型</h1>
+<p>IM服务可以接入到Route, 注册SVID_IM或CMD_IM。这样Login接收到SVID=SVID_IM、或者CMD_IM的消息，转发给Route，Route就可以根据SVID转发给IM相关的服务。</p>
+<p>Route只做转发，不处理具体的业务逻辑，因此也是无状态的。一个信令集群可以有多个Route服务，任何服务挂了不影响整体服务能力。</p>
+<h3 id="推送系统"><a href="#推送系统" class="headerlink" title="推送系统"></a>推送系统</h3><p>接收服务端给用户发送下行消息的请求后，通过信令服务查询用户是否在线，如果在线走信令服务器进行在线推送，如果不在线走离线推送。</p>
+<p>推送服务可能出现大规模并发蜂拥，可能会触发亿级的TPS。为此可以用Kafka或其他消息中间件做削峰。具体的服务实现模块可主要由以下4个部分组成:</p>
+<ul>
+<li>PushProxy：接受服务端给用户发送的下行消息，写入消息中间件</li>
+<li>消息中间件(Kafka)：缓存推送服务消息并做削峰，并完成消息任务的推送</li>
+<li>PushServer：监听来自消息中间件的请求，消费消息，完成用的在线、离线状态的判断，调用PushWorker</li>
+<li>PushWorker：真正推送给信令或者APNS、Firebase、或其他推送平台</li>
+</ul>
+<p>因此除了中间件以外的每个服务都是无状态的、因此也可以实现平行拓展和容错，任何服务挂点都不会对整体服务可用性产生影响。</p>
+<h3 id="持久化系统"><a href="#持久化系统" class="headerlink" title="持久化系统"></a>持久化系统</h3><p>当用户数据产生后，必然是需要伴随消息的存储和持久化的，因此持久化系统主要负责消息的存储和查询，已实现离线消息的拉取、漫游等的相关附属功能。因为消息量巨大，对存储服务的并发能力和存储量要求巨大。为了平衡性能、空间和成本，存储服务按数据的热度进行了分级和区别对待。</p>
+<ul>
+<li>短期消息(7天)：存储在Redis里</li>
+<li>近期消息(1-3个月)：存储在Mysql里，以备用户实时查询</li>
+<li>历史信息：存储在HBase里，作为历史数据慢查询</li>
+</ul>
+<p>为了应对超大群的大量消息处理，存储服务在实际的技术实现上，也做了比较细的分拆</p>
+<p><strong>具体的业务划分</strong></p>
+<ul>
+<li>MsgProxy：负责接受业务系统的存储请求，写入消息中间件</li>
+<li>MsgWriter：从消息中间件获取写请求，按需写入Redis和Mysql</li>
+<li>MsgReader：接受用户的消息查询请求，从Redis，Mysql或者HBase读数据</li>
+</ul>
+<p>部署上可能是3-4个MsgProxy，后端可以对应15个左右的MsgWriter。MsgWriter是比较慢的，需要同时操作多个数据库，还要保证操作的原子性。</p>
+
             <!--[if lt IE 9]><script>document.createElement('audio');</script><![endif]-->
             <audio id="audio" loop="1" preload="auto" controls="controls"
                 data-autoplay="false">
@@ -247,7 +270,7 @@
             <div class="box sticky animated fadeInRight faster">
                 <div id="toc" class="subbox">
                     <h4>Contents</h4>
-                    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#支持亿级用户的IM系统模块设计"><span class="toc-number">1.</span> <span class="toc-text">支持亿级用户的IM系统模块设计</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#技术指标"><span class="toc-number">1.1.</span> <span class="toc-text">技术指标</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#架构拆分"><span class="toc-number">1.2.</span> <span class="toc-text">架构拆分</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#业务系统"><span class="toc-number">1.2.1.</span> <span class="toc-text">业务系统</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#信令系统"><span class="toc-number">1.2.2.</span> <span class="toc-text">信令系统</span></a></li></ol></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#支持亿级用户的IM系统的交互模型"><span class="toc-number">2.</span> <span class="toc-text">支持亿级用户的IM系统的交互模型</span></a></li></ol>
+                    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#支持亿级用户的IM系统模块设计"><span class="toc-number">1.</span> <span class="toc-text">支持亿级用户的IM系统模块设计</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#技术指标"><span class="toc-number">1.1.</span> <span class="toc-text">技术指标</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#架构拆分"><span class="toc-number">1.2.</span> <span class="toc-text">架构拆分</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#业务系统"><span class="toc-number">1.2.1.</span> <span class="toc-text">业务系统</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#信令系统"><span class="toc-number">1.2.2.</span> <span class="toc-text">信令系统</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#推送系统"><span class="toc-number">1.2.3.</span> <span class="toc-text">推送系统</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#持久化系统"><span class="toc-number">1.2.4.</span> <span class="toc-text">持久化系统</span></a></li></ol></li></ol></li></ol>
                 </div>
             </div>
             
