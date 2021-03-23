@@ -1,270 +1,1696 @@
 <?xml version="1.0" encoding="utf-8"?>
-<search> 
-  
-  
-    
-    <entry>
-      <title>支持亿级消息的IM系统模块设计和交互模型</title>
-      <link href="2021/03/23/%E5%8F%8A%E6%97%B6%E9%80%9A%E8%AE%AF/%E6%94%AF%E6%8C%81%E4%BA%BF%E7%BA%A7%E6%B6%88%E6%81%AF%E7%9A%84IM%E7%B3%BB%E7%BB%9F%E6%A8%A1%E5%9D%97%E8%AE%BE%E8%AE%A1%E5%92%8C%E4%BA%A4%E4%BA%92%E6%A8%A1%E5%9E%8B/"/>
-      <url>2021/03/23/%E5%8F%8A%E6%97%B6%E9%80%9A%E8%AE%AF/%E6%94%AF%E6%8C%81%E4%BA%BF%E7%BA%A7%E6%B6%88%E6%81%AF%E7%9A%84IM%E7%B3%BB%E7%BB%9F%E6%A8%A1%E5%9D%97%E8%AE%BE%E8%AE%A1%E5%92%8C%E4%BA%A4%E4%BA%92%E6%A8%A1%E5%9E%8B/</url>
-      
-        <content type="html"><![CDATA[<h1 id="支持亿级消息的IM系统模块设计和交互模型"><a href="#支持亿级消息的IM系统模块设计和交互模型" class="headerlink" title="支持亿级消息的IM系统模块设计和交互模型"></a>支持亿级消息的IM系统模块设计和交互模型</h1>]]></content>
-      
-      
+<search>
+  <entry>
+    <title>Java Microbenchmark Harness微基准测试陷阱</title>
+    <url>/2020/07/09/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Java-Microbenchmark-Harness-Test-Trap/</url>
+    <content><![CDATA[<blockquote>
+<p><strong>天下之事，闻者不如见者知之为详，见者不如居者知之为尽。——宋-陆游</strong></p>
+<p><strong>你要知道梨子的滋味，就要亲口尝一下。——毛泽东</strong></p>
+</blockquote>
+<p>俗话说，没有实践就没有发言权，自己实践才能知之为尽，Benchmark 为应用提供了数据支持，是评价和比较方法好坏的基准，Benchmark 的准确性，多样性便显得尤为重要。JMH为Java方法的基准水平提供了很好的量化标准，也为剖析系统性能和技术选型提供的更为有效切可靠的实现手段。</p>
+<p>以下记录在使用Java Microbenchmark Harness做微基准测试容易遇见的误区和相关陷阱，便于之后的查找和说明。</p>
+<a id="more"></a>
+
+<h2 id="代码预热"><a href="#代码预热" class="headerlink" title="代码预热"></a>代码预热</h2><blockquote>
+<p><strong>Warmup = waiting for the transient responses to settle down</strong></p>
+</blockquote>
+<p>随着JVM虚拟机的优化，JIT的存在，代码的执行往往前期执行结果没有后期的执行结果好。 <code>Benchmark</code> 产生更可靠的结果的原因是，它只度量稳定状态下<code>方法任务</code>的执行时间，而不理会最初的性能。大多数 Java 实现具有复杂的性能生命周期。一般来说，最初的性能往往相当低，然后性能显著提高（常常出现几次性能跃升），直到到达稳定状态。</p>
+<h3 id="类装载"><a href="#类装载" class="headerlink" title="类装载"></a>类装载</h3><p>JVM 通常只在类的第一次使用类时装载它们。所以,方法任务的第一次执行时间包含装载它使用的所有类的时间（如果这些类还没有装载的话）。因为类装载往往涉及磁盘 I/O、解析和检验，这会显著增加<code>方法任务</code>的第一次执行时间。<strong>常常</strong>可以通过多次执行<code>方法任务</code>来消除这种影响。</p>
+<blockquote>
+<p>PS:  <strong>常常</strong>而不是<strong>总是</strong>，这是因为 <code>方法任务</code> 可能具有复杂的分支行为，这可能导致它在任何给定的执行过程中并不使用所有可能用到的类。幸运的是，如果执行任务足够多次，就可能经历所有分支，因此很快就会装载所有相关类）。</p>
+</blockquote>
+<p>如果使用定制的类装载器，就有另一个问题：JVM 可能认为一些类已经成了垃圾，因此决定卸载它。这不太可能严重影响性能，但是仍然会使基准测试结果产生偏差。</p>
+<h3 id="混合模式"><a href="#混合模式" class="headerlink" title="混合模式"></a>混合模式</h3><p>在执行即时（Just-in-time，JIT）编译之前，现代的 JVM 通常会运行代码一段时间（常常是纯解释式运行），从而收集剖析信息。这对基准测试的影响在于，任务可能需要执行许多次，才能达到稳定状态。</p>
+<p>一般来说对稳定状态下的基准测试至少需要以下步骤：</p>
+<ol>
+<li>执行 <code>方法任务</code> 一次，以便装载所有类。</li>
+<li>执行 <code>方法任务</code> 足够多次，以确保出现稳定状态的执行数据。</li>
+</ol>
+<h2 id="陷阱一-死码消除"><a href="#陷阱一-死码消除" class="headerlink" title="陷阱一: 死码消除"></a>陷阱一: 死码消除</h2><p><a href="[https://zh.wikipedia.org/zh-cn/%E6%AD%BB%E7%A2%BC%E5%88%AA%E9%99%A4](https://zh.wikipedia.org/zh-cn/死碼刪除)">死码消除</a>(Dead code elimination）是一种编译最优化技术,在某些情况下，编译器可以判断出某些代码根本不影响输出，所以编译器会消除这些代码,例如注释的代码，不可达的代码块，可达但不被使用的代码，会被判断为死码而在Javac的时候被消除。</p>
+<pre><code class="java">public class ErrorBenchmark {
+    private double PI = Math.PI;
+
+    @Benchmark
+    public void benchmarkNothing(){
+        // 19873732.412 ± 6783114.266  ops/ms
+        //do nothing 
+    }
+
+    @Benchmark
+    public void benchmarkWrong(){
+        //  20988076.131 ± 7282548.202  ops/ms
+        Math.log(PI);  // DCE 会被判断为死码而被消除
+    }
+
+    @Benchmark
+    public double benchmarkRight(){
+       // 306740.041 ±   52692.696  ops/ms
+        return Math.log(PI);
+    }
+
+}</code></pre>
+<p>在做测试时，需要注意方法会不会有死码的存在，否者可能会带来一些不合理的测试结果和意外。对于会被判断为死码但又需要进行执行测试方法来说，可以想办法去除孤立的方法执行，例如增加方法返回值，或者使用JMH的提供的API<strong>Blackhole</strong>。</p>
+<pre><code class="java">@Benchmark
+public void benchmarkRight(Blackhole bh) {
+    bh.consume(Math.log(PI));
+}</code></pre>
+<h2 id="陷阱二：常量折叠与常量传播"><a href="#陷阱二：常量折叠与常量传播" class="headerlink" title="陷阱二：常量折叠与常量传播"></a>陷阱二：常量折叠与常量传播</h2><p><a href="[https://zh.wikipedia.org/wiki/%E5%B8%B8%E6%95%B8%E6%8A%98%E7%96%8A#%E5%B8%B8%E6%95%B8%E5%82%B3%E6%92%AD](https://zh.wikipedia.org/wiki/常數折疊#常數傳播)">常数折叠</a>（Constant folding）以及常数传播（constant propagation）都是<a href="https://zh.wikipedia.org/w/index.php?title=編譯器最佳化&action=edit&redlink=1" target="_blank" rel="noopener">编译器最佳化</a>技术。是一个在编译时期简化常数的一个过程。常数在表示式中仅仅代表一个简单的数值，就算一个变数从未被修改也可作为常数，或者直接将一个变数被明确地被标注为常数。</p>
+<pre><code class="java">long number = 2 * 600 * 200;</code></pre>
+<p>多数的现代编译器不会真的产生两个乘法的指令再将结果储存下来，取而代之的，他们会辨识出语句的结构，并在编译时期将数值直接计算出来。常数折叠的时机取决于编译器，有的在编译前期完成，有的在较后期进行。</p>
+<pre><code class="java">private double x = Math.PI;
+
+// 编译器会对 final 变量特殊处理 
+private final double wrongX = Math.PI;
+
+@Benchmark
+public double baseline() {
+    // 2.220 ± 0.352 ns/op
+    return Math.PI;
+}
+
+@Benchmark
+public double measureWrong_1() { 
+    // 2.220 ± 0.352 ns/op
+    // 错误，结果可以被预测，会发生常量折叠
+    return Math.log(Math.PI);
+}
+
+@Benchmark
+public double measureWrong_2() { 
+    // 2.220 ± 0.352 ns/op
+    // 错误，结果可以被预测，会发生常量折叠
+    return Math.log(wrongX);
+}
+
+@Benchmark
+public double measureRight() { 
+    // 22.590 ± 2.636  ns/op
+    return Math.log(x);
+}</code></pre>
+<p>由于发生了常量折叠，相同实现下的执行销量完全不同，这个测试在一定程度上说明了final的定义对于方法执行结果的影响。</p>
+<p>此外<strong>常数传播 (</strong>Constant propagation<strong>)</strong> 是一个替代表示式中已知常数的过程，也是在编译时期进行，包含前述所定义，内建函数也适用于常数。</p>
+<pre><code class="java">int x = 520;
+int y = 260 - 520 / 2;
+return y * (1314 / x + 2);</code></pre>
+<p>传播可以理解变量的替换，如果进行持续传播，上式则可写成如下</p>
+<pre><code class="java">int x = 14;
+int y = 0;
+return 0;</code></pre>
+<h2 id="陷阱三：不要在测试中写循环"><a href="#陷阱三：不要在测试中写循环" class="headerlink" title="陷阱三：不要在测试中写循环"></a>陷阱三：不要在测试中写循环</h2><h2 id="为什么要使用JMH"><a href="#为什么要使用JMH" class="headerlink" title="为什么要使用JMH"></a>为什么要使用JMH</h2><p>对于传统的接口调用测试，可能会使用以下的方式测试</p>
+<pre><code class="java">long startTime = System.currentTimeMillis();
+benchmarkTestMethod();
+System.out.println(System.currentTimeMillis()-startTime);</code></pre>
+<p>而JMH则使用</p>
+<pre><code class="java">@Benchmark
+public void benchmarkTestMethod(){
+  // do 
+}</code></pre>
+<hr>
+<h2 id="参考和引用"><a href="#参考和引用" class="headerlink" title="参考和引用"></a>参考和引用</h2><ul>
+<li><a href="https://www.ibm.com/developerworks/cn/java/j-benchmark1.html" target="_blank" rel="noopener">IBM Developer Java 代码基准测试的问题</a></li>
+<li><a href="https://www.cnkirito.moe/java-jmh/" target="_blank" rel="noopener">JAVA 拾遗 — JMH 与 8 个测试陷阱</a></li>
+</ul>
+]]></content>
       <categories>
-          
-          <category> 及时通讯 </category>
-          
+        <category>系统调优</category>
       </categories>
-      
-      
-        <tags>
-            
-            <tag> 及时通讯 </tag>
-            
-            <tag> 系统架构 </tag>
-            
-        </tags>
-      
-    </entry>
-    
-    
-    
-    <entry>
-      <title>IM系统的可靠性保障方案设计</title>
-      <link href="2021/03/23/%E5%8F%8A%E6%97%B6%E9%80%9A%E8%AE%AF/IM%E7%B3%BB%E7%BB%9F%E7%9A%84%E5%8F%AF%E9%9D%A0%E6%80%A7%E4%BF%9D%E9%9A%9C%E6%96%B9%E6%A1%88%E8%AE%BE%E8%AE%A1/"/>
-      <url>2021/03/23/%E5%8F%8A%E6%97%B6%E9%80%9A%E8%AE%AF/IM%E7%B3%BB%E7%BB%9F%E7%9A%84%E5%8F%AF%E9%9D%A0%E6%80%A7%E4%BF%9D%E9%9A%9C%E6%96%B9%E6%A1%88%E8%AE%BE%E8%AE%A1/</url>
-      
-        <content type="html"><![CDATA[<div id="hexo-blog-encrypt" data-wpm="Oh, this is an invalid password. Check and try again, please." data-whm="OOPS, these decrypted content may changed, but you can still have a look.">  <div class="hbe-input-container">  <input type="password" id="hbePass" placeholder="" />    <label for="hbePass">输入密码，查看文章</label>    <div class="bottom-line"></div>  </div>  <script id="hbeData" type="hbeData" data-hmacdigest="eec786a40cf7aea934fb8b407653c706146aee44047d4f82cd2f941341428254">ff2aa2f000186a9810700fce1416f63b</script></div><script src="/lib/blog-encrypt.js"></script><link href="/css/blog-encrypt.css" rel="stylesheet" type="text/css">]]></content>
-      
-      
+      <tags>
+        <tag>Java</tag>
+        <tag>基准测试</tag>
+        <tag>系统调优</tag>
+        <tag>误区和陷阱</tag>
+        <tag>JMH</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>Liuns系统高效文件处理三剑客-Grep/Awk/Sed</title>
+    <url>/2020/08/14/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Liunx-Tips-001-Grep-Awk-Sed/</url>
+    <content><![CDATA[<blockquote>
+<p><strong>子曰：“工欲善其事，必先利其器。居是邦也，事其大夫之贤者，友其士之仁者。”</strong> –论语·卫灵公</p>
+</blockquote>
+<h3 id="Grep"><a href="#Grep" class="headerlink" title="Grep"></a>Grep</h3><p><a href="https://zh.wikipedia.org/wiki/Grep" target="_blank" rel="noopener">Grep</a>(global search regular expression(RE) and print out the line)是一款强大的文本搜索工具，支持正则表达式。来自Unix文本编辑器ed类似操作的命令,最初用于Unix操作系统的命令行工具。在给出文件列表或标准输入后，grep会对匹配一个或多个正则表达式的文本进行搜索，并只输出匹配（或者不匹配）的行或文本。</p>
+<pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# grep --help
+用法: grep [选项]... PATTERN [FILE]...
+Search for PATTERN in each FILE.
+Example: grep -i &#39;hello world&#39; menu.h main.c</code></pre>
+<a id="more"></a>
+
+<pre><code class="shell">Pattern selection and interpretation:
+  -E, --extended-regexp     PATTERN is an extended regular expression
+  -F, --fixed-strings       PATTERN is a set of newline-separated strings
+  -G, --basic-regexp        PATTERN is a basic regular expression (default)
+  -P, --perl-regexp         PATTERN is a Perl regular expression
+  -e, --regexp=PATTERN      用 PATTERN 来进行匹配操作
+  -f, --file=FILE           从 FILE 中取得 PATTERN
+  -i, --ignore-case         忽略大小写
+  -w, --word-regexp         强制 PATTERN 仅完全匹配字词
+  -x, --line-regexp         强制 PATTERN 仅完全匹配一行
+  -z, --null-data           一个 0 字节的数据行，但不是空行
+
+杂项:
+  -s, --no-messages         不显示错误信息
+  -v, --invert-match        选中不匹配的行
+  -V, --version             显示版本信息并退出
+      --help                显示此帮助并退出
+
+Output control:
+  -m, --max-count=NUM       stop after NUM selected lines
+  -b, --byte-offset         print the byte offset with output lines
+  -n, --line-number         print line number with output lines
+      --line-buffered       flush output on every line
+  -H, --with-filename       print file name with output lines
+  -h, --no-filename         suppress the file name prefix on output
+      --label=LABEL         use LABEL as the standard input file name prefix
+  -o, --only-matching       只显示匹配PATTERN 部分的行
+  -q, --quiet, --silent     不显示所有常规输出
+      --binary-files=TYPE   设定二进制文件的TYPE 类型；
+                            TYPE 可以是`binary&#39;, `text&#39;, 或`without-match&#39;
+  -a, --text                等同于 --binary-files=text
+  -I                        equivalent to --binary-files=without-match
+  -d, --directories=ACTION  how to handle directories;
+                            ACTION is &#39;read&#39;, &#39;recurse&#39;, or &#39;skip&#39;
+  -D, --devices=ACTION      how to handle devices, FIFOs and sockets;
+                            ACTION is &#39;read&#39; or &#39;skip&#39;
+  -r, --recursive           like --directories=recurse
+  -R, --dereference-recursive
+                            likewise, but follow all symlinks
+      --include=FILE_PATTERN
+                            search only files that match FILE_PATTERN
+      --exclude=FILE_PATTERN
+                            skip files and directories matching FILE_PATTERN
+      --exclude-from=FILE   skip files matching any file pattern from FILE
+      --exclude-dir=PATTERN directories that match PATTERN will be skipped.
+  -L, --files-without-match print only names of FILEs with no selected lines
+  -l, --files-with-matches  print only names of FILEs with selected lines
+  -c, --count               print only a count of selected lines per FILE
+
+文件控制:
+  -B, --before-context=NUM  打印文本及其前面NUM 行
+  -A, --after-context=NUM   打印文本及其后面NUM 行
+  -C, --context=NUM         打印NUM 行输出文本
+  -NUM                      same as --context=NUM
+      --group-separator=SEP use SEP as a group separator
+      --no-group-separator  use empty string as a group separator
+      --color[=WHEN],
+      --colour[=WHEN]       use markers to highlight the matching strings;
+                            WHEN is &#39;always&#39;, &#39;never&#39;, or &#39;auto&#39;
+  -U, --binary              do not strip CR characters at EOL (MSDOS/Windows)</code></pre>
+<p>常用参数:</p>
+<pre><code class="shell">            -v        取反
+            -i        忽略大小写
+            -c        符合条件的行数
+            -n        输出的同时打印行号
+            ^*        以*开头         
+            *$         以*结尾 
+            ^$         空行 
+
+            -a        不忽略二进制数据
+            -A&lt;n&gt;     除了显示匹配的行外，还显示之后的n行
+            -b        在符合条件的行之前，显示该行第一个字符的编号</code></pre>
+<p>Demo文案</p>
+<pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log
+I came;
+I saw;
+i conquered.
+
+我来了，我看到了，我征服了.   ——凯撒大帝</code></pre>
+<h4 id="查找符合条件的行"><a href="#查找符合条件的行" class="headerlink" title="查找符合条件的行"></a>查找符合条件的行</h4><pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log |grep &#39;I&#39;
+I came;
+I saw;</code></pre>
+<h4 id="查找符合条件的行数"><a href="#查找符合条件的行数" class="headerlink" title="查找符合条件的行数"></a>查找符合条件的行数</h4><pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log |grep &#39;I&#39; -c
+2</code></pre>
+<h4 id="查找不符合条件的行"><a href="#查找不符合条件的行" class="headerlink" title="查找不符合条件的行"></a>查找不符合条件的行</h4><pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log |grep &#39;I&#39; -v
+i conquered.
+
+我来了，我看到了，我征服了.   ——凯撒大帝</code></pre>
+<h4 id="忽略大小写查找"><a href="#忽略大小写查找" class="headerlink" title="忽略大小写查找"></a>忽略大小写查找</h4><pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log |grep &#39;I&#39; -i
+I came;
+I saw;
+i conquered.</code></pre>
+<h4 id="查找符合条件的行并输出行号"><a href="#查找符合条件的行并输出行号" class="headerlink" title="查找符合条件的行并输出行号"></a>查找符合条件的行并输出行号</h4><pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log |grep &#39;I&#39; -n
+1:I came;
+2:I saw;</code></pre>
+<h4 id="以’-’开头的查询"><a href="#以’-’开头的查询" class="headerlink" title="以’*’开头的查询"></a>以’*’开头的查询</h4><pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log |grep &#39;^I&#39;
+I came;
+I saw;</code></pre>
+<h4 id="以’-’结尾的查询"><a href="#以’-’结尾的查询" class="headerlink" title="以’*’结尾的查询"></a>以’*’结尾的查询</h4><pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log |grep &#39;; $&#39;
+I came;
+I saw;</code></pre>
+<hr>
+<h3 id="Awk"><a href="#Awk" class="headerlink" title="Awk"></a>Awk</h3><p>Awk不仅仅是一个小工具，也可以算得上一种小型的编程语言了，支持if判断分支和while循环语句还有它的内置函数等，是一个要比grep和sed更强大的文本处理工具，但也就意味着要学习的东西更多了。由 Alfred Aho 、Peter Weinberger 和 Brian Kernighan 创始,并以姓氏的首个字母命名.</p>
+<h4 id="基本结构和执行"><a href="#基本结构和执行" class="headerlink" title="基本结构和执行"></a>基本结构和执行</h4><pre><code class="shell">awk &#39;{[pattern] action}&#39; {filenames}  
+awk &#39;BEGIN{ commands } pattern{ commands } END{ commands }&#39; {filenames}  </code></pre>
+<p>Awk脚本通常由：BEGIN语句块、能够使用模式匹配的通用语句块、END语句块3部分组成，这三个部分是可选的。任意一个部分都可以不出现在脚本中，脚本通常是被单引号或双引号中.</p>
+<ul>
+<li>第一步：执行BEGIN{ commands }语句块中的语句；</li>
+<li>第二步：从文件或标准输入(stdin)读取一行，然后执行pattern{ commands }语句块，它逐行扫描文件，从第一行到最后一行重复这个过程，直到文件全部被读取完毕。</li>
+<li>第三步：当读至输入流末尾时，执行END{ commands }语句块。</li>
+</ul>
+<p>BEGIN语句块在awk开始从输入流中读取行之前被执行，这是一个可选的语句块，比如变量初始化、打印输出表格的表头等语句通常可以写在BEGIN语句块中。</p>
+<p>END语句块在awk从输入流中读取完所有的行之后即被执行，比如打印所有行的分析结果这类信息汇总都是在END语句块中完成，它也是一个可选语句块。</p>
+<p>Pattern语句块中的通用命令是最重要的部分，它也是可选的。如果没有提供pattern语句块，则默认执行{ print }，即打印每一个读取到的行，awk读取的每一行都会执行该语句块。</p>
+<p>action 在{}内指定，一般用来打印，也可以是一个代码段。也就是commands</p>
+<pre><code class="shell">[root@Leonardo-iWzl-Server ~]# awk --help
+Usage: awk [POSIX or GNU style options] -f progfile [--] file ...
+Usage: awk [POSIX or GNU style options] [--] &#39;program&#39; file ...
+POSIX options:        GNU long options: (standard)
+    -f progfile        --file=progfile
+    -F fs            --field-separator=fs
+    -v var=val        --assign=var=val
+Short options:        GNU long options: (extensions)
+    -b            --characters-as-bytes
+    -c            --traditional
+    -C            --copyright
+    -d[file]        --dump-variables[=file]
+    -e &#39;program-text&#39;    --source=&#39;program-text&#39;
+    -E file            --exec=file
+    -g            --gen-pot
+    -h            --help
+    -L [fatal]        --lint[=fatal]
+    -n            --non-decimal-data
+    -N            --use-lc-numeric
+    -O            --optimize
+    -p[file]        --profile[=file]
+    -P            --posix
+    -r            --re-interval
+    -S            --sandbox
+    -t            --lint-old
+    -V            --version</code></pre>
+<h4 id="内建参数"><a href="#内建参数" class="headerlink" title="内建参数"></a>内建参数</h4><table>
+<thead>
+<tr>
+<th align="left">变量</th>
+<th align="left">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">$n</td>
+<td align="left">当前记录的第n个字段，字段间由FS分隔</td>
+</tr>
+<tr>
+<td align="left">$0</td>
+<td align="left">完整的输入记录</td>
+</tr>
+<tr>
+<td align="left">ARGC</td>
+<td align="left">命令行参数的数目</td>
+</tr>
+<tr>
+<td align="left">ARGIND</td>
+<td align="left">命令行中当前文件的位置(从0开始算)</td>
+</tr>
+<tr>
+<td align="left">ARGV</td>
+<td align="left">包含命令行参数的数组</td>
+</tr>
+<tr>
+<td align="left">CONVFMT</td>
+<td align="left">数字转换格式(默认值为%.6g)ENVIRON环境变量关联数组</td>
+</tr>
+<tr>
+<td align="left">ERRNO</td>
+<td align="left">最后一个系统错误的描述</td>
+</tr>
+<tr>
+<td align="left">FIELDWIDTHS</td>
+<td align="left">字段宽度列表(用空格键分隔)</td>
+</tr>
+<tr>
+<td align="left">FILENAME</td>
+<td align="left">当前文件名</td>
+</tr>
+<tr>
+<td align="left">FNR</td>
+<td align="left">各文件分别计数的行号</td>
+</tr>
+<tr>
+<td align="left">FS</td>
+<td align="left">字段分隔符(默认是任何空格)</td>
+</tr>
+<tr>
+<td align="left">IGNORECASE</td>
+<td align="left">如果为真，则进行忽略大小写的匹配</td>
+</tr>
+<tr>
+<td align="left">NF</td>
+<td align="left">一条记录的字段的数目</td>
+</tr>
+<tr>
+<td align="left">NR</td>
+<td align="left">已经读出的记录数，就是行号，从1开始</td>
+</tr>
+<tr>
+<td align="left">OFMT</td>
+<td align="left">数字的输出格式(默认值是%.6g)</td>
+</tr>
+<tr>
+<td align="left">OFS</td>
+<td align="left">输出记录分隔符（输出换行符），输出时用指定的符号代替换行符</td>
+</tr>
+<tr>
+<td align="left">ORS</td>
+<td align="left">输出记录分隔符(默认值是一个换行符)</td>
+</tr>
+<tr>
+<td align="left">RLENGTH</td>
+<td align="left">由match函数所匹配的字符串的长度</td>
+</tr>
+<tr>
+<td align="left">RS</td>
+<td align="left">记录分隔符(默认是一个换行符)</td>
+</tr>
+<tr>
+<td align="left">RSTART</td>
+<td align="left">由match函数所匹配的字符串的第一个位置</td>
+</tr>
+<tr>
+<td align="left">SUBSEP</td>
+<td align="left">数组下标分隔符(默认值是/034)</td>
+</tr>
+</tbody></table>
+<h4 id="运算支持"><a href="#运算支持" class="headerlink" title="运算支持"></a>运算支持</h4><table>
+<thead>
+<tr>
+<th align="left">运算符</th>
+<th align="left">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">= += -= <em>= /= %= ^= *</em>=</td>
+<td align="left">赋值</td>
+</tr>
+<tr>
+<td align="left">?:</td>
+<td align="left">C条件表达式</td>
+</tr>
+<tr>
+<td align="left">||</td>
+<td align="left">逻辑或</td>
+</tr>
+<tr>
+<td align="left">&amp;&amp;</td>
+<td align="left">逻辑与</td>
+</tr>
+<tr>
+<td align="left">~ 和 !~</td>
+<td align="left">匹配正则表达式和不匹配正则表达式</td>
+</tr>
+<tr>
+<td align="left">&lt; &lt;= &gt; &gt;= != ==</td>
+<td align="left">关系运算符</td>
+</tr>
+<tr>
+<td align="left">空格</td>
+<td align="left">连接</td>
+</tr>
+<tr>
+<td align="left">+ -</td>
+<td align="left">加，减</td>
+</tr>
+<tr>
+<td align="left">* / %</td>
+<td align="left">乘，除与求余</td>
+</tr>
+<tr>
+<td align="left">+ - !</td>
+<td align="left">一元加，减和逻辑非</td>
+</tr>
+<tr>
+<td align="left">^ ***</td>
+<td align="left">求幂</td>
+</tr>
+<tr>
+<td align="left">++ –</td>
+<td align="left">增加或减少，作为前缀或后缀</td>
+</tr>
+<tr>
+<td align="left">$</td>
+<td align="left">字段引用</td>
+</tr>
+<tr>
+<td align="left">in</td>
+<td align="left">数组成员</td>
+</tr>
+</tbody></table>
+<p>Demo文案</p>
+<pre><code class="shell">[root@Leonardo-iWzl-Server ~]# cat demo.log
+小米 20 成都 172 60 女
+小张 21 杭州 182 79 男
+小文 19 长沙 178 70 男
+小紫 22 北京 168 50 女</code></pre>
+<h4 id="输出指定位置的文档"><a href="#输出指定位置的文档" class="headerlink" title="输出指定位置的文档"></a>输出指定位置的文档</h4><pre><code class="shell">[root@Leonardo-iWzl-Server ~]# cat demo.log |awk &#39;{print $1,$3,$5}&#39;
+小米 成都 60
+小张 杭州 79
+小文 长沙 70
+小紫 北京 50</code></pre>
+<h4 id="指定分隔符输出文档"><a href="#指定分隔符输出文档" class="headerlink" title="指定分隔符输出文档"></a>指定分隔符输出文档</h4><pre><code class="shell"># 使用&quot;1&quot;分割
+[root@Leonardo-iWzl-Server ~]# cat demo.log |awk -F 1 &#39;{print $1}&#39;
+小米 20 成都
+小张 2
+小文
+小紫 22 北京
+
+# 或者使用内建变量
+[root@Leonardo-iWzl-Server ~]# cat demo.log |awk &#39;BEGIN{FS=&#39;1&#39;} {print $1}&#39;
+小米 20 成都
+小张 2
+小文
+小紫 22 北京
+
+# 使用多个分隔符.先使用&quot;1&quot;分割，然后对分割结果再使用&quot;0&quot;分割
+[root@Leonardo-iWzl-Server ~]# cat demo.log |awk -F &#39;[10]&#39; &#39;{print $1}&#39;
+小米 2
+小张 2
+小文
+小紫 22 北京
+
+# 或者使用内建变量
+[root@Leonardo-iWzl-Server ~]# cat demo.log |awk &#39;BEGIN{FS=&quot;[10]&quot;} {print $1}&#39;
+小米 2
+小张 2
+小文
+小紫 22 北京</code></pre>
+<h4 id="设置计算参数并输出文档"><a href="#设置计算参数并输出文档" class="headerlink" title="设置计算参数并输出文档"></a>设置计算参数并输出文档</h4><pre><code class="shell">#awk -v 设置变量
+[root@Leonardo-iWzl-Server ~]# cat demo.log |awk -v a=100 &#39;{print $1,$2,a-$2}&#39;
+小米 20 80
+小张 21 79
+小文 19 81
+小紫 22 78</code></pre>
+]]></content>
       <categories>
-          
-          <category> 及时通讯 </category>
-          
+        <category>Tips</category>
       </categories>
-      
-      
-        <tags>
-            
-            <tag> 及时通讯 </tag>
-            
-            <tag> 系统架构 </tag>
-            
-        </tags>
-      
-    </entry>
-    
-    
-    
-    <entry>
-      <title>高并发网络应用的关键-Unix系统下的五种IO模型</title>
-      <link href="2020/11/22/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Unix-IO-5-Model/"/>
-      <url>2020/11/22/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Unix-IO-5-Model/</url>
-      
-        <content type="html"><![CDATA[<p>Unix 中提供了五种 IO 模型，分别是<strong>阻塞式IO、非阻塞式IO、IO复用、信号驱动式IO、异步IO</strong>。</p><p>一个IO操作通常包括两个阶段：</p><ol><li>等待数据准备好；</li><li>从内核向进程复制数据；</li></ol><p>对于一个套接字上的输入操作，<strong>第一步通常涉及等待数据从网络中到达</strong>。当所等待分组到达时，它被复制到内核中的某个缓冲区。第二步就是把数据从内核缓冲区复制到应用进程缓冲区。</p><p>实际应用程序在系统调用完成上面的 2 步操作时，调用方式的阻塞、非阻塞，操作系统在处理应用程序请求时，处理方式的同步、异步处理的不同，可以分为 5 种 I/O 模型。</p><p>*注：recvfrom 函数(经 Socket 接收数据)，这里把它视为系统调用</p><a id="more"></a>]]></content>
-      
-      
+      <tags>
+        <tag>Liunx</tag>
+        <tag>Tools</tag>
+        <tag>Shell</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>Jenkins在CentOS系统环境上的搭建和部署</title>
+    <url>/2020/07/23/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Jenkins-programming-environment-setup/</url>
+    <content><![CDATA[<h3 id="Jenkins服务在CentOS系统环境上的搭建和部署"><a href="#Jenkins服务在CentOS系统环境上的搭建和部署" class="headerlink" title="Jenkins服务在CentOS系统环境上的搭建和部署"></a>Jenkins服务在CentOS系统环境上的搭建和部署</h3><blockquote>
+<p><a href="https://www.jenkins.io/zh/" target="_blank" rel="noopener">Jenkins</a> 由Java编写的一个开源的、提供友好操作界面的持续集成(CI)工具，起源于Hudson（Hudson是商用的），主要用于持续、自动的构建/测试软件项目、监控外部任务的运行（这个比较抽象，暂且写上，不做解释）。Jenkins用Java语言编写，可在Tomcat等流行的servlet容器中运行，也可独立运行。通常与版本管理工具(SCM)、构建工具结合使用。常用的版本控制工具有SVN、GIT，构建工具有Maven、Ant、Gradle。</p>
+</blockquote>
+<a id="more"></a>  
+
+<p>CI(Continuous integration，中文意思是持续集成)是一种软件开发时间。持续集成强调开发人员提交了新代码之后，立刻进行构建、（单元）测试。根据测试结果，我们可以确定新代码和原有代码能否正确地集成在一起。借用网络图片对CI加以理解。</p>
+<p><img src="http://img.upuphub.com/6464255-1b6e3bfdbece1492.jpg" alt="CI"></p>
+<p> CD(Continuous Delivery， 中文意思持续交付)是在持续集成的基础上，将集成后的代码部署到更贴近真实运行环境(类生产环境)中。比如，我们完成单元测试后，可以把代码部署到连接数据库的Staging环境中更多的测试。如果代码没有问题，可以继续手动部署到生产环境。下图反应的是CI/CD 的大概工作模式。</p>
+<p><img src="http://img.upuphub.com/6464255-ba088ec7257062c0.jpg" alt="Jenkins"></p>
+<!-- more -->
+
+<h2 id="在线安装Jenkins"><a href="#在线安装Jenkins" class="headerlink" title="在线安装Jenkins"></a>在线安装Jenkins</h2><pre><code class="shell"># 获取 repo
+$ wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
+
+# 获取key, 如果之前导入 jenkins 的key, 这一步可以忽略
+$ rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key
+
+$ yum update &amp;&amp; yum install jenkins
+
+# 启用 jenkins
+$ systemctl start jenkins</code></pre>
+<h2 id="离线安装Jenkins"><a href="#离线安装Jenkins" class="headerlink" title="离线安装Jenkins"></a>离线安装Jenkins</h2><pre><code class="shell"># 准备安装临时文件夹
+$ mkdir jenkins
+$ cd jenkins
+
+# 获取最新的稳定版本的Jenkins.rpm文件(https://pkg.jenkins.io/redhat-stable/)
+$ wget https://pkg.jenkins.io/redhat-stable/jenkins-2.235.2-1.1.noarch.rpm
+
+# 执行本地的Yum安装
+$ yum localinstall jenkins-2.235.2-1.1.noarch.rpm
+
+# 启用 jenkins
+$ systemctl start jenkins</code></pre>
+<h2 id="安装异常解决"><a href="#安装异常解决" class="headerlink" title="安装异常解决"></a>安装异常解决</h2><h3 id="异常信息如下"><a href="#异常信息如下" class="headerlink" title="异常信息如下"></a>异常信息如下</h3><pre><code class="shell">[root@Leonardo-iWzl-Server jenkins]# systemctl start jenkins
+Job for jenkins.service failed because the control process exited with error code. See &quot;systemctl status jenkins.service&quot; and &quot;journalctl -xe&quot; for details.
+[root@Leonardo-iWzl-Server jenkins]# systemctl status jenkins
+● jenkins.service - LSB: Jenkins Automation Server
+   Loaded: loaded (/etc/rc.d/init.d/jenkins; bad; vendor preset: disabled)
+   Active: failed (Result: exit-code) since 四 2020-07-23 10:02:43 EDT; 16s ago
+     Docs: man:systemd-sysv-generator(8)
+  Process: 23582 ExecStart=/etc/rc.d/init.d/jenkins start (code=exited, status=1/FAILURE)
+
+7月 23 10:02:43 Leonardo-iWzl-Server systemd[1]: Starting LSB: Jenkins Automation Server...
+7月 23 10:02:43 Leonardo-iWzl-Server runuser[23587]: pam_unix(runuser:session): session opened for user jenkins...d=0)
+7月 23 10:02:43 Leonardo-iWzl-Server jenkins[23582]: Starting Jenkins bash: /usr/bin/java: No such file or directory
+7月 23 10:02:43 Leonardo-iWzl-Server runuser[23587]: pam_unix(runuser:session): session closed for user jenkins
+7月 23 10:02:43 Leonardo-iWzl-Server jenkins[23582]: [FAILED]
+7月 23 10:02:43 Leonardo-iWzl-Server systemd[1]: jenkins.service: control process exited, code=exited status=1
+7月 23 10:02:43 Leonardo-iWzl-Server systemd[1]: Failed to start LSB: Jenkins Automation Server.
+7月 23 10:02:43 Leonardo-iWzl-Server systemd[1]: Unit jenkins.service entered failed state.
+7月 23 10:02:43 Leonardo-iWzl-Server systemd[1]: jenkins.service failed.
+Hint: Some lines were ellipsized, use -l to show in full.</code></pre>
+<h3 id="原因说明"><a href="#原因说明" class="headerlink" title="原因说明"></a>原因说明</h3><p>Jenkins 默认会在以下目录按顺序搜寻 JDK，一旦找到一个可用的即返回</p>
+<pre><code class="shell">/etc/alternatives/java
+/usr/lib/jvm/java-1.8.0/bin/java
+/usr/lib/jvm/jre-1.8.0/bin/java
+/usr/lib/jvm/java-1.7.0/bin/java
+/usr/lib/jvm/jre-1.7.0/bin/java
+/usr/lib/jvm/java-11.0/bin/java
+/usr/lib/jvm/jre-11.0/bin/java
+/usr/lib/jvm/java-11-openjdk-amd64
+/usr/bin/java</code></pre>
+<p>如果系统的以上位置都未安装 JDK，启动时就会报错，可以通过建立软连接进行解决</p>
+<pre><code class="shell"> ln -s /usr/local/java/jdk1.8.0_261/bin/java /usr/bin/java</code></pre>
+<p>完成以上错误处理后,可得到以下输出</p>
+<pre><code class="shell">[root@Leonardo-iWzl-Server jenkins]# systemctl status jenkins
+● jenkins.service - LSB: Jenkins Automation Server
+   Loaded: loaded (/etc/rc.d/init.d/jenkins; bad; vendor preset: disabled)
+   Active: active (running) since 四 2020-07-23 10:10:06 EDT; 4s ago
+     Docs: man:systemd-sysv-generator(8)
+  Process: 23606 ExecStart=/etc/rc.d/init.d/jenkins start (code=exited, status=0/SUCCESS)
+   CGroup: /system.slice/jenkins.service
+           └─23630 /usr/bin/java -Dcom.sun.akuma.Daemon=daemonized -Djava.awt.headless=true -DJENKINS_HOME=/var/lib/jenkins -jar /usr/lib/jenkins/jenkins.war --logfile=/var/log/jenkins/jenkins.log --webroot=/var/cache/jenkins/war --dae...
+
+7月 23 10:10:04 Leonardo-iWzl-Server systemd[1]: Starting LSB: Jenkins Automation Server...
+7月 23 10:10:04 Leonardo-iWzl-Server runuser[23611]: pam_unix(runuser:session): session opened for user jenkins by (uid=0)
+7月 23 10:10:06 Leonardo-iWzl-Server runuser[23611]: pam_unix(runuser:session): session closed for user jenkins
+7月 23 10:10:06 Leonardo-iWzl-Server jenkins[23606]: Starting Jenkins [  OK  ]
+7月 23 10:10:06 Leonardo-iWzl-Server systemd[1]: Started LSB: Jenkins Automation Server.</code></pre>
+<p> 查看jenkins 的启动参数 <em>ps -ef |grep jenkins</em> </p>
+<pre><code class="shell">[root@Leonardo-iWzl-Server jenkins]# ps -ef |grep jenkins
+jenkins  23630     1 49 10:10 ?        00:00:54 /usr/bin/java 
+        -Dcom.sun.akuma.Daemon=daemonized 
+        -Djava.awt.headless=true 
+        -DJENKINS_HOME=/var/lib/jenkins 
+        -jar /usr/lib/jenkins/jenkins.war 
+        --logfile=/var/log/jenkins/jenkins.log 
+        --webroot=/var/cache/jenkins/war 
+        --daemon 
+        --httpPort=8080 
+        --debug=5 
+        --handlerCountMax=100 
+        --handlerCountMaxIdle=20
+root     23695 23312  0 10:11 pts/0    00:00:00 grep --color=auto jenkins</code></pre>
+<p>在这里看到日志的一些配置和相关的端口、可以通过访问<em>「IP」:8080</em>访问到Jenkins服务</p>
+<h3 id="Jenkins的更新"><a href="#Jenkins的更新" class="headerlink" title="Jenkins的更新"></a>Jenkins的更新</h3><p>对于Jenkins更新可以通过</p>
+<pre><code class="shell">yum update jenkins</code></pre>
+<p>完成更新后,需要重启Jenkins服务</p>
+<h3 id="Jenkins国内镜像配置"><a href="#Jenkins国内镜像配置" class="headerlink" title="Jenkins国内镜像配置"></a>Jenkins国内镜像配置</h3><p>修改<em>/var/lib/jenkins</em> 目录下的<em>hudson.model.UpdateCenter.xml</em>文件内容如下</p>
+<pre><code class="xml">&lt;?xml version=&#39;1.1&#39; encoding=&#39;UTF-8&#39;?&gt;
+&lt;sites&gt;
+  &lt;site&gt;
+    &lt;id&gt;default&lt;/id&gt;
+    &lt;!-- &lt;url&gt;https://updates.jenkins.io/update-center.json&lt;/url&gt;--&gt;
+     &lt;url&gt;https://mirrors.tuna.tsinghua.edu.cn/jenkins/updates/update-center.json/url&gt;
+  &lt;/site&gt;
+&lt;/sites&gt;</code></pre>
+<p>修改默认配置json文件<em>/var/lib/jenkins/updates/default.json</em></p>
+<pre><code class="shell"># 进入响应文件夹
+cd /var/lib/jenkins/updates
+
+# 备份原始文件
+cp default.json default.json.bak
+
+# 替换更新下载地址
+sed -i &#39;s/http:\/\/updates.jenkins-ci.org\/download/https:\/\/mirrors.tuna.tsinghua.edu.cn\/jenkins/g&#39; default.json
+
+# 替换测试URL
+sed -i &#39;s/http:\/\/www.google.com/https:\/\/www.baidu.com/g&#39; default.json</code></pre>
+<p>完成以后重启Jenkins服务</p>
+<h3 id="配置Jenkins服务"><a href="#配置Jenkins服务" class="headerlink" title="配置Jenkins服务"></a>配置Jenkins服务</h3><p>之后按提示和Jenkins可视化引导完成剩余的Jenkins环境的搭建部署</p>
+<h2 id="Jenkins的结构导图"><a href="#Jenkins的结构导图" class="headerlink" title="Jenkins的结构导图"></a>Jenkins的结构导图</h2><p><img src="http://img.upuphub.com/6464255-cc56d3af1fdd96df.png" alt="Jenkins"></p>
+<hr>
+<h2 id="参考和引用"><a href="#参考和引用" class="headerlink" title="参考和引用"></a>参考和引用</h2><p><a href="https://www.jianshu.com/p/5f671aca2b5a" target="_blank" rel="noopener">哥本哈根月光-Jenkins详细教程</a></p>
+<p><a href="https://halo.sherlocky.com/archives/jenkins" target="_blank" rel="noopener">CentOS 安装 Jenkins 及 国内下载加速</a></p>
+]]></content>
       <categories>
-          
-          <category> Unix网络编程 </category>
-          
+        <category>DevOps</category>
       </categories>
-      
-      
-        <tags>
-            
-            <tag> Unix </tag>
-            
-            <tag> IO </tag>
-            
-        </tags>
-      
-    </entry>
-    
-    
-    
-    <entry>
-      <title>Maven项目管理详细</title>
-      <link href="2020/11/13/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Maven-XML-Details/"/>
-      <url>2020/11/13/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Maven-XML-Details/</url>
-      
-        <content type="html"><![CDATA[<p><strong>pom.xml</strong> 就像 Make 的 MakeFile、Ant 的 build.xml 一样，Maven 项目的核心是 pom.xml。POM( Project Object Model，项目对象模型 ) 定义了项目的基本信息，用于描述项目如何构建，声明项目依赖，等等。</p><p>在版本号的说明  :  SNAPSHOT – 快照版本，ALPHA – 内侧版本，BETA – 公测版本，RELEASE – 稳定版本，GA – 正式发布</p><a id="more"></a><pre><code class="xml">&lt;project xmlns=&quot;http://maven.apache.org/POM/4.0.0&quot;  xmlns:xsi=&quot;http://www.w3.org/2001/XMLSchema-instance&quot;  xsi:schemaLocation=&quot;http://maven.apache.org/POM/4.0.0                      http://maven.apache.org/xsd/maven-4.0.0.xsd&quot;&gt;  &lt;modelVersion&gt;4.0.0&lt;/modelVersion&gt;  &lt;!-- The Basics --&gt;  &lt;groupId&gt;...&lt;/groupId&gt;  &lt;artifactId&gt;...&lt;/artifactId&gt;  &lt;version&gt;...&lt;/version&gt;  &lt;packaging&gt;...&lt;/packaging&gt;  &lt;dependencies&gt;...&lt;/dependencies&gt;  &lt;parent&gt;...&lt;/parent&gt;  &lt;dependencyManagement&gt;...&lt;/dependencyManagement&gt;  &lt;modules&gt;...&lt;/modules&gt;  &lt;properties&gt;...&lt;/properties&gt;  &lt;!-- Build Settings --&gt;  &lt;build&gt;...&lt;/build&gt;  &lt;reporting&gt;...&lt;/reporting&gt;  &lt;!-- More Project Information --&gt;  &lt;name&gt;...&lt;/name&gt;  &lt;description&gt;...&lt;/description&gt;  &lt;url&gt;...&lt;/url&gt;  &lt;inceptionYear&gt;...&lt;/inceptionYear&gt;  &lt;licenses&gt;...&lt;/licenses&gt;  &lt;organization&gt;...&lt;/organization&gt;  &lt;developers&gt;...&lt;/developers&gt;  &lt;contributors&gt;...&lt;/contributors&gt;  &lt;!-- Environment Settings --&gt;  &lt;issueManagement&gt;...&lt;/issueManagement&gt;  &lt;ciManagement&gt;...&lt;/ciManagement&gt;  &lt;mailingLists&gt;...&lt;/mailingLists&gt;  &lt;scm&gt;...&lt;/scm&gt;  &lt;prerequisites&gt;...&lt;/prerequisites&gt;  &lt;repositories&gt;...&lt;/repositories&gt;  &lt;pluginRepositories&gt;...&lt;/pluginRepositories&gt;  &lt;distributionManagement&gt;...&lt;/distributionManagement&gt;  &lt;profiles&gt;...&lt;/profiles&gt;&lt;/project&gt;</code></pre><pre><code class="xml">&lt;project xmlns=&quot;http://maven.apache.org/POM/4.0.0&quot;         xmlns:xsi=&quot;http://www.w3.org/2001/XMLSchema-instance&quot;     xsi:schemaLocation=&quot;http://maven.apache.org/POM/4.0.0http://maven.apache.org/maven-v4_0_0.xsd&quot;&gt;         &lt;!--父项目的坐标。如果项目中没有规定某个元素的值，那么父项目中的对应值即为项目的默认值。 坐标包括group ID，artifact ID和 version。--&gt;        &lt;parent&gt;         &lt;!--被继承的父项目的构件标识符--&gt;         &lt;artifactId/&gt;         &lt;!--被继承的父项目的全球唯一标识符--&gt;         &lt;groupId/&gt;         &lt;!--被继承的父项目的版本--&gt;         &lt;version/&gt;         &lt;!-- 父项目的pom.xml文件的相对路径。相对路径允许你选择一个不同的路径。默认值是../pom.xml。Maven首先在构建当前项目的地方寻找父项 目的pom，其次在文件系统的这个位置（relativePath位置），然后在本地仓库，最后在远程仓库寻找父项目的pom。--&gt;         &lt;relativePath/&gt;     &lt;/parent&gt;     &lt;!--声明项目描述符遵循哪一个POM模型版本。模型本身的版本很少改变，虽然如此，但它仍然是必不可少的，这是为了当Maven引入了新的特性或者其他模型变更的时候，确保稳定性。--&gt;           &lt;modelVersion&gt;4.0.0&lt;/modelVersion&gt;         &lt;!--项目的全球唯一标识符，通常使用全限定的包名区分该项目和其他项目。并且构建时生成的路径也是由此生成， 如com.mycompany.app生成的相对路径为：/com/mycompany/app--&gt;         &lt;groupId&gt;asia.banseon&lt;/groupId&gt;         &lt;!-- 构件的标识符，它和group ID一起唯一标识一个构件。换句话说，你不能有两个不同的项目拥有同样的artifact ID和groupID；在某个 特定的group ID下，artifact ID也必须是唯一的。构件是项目产生的或使用的一个东西，Maven为项目产生的构件包括：JARs，源 码，二进制发布和WARs等。--&gt;         &lt;artifactId&gt;banseon-maven2&lt;/artifactId&gt;         &lt;!--项目产生的构件类型，例如jar、war、ear、pom。插件可以创建他们自己的构件类型，所以前面列的不是全部构件类型--&gt;         &lt;packaging&gt;jar&lt;/packaging&gt;         &lt;!--项目当前版本，格式为:主版本.次版本.增量版本-限定版本号--&gt;         &lt;version&gt;1.0-SNAPSHOT&lt;/version&gt;         &lt;!--项目的名称, Maven产生的文档用--&gt;         &lt;name&gt;banseon-maven&lt;/name&gt;         &lt;!--项目主页的URL, Maven产生的文档用--&gt;         &lt;url&gt;http://www.baidu.com/banseon&lt;/url&gt;         &lt;!-- 项目的详细描述, Maven 产生的文档用。  当这个元素能够用HTML格式描述时（例如，CDATA中的文本会被解析器忽略，就可以包含HTML标 签）， 不鼓励使用纯文本描述。如果你需要修改产生的web站点的索引页面，你应该修改你自己的索引页文件，而不是调整这里的文档。--&gt;         &lt;description&gt;A maven project to study maven.&lt;/description&gt;         &lt;!--描述了这个项目构建环境中的前提条件。--&gt;     &lt;prerequisites&gt;      &lt;!--构建该项目或使用该插件所需要的Maven的最低版本--&gt;        &lt;maven/&gt;     &lt;/prerequisites&gt;     &lt;!--项目的问题管理系统(Bugzilla, Jira, Scarab,或任何你喜欢的问题管理系统)的名称和URL，本例为 jira--&gt;         &lt;issueManagement&gt;         &lt;!--问题管理系统（例如jira）的名字，--&gt;             &lt;system&gt;jira&lt;/system&gt;             &lt;!--该项目使用的问题管理系统的URL--&gt;            &lt;url&gt;http://jira.baidu.com/banseon&lt;/url&gt;         &lt;/issueManagement&gt;         &lt;!--项目持续集成信息--&gt;     &lt;ciManagement&gt;      &lt;!--持续集成系统的名字，例如continuum--&gt;      &lt;system/&gt;      &lt;!--该项目使用的持续集成系统的URL（如果持续集成系统有web接口的话）。--&gt;      &lt;url/&gt;      &lt;!--构建完成时，需要通知的开发者/用户的配置项。包括被通知者信息和通知条件（错误，失败，成功，警告）--&gt;      &lt;notifiers&gt;       &lt;!--配置一种方式，当构建中断时，以该方式通知用户/开发者--&gt;       &lt;notifier&gt;        &lt;!--传送通知的途径--&gt;        &lt;type/&gt;        &lt;!--发生错误时是否通知--&gt;        &lt;sendOnError/&gt;        &lt;!--构建失败时是否通知--&gt;        &lt;sendOnFailure/&gt;        &lt;!--构建成功时是否通知--&gt;        &lt;sendOnSuccess/&gt;        &lt;!--发生警告时是否通知--&gt;        &lt;sendOnWarning/&gt;        &lt;!--不赞成使用。通知发送到哪里--&gt;        &lt;address/&gt;        &lt;!--扩展配置项--&gt;        &lt;configuration/&gt;       &lt;/notifier&gt;      &lt;/notifiers&gt;     &lt;/ciManagement&gt;     &lt;!--项目创建年份，4位数字。当产生版权信息时需要使用这个值。--&gt;        &lt;inceptionYear/&gt;        &lt;!--项目相关邮件列表信息--&gt;         &lt;mailingLists&gt;         &lt;!--该元素描述了项目相关的所有邮件列表。自动产生的网站引用这些信息。--&gt;             &lt;mailingList&gt;              &lt;!--邮件的名称--&gt;                &lt;name&gt;Demo&lt;/name&gt;                 &lt;!--发送邮件的地址或链接，如果是邮件地址，创建文档时，mailto: 链接会被自动创建--&gt;                 &lt;post&gt;banseon@126.com&lt;/post&gt;                 &lt;!--订阅邮件的地址或链接，如果是邮件地址，创建文档时，mailto: 链接会被自动创建--&gt;                 &lt;subscribe&gt;banseon@126.com&lt;/subscribe&gt;                 &lt;!--取消订阅邮件的地址或链接，如果是邮件地址，创建文档时，mailto: 链接会被自动创建--&gt;                 &lt;unsubscribe&gt;banseon@126.com&lt;/unsubscribe&gt;                 &lt;!--你可以浏览邮件信息的URL--&gt;                &lt;archive&gt;http:/hi.baidu.com/banseon/demo/dev/&lt;/archive&gt;             &lt;/mailingList&gt;         &lt;/mailingLists&gt;         &lt;!--项目开发者列表--&gt;         &lt;developers&gt;          &lt;!--某个项目开发者的信息--&gt;            &lt;developer&gt;              &lt;!--SCM里项目开发者的唯一标识符--&gt;                &lt;id&gt;HELLO WORLD&lt;/id&gt;                 &lt;!--项目开发者的全名--&gt;                &lt;name&gt;banseon&lt;/name&gt;                 &lt;!--项目开发者的email--&gt;                &lt;email&gt;banseon@126.com&lt;/email&gt;                 &lt;!--项目开发者的主页的URL--&gt;                &lt;url/&gt;                &lt;!--项目开发者在项目中扮演的角色，角色元素描述了各种角色--&gt;                &lt;roles&gt;                     &lt;role&gt;Project Manager&lt;/role&gt;                     &lt;role&gt;Architect&lt;/role&gt;                 &lt;/roles&gt;                &lt;!--项目开发者所属组织--&gt;                &lt;organization&gt;demo&lt;/organization&gt;                 &lt;!--项目开发者所属组织的URL--&gt;                &lt;organizationUrl&gt;http://hi.baidu.com/banseon&lt;/organizationUrl&gt;                 &lt;!--项目开发者属性，如即时消息如何处理等--&gt;                &lt;properties&gt;                     &lt;dept&gt;No&lt;/dept&gt;                 &lt;/properties&gt;                &lt;!--项目开发者所在时区， -11到12范围内的整数。--&gt;                &lt;timezone&gt;-5&lt;/timezone&gt;             &lt;/developer&gt;         &lt;/developers&gt;         &lt;!--项目的其他贡献者列表--&gt;         &lt;contributors&gt;         &lt;!--项目的其他贡献者。参见developers/developer元素--&gt;         &lt;contributor&gt;       &lt;name/&gt;&lt;email/&gt;&lt;url/&gt;&lt;organization/&gt;&lt;organizationUrl/&gt;&lt;roles/&gt;&lt;timezone/&gt;&lt;properties/&gt;         &lt;/contributor&gt;             &lt;/contributors&gt;           &lt;!--该元素描述了项目所有License列表。 应该只列出该项目的license列表，不要列出依赖项目的 license列表。如果列出多个license，用户可以选择它们中的一个而不是接受所有license。--&gt;         &lt;licenses&gt;         &lt;!--描述了项目的license，用于生成项目的web站点的license页面，其他一些报表和validation也会用到该元素。--&gt;             &lt;license&gt;             &lt;!--license用于法律上的名称--&gt;                &lt;name&gt;Apache 2&lt;/name&gt;                 &lt;!--官方的license正文页面的URL--&gt;                &lt;url&gt;http://www.baidu.com/banseon/LICENSE-2.0.txt&lt;/url&gt;                 &lt;!--项目分发的主要方式：                  repo，可以从Maven库下载                  manual， 用户必须手动下载和安装依赖--&gt;                &lt;distribution&gt;repo&lt;/distribution&gt;                 &lt;!--关于license的补充信息--&gt;                &lt;comments&gt;A business-friendly OSS license&lt;/comments&gt;             &lt;/license&gt;         &lt;/licenses&gt;         &lt;!--SCM(Source Control Management)标签允许你配置你的代码库，供Maven web站点和其它插件使用。--&gt;         &lt;scm&gt;             &lt;!--SCM的URL,该URL描述了版本库和如何连接到版本库。欲知详情，请看SCMs提供的URL格式和列表。该连接只读。--&gt;             &lt;connection&gt;                 scm:svn:http://svn.baidu.com/banseon/maven/banseon/banseon-maven2-trunk(dao-trunk)              &lt;/connection&gt;             &lt;!--给开发者使用的，类似connection元素。即该连接不仅仅只读--&gt;            &lt;developerConnection&gt;                 scm:svn:http://svn.baidu.com/banseon/maven/banseon/dao-trunk              &lt;/developerConnection&gt;            &lt;!--当前代码的标签，在开发阶段默认为HEAD--&gt;            &lt;tag/&gt;                   &lt;!--指向项目的可浏览SCM库（例如ViewVC或者Fisheye）的URL。--&gt;             &lt;url&gt;http://svn.baidu.com/banseon&lt;/url&gt;         &lt;/scm&gt;         &lt;!--描述项目所属组织的各种属性。Maven产生的文档用--&gt;         &lt;organization&gt;          &lt;!--组织的全名--&gt;            &lt;name&gt;demo&lt;/name&gt;             &lt;!--组织主页的URL--&gt;            &lt;url&gt;http://www.baidu.com/banseon&lt;/url&gt;         &lt;/organization&gt;        &lt;!--构建项目需要的信息--&gt;        &lt;build&gt;         &lt;!--该元素设置了项目源码目录，当构建项目的时候，构建系统会编译目录里的源码。该路径是相对于pom.xml的相对路径。--&gt;      &lt;sourceDirectory/&gt;      &lt;!--该元素设置了项目脚本源码目录，该目录和源码目录不同：绝大多数情况下，该目录下的内容 会被拷贝到输出目录(因为脚本是被解释的，而不是被编译的)。--&gt;      &lt;scriptSourceDirectory/&gt;      &lt;!--该元素设置了项目单元测试使用的源码目录，当测试项目的时候，构建系统会编译目录里的源码。该路径是相对于pom.xml的相对路径。--&gt;      &lt;testSourceDirectory/&gt;      &lt;!--被编译过的应用程序class文件存放的目录。--&gt;      &lt;outputDirectory/&gt;      &lt;!--被编译过的测试class文件存放的目录。--&gt;      &lt;testOutputDirectory/&gt;      &lt;!--使用来自该项目的一系列构建扩展--&gt;      &lt;extensions&gt;       &lt;!--描述使用到的构建扩展。--&gt;       &lt;extension&gt;        &lt;!--构建扩展的groupId--&gt;        &lt;groupId/&gt;        &lt;!--构建扩展的artifactId--&gt;        &lt;artifactId/&gt;        &lt;!--构建扩展的版本--&gt;        &lt;version/&gt;       &lt;/extension&gt;      &lt;/extensions&gt;      &lt;!--当项目没有规定目标（Maven2 叫做阶段）时的默认值--&gt;      &lt;defaultGoal/&gt;      &lt;!--这个元素描述了项目相关的所有资源路径列表，例如和项目相关的属性文件，这些资源被包含在最终的打包文件里。--&gt;      &lt;resources&gt;       &lt;!--这个元素描述了项目相关或测试相关的所有资源路径--&gt;       &lt;resource&gt;        &lt;!-- 描述了资源的目标路径。该路径相对target/classes目录（例如${project.build.outputDirectory}）。举个例 子，如果你想资源在特定的包里(org.apache.maven.messages)，你就必须该元素设置为org/apache/maven /messages。然而，如果你只是想把资源放到源码目录结构里，就不需要该配置。--&gt;        &lt;targetPath/&gt;        &lt;!--是否使用参数值代替参数名。参数值取自properties元素或者文件里配置的属性，文件在filters元素里列出。--&gt;        &lt;filtering/&gt;        &lt;!--描述存放资源的目录，该路径相对POM路径--&gt;        &lt;directory/&gt;        &lt;!--包含的模式列表，例如**/*.xml.--&gt;        &lt;includes/&gt;        &lt;!--排除的模式列表，例如**/*.xml--&gt;        &lt;excludes/&gt;       &lt;/resource&gt;      &lt;/resources&gt;      &lt;!--这个元素描述了单元测试相关的所有资源路径，例如和单元测试相关的属性文件。--&gt;      &lt;testResources&gt;       &lt;!--这个元素描述了测试相关的所有资源路径，参见build/resources/resource元素的说明--&gt;       &lt;testResource&gt;        &lt;targetPath/&gt;&lt;filtering/&gt;&lt;directory/&gt;&lt;includes/&gt;&lt;excludes/&gt;       &lt;/testResource&gt;      &lt;/testResources&gt;      &lt;!--构建产生的所有文件存放的目录--&gt;      &lt;directory/&gt;      &lt;!--产生的构件的文件名，默认值是${artifactId}-${version}。--&gt;      &lt;finalName/&gt;      &lt;!--当filtering开关打开时，使用到的过滤器属性文件列表--&gt;      &lt;filters/&gt;      &lt;!--子项目可以引用的默认插件信息。该插件配置项直到被引用时才会被解析或绑定到生命周期。给定插件的任何本地配置都会覆盖这里的配置--&gt;      &lt;pluginManagement&gt;       &lt;!--使用的插件列表 。--&gt;       &lt;plugins&gt;        &lt;!--plugin元素包含描述插件所需要的信息。--&gt;        &lt;plugin&gt;         &lt;!--插件在仓库里的group ID--&gt;         &lt;groupId/&gt;         &lt;!--插件在仓库里的artifact ID--&gt;         &lt;artifactId/&gt;         &lt;!--被使用的插件的版本（或版本范围）--&gt;         &lt;version/&gt;         &lt;!--是否从该插件下载Maven扩展（例如打包和类型处理器），由于性能原因，只有在真需要下载时，该元素才被设置成enabled。--&gt;         &lt;extensions/&gt;         &lt;!--在构建生命周期中执行一组目标的配置。每个目标可能有不同的配置。--&gt;         &lt;executions&gt;          &lt;!--execution元素包含了插件执行需要的信息--&gt;          &lt;execution&gt;           &lt;!--执行目标的标识符，用于标识构建过程中的目标，或者匹配继承过程中需要合并的执行目标--&gt;           &lt;id/&gt;           &lt;!--绑定了目标的构建生命周期阶段，如果省略，目标会被绑定到源数据里配置的默认阶段--&gt;           &lt;phase/&gt;           &lt;!--配置的执行目标--&gt;           &lt;goals/&gt;           &lt;!--配置是否被传播到子POM--&gt;           &lt;inherited/&gt;           &lt;!--作为DOM对象的配置--&gt;           &lt;configuration/&gt;          &lt;/execution&gt;         &lt;/executions&gt;         &lt;!--项目引入插件所需要的额外依赖--&gt;         &lt;dependencies&gt;          &lt;!--参见dependencies/dependency元素--&gt;          &lt;dependency&gt;           ......          &lt;/dependency&gt;         &lt;/dependencies&gt;              &lt;!--任何配置是否被传播到子项目--&gt;         &lt;inherited/&gt;         &lt;!--作为DOM对象的配置--&gt;         &lt;configuration/&gt;        &lt;/plugin&gt;       &lt;/plugins&gt;      &lt;/pluginManagement&gt;      &lt;!--使用的插件列表--&gt;      &lt;plugins&gt;       &lt;!--参见build/pluginManagement/plugins/plugin元素--&gt;       &lt;plugin&gt;        &lt;groupId/&gt;&lt;artifactId/&gt;&lt;version/&gt;&lt;extensions/&gt;        &lt;executions&gt;         &lt;execution&gt;          &lt;id/&gt;&lt;phase/&gt;&lt;goals/&gt;&lt;inherited/&gt;&lt;configuration/&gt;         &lt;/execution&gt;        &lt;/executions&gt;        &lt;dependencies&gt;         &lt;!--参见dependencies/dependency元素--&gt;         &lt;dependency&gt;          ......         &lt;/dependency&gt;        &lt;/dependencies&gt;        &lt;goals/&gt;&lt;inherited/&gt;&lt;configuration/&gt;       &lt;/plugin&gt;      &lt;/plugins&gt;     &lt;/build&gt;     &lt;!--在列的项目构建profile，如果被激活，会修改构建处理--&gt;     &lt;profiles&gt;      &lt;!--根据环境参数或命令行参数激活某个构建处理--&gt;      &lt;profile&gt;       &lt;!--构建配置的唯一标识符。即用于命令行激活，也用于在继承时合并具有相同标识符的profile。--&gt;       &lt;id/&gt;       &lt;!--自动触发profile的条件逻辑。Activation是profile的开启钥匙。profile的力量来自于它       能够在某些特定的环境中自动使用某些特定的值；这些环境通过activation元素指定。activation元素并不是激活profile的唯一方式。--&gt;       &lt;activation&gt;        &lt;!--profile默认是否激活的标志--&gt;        &lt;activeByDefault/&gt;        &lt;!--当匹配的jdk被检测到，profile被激活。例如，1.4激活JDK1.4，1.4.0_2，而!1.4激活所有版本不是以1.4开头的JDK。--&gt;        &lt;jdk/&gt;        &lt;!--当匹配的操作系统属性被检测到，profile被激活。os元素可以定义一些操作系统相关的属性。--&gt;        &lt;os&gt;         &lt;!--激活profile的操作系统的名字--&gt;         &lt;name&gt;Windows XP&lt;/name&gt;         &lt;!--激活profile的操作系统所属家族(如 &#39;windows&#39;)--&gt;         &lt;family&gt;Windows&lt;/family&gt;         &lt;!--激活profile的操作系统体系结构 --&gt;         &lt;arch&gt;x86&lt;/arch&gt;         &lt;!--激活profile的操作系统版本--&gt;         &lt;version&gt;5.1.2600&lt;/version&gt;        &lt;/os&gt;        &lt;!--如果Maven检测到某一个属性（其值可以在POM中通过${名称}引用），其拥有对应的名称和值，Profile就会被激活。如果值        字段是空的，那么存在属性名称字段就会激活profile，否则按区分大小写方式匹配属性值字段--&gt;        &lt;property&gt;         &lt;!--激活profile的属性的名称--&gt;         &lt;name&gt;mavenVersion&lt;/name&gt;         &lt;!--激活profile的属性的值--&gt;         &lt;value&gt;2.0.3&lt;/value&gt;        &lt;/property&gt;        &lt;!--提供一个文件名，通过检测该文件的存在或不存在来激活profile。missing检查文件是否存在，如果不存在则激活        profile。另一方面，exists则会检查文件是否存在，如果存在则激活profile。--&gt;        &lt;file&gt;         &lt;!--如果指定的文件存在，则激活profile。--&gt;         &lt;exists&gt;/usr/local/hudson/hudson-home/jobs/maven-guide-zh-to-production/workspace/&lt;/exists&gt;         &lt;!--如果指定的文件不存在，则激活profile。--&gt;         &lt;missing&gt;/usr/local/hudson/hudson-home/jobs/maven-guide-zh-to-production/workspace/&lt;/missing&gt;        &lt;/file&gt;       &lt;/activation&gt;       &lt;!--构建项目所需要的信息。参见build元素--&gt;       &lt;build&gt;        &lt;defaultGoal/&gt;        &lt;resources&gt;         &lt;resource&gt;          &lt;targetPath/&gt;&lt;filtering/&gt;&lt;directory/&gt;&lt;includes/&gt;&lt;excludes/&gt;         &lt;/resource&gt;        &lt;/resources&gt;        &lt;testResources&gt;         &lt;testResource&gt;          &lt;targetPath/&gt;&lt;filtering/&gt;&lt;directory/&gt;&lt;includes/&gt;&lt;excludes/&gt;         &lt;/testResource&gt;        &lt;/testResources&gt;        &lt;directory/&gt;&lt;finalName/&gt;&lt;filters/&gt;        &lt;pluginManagement&gt;         &lt;plugins&gt;          &lt;!--参见build/pluginManagement/plugins/plugin元素--&gt;          &lt;plugin&gt;           &lt;groupId/&gt;&lt;artifactId/&gt;&lt;version/&gt;&lt;extensions/&gt;           &lt;executions&gt;            &lt;execution&gt;             &lt;id/&gt;&lt;phase/&gt;&lt;goals/&gt;&lt;inherited/&gt;&lt;configuration/&gt;            &lt;/execution&gt;           &lt;/executions&gt;           &lt;dependencies&gt;            &lt;!--参见dependencies/dependency元素--&gt;            &lt;dependency&gt;             ......            &lt;/dependency&gt;           &lt;/dependencies&gt;           &lt;goals/&gt;&lt;inherited/&gt;&lt;configuration/&gt;          &lt;/plugin&gt;         &lt;/plugins&gt;        &lt;/pluginManagement&gt;        &lt;plugins&gt;         &lt;!--参见build/pluginManagement/plugins/plugin元素--&gt;         &lt;plugin&gt;          &lt;groupId/&gt;&lt;artifactId/&gt;&lt;version/&gt;&lt;extensions/&gt;          &lt;executions&gt;           &lt;execution&gt;            &lt;id/&gt;&lt;phase/&gt;&lt;goals/&gt;&lt;inherited/&gt;&lt;configuration/&gt;           &lt;/execution&gt;          &lt;/executions&gt;          &lt;dependencies&gt;           &lt;!--参见dependencies/dependency元素--&gt;           &lt;dependency&gt;            ......           &lt;/dependency&gt;          &lt;/dependencies&gt;          &lt;goals/&gt;&lt;inherited/&gt;&lt;configuration/&gt;         &lt;/plugin&gt;        &lt;/plugins&gt;       &lt;/build&gt;       &lt;!--模块（有时称作子项目） 被构建成项目的一部分。列出的每个模块元素是指向该模块的目录的相对路径--&gt;       &lt;modules/&gt;       &lt;!--发现依赖和扩展的远程仓库列表。--&gt;       &lt;repositories&gt;        &lt;!--参见repositories/repository元素--&gt;        &lt;repository&gt;         &lt;releases&gt;          &lt;enabled/&gt;&lt;updatePolicy/&gt;&lt;checksumPolicy/&gt;         &lt;/releases&gt;         &lt;snapshots&gt;          &lt;enabled/&gt;&lt;updatePolicy/&gt;&lt;checksumPolicy/&gt;         &lt;/snapshots&gt;         &lt;id/&gt;&lt;name/&gt;&lt;url/&gt;&lt;layout/&gt;        &lt;/repository&gt;       &lt;/repositories&gt;       &lt;!--发现插件的远程仓库列表，这些插件用于构建和报表--&gt;       &lt;pluginRepositories&gt;        &lt;!--包含需要连接到远程插件仓库的信息.参见repositories/repository元素--&gt;            &lt;pluginRepository&gt;         &lt;releases&gt;          &lt;enabled/&gt;&lt;updatePolicy/&gt;&lt;checksumPolicy/&gt;         &lt;/releases&gt;         &lt;snapshots&gt;          &lt;enabled/&gt;&lt;updatePolicy/&gt;&lt;checksumPolicy/&gt;         &lt;/snapshots&gt;         &lt;id/&gt;&lt;name/&gt;&lt;url/&gt;&lt;layout/&gt;        &lt;/pluginRepository&gt;       &lt;/pluginRepositories&gt;       &lt;!--该元素描述了项目相关的所有依赖。 这些依赖组成了项目构建过程中的一个个环节。它们自动从项目定义的仓库中下载。要获取更多信息，请看项目依赖机制。--&gt;       &lt;dependencies&gt;        &lt;!--参见dependencies/dependency元素--&gt;        &lt;dependency&gt;         ......        &lt;/dependency&gt;       &lt;/dependencies&gt;       &lt;!--不赞成使用. 现在Maven忽略该元素.--&gt;       &lt;reports/&gt;          &lt;!--该元素包括使用报表插件产生报表的规范。当用户执行“mvn site”，这些报表就会运行。 在页面导航栏能看到所有报表的链接。参见reporting元素--&gt;       &lt;reporting&gt;        ......       &lt;/reporting&gt;       &lt;!--参见dependencyManagement元素--&gt;       &lt;dependencyManagement&gt;        &lt;dependencies&gt;         &lt;!--参见dependencies/dependency元素--&gt;         &lt;dependency&gt;          ......         &lt;/dependency&gt;        &lt;/dependencies&gt;       &lt;/dependencyManagement&gt;       &lt;!--参见distributionManagement元素--&gt;       &lt;distributionManagement&gt;        ......       &lt;/distributionManagement&gt;       &lt;!--参见properties元素--&gt;       &lt;properties/&gt;      &lt;/profile&gt;     &lt;/profiles&gt;     &lt;!--模块（有时称作子项目） 被构建成项目的一部分。列出的每个模块元素是指向该模块的目录的相对路径--&gt;     &lt;modules/&gt;        &lt;!--发现依赖和扩展的远程仓库列表。--&gt;         &lt;repositories&gt;          &lt;!--包含需要连接到远程仓库的信息--&gt;            &lt;repository&gt;             &lt;!--如何处理远程仓库里发布版本的下载--&gt;             &lt;releases&gt;              &lt;!--true或者false表示该仓库是否为下载某种类型构件（发布版，快照版）开启。 --&gt;        &lt;enabled/&gt;        &lt;!--该元素指定更新发生的频率。Maven会比较本地POM和远程POM的时间戳。这里的选项是：always（一直），daily（默认，每日），interval：X（这里X是以分钟为单位的时间间隔），或者never（从不）。--&gt;        &lt;updatePolicy/&gt;        &lt;!--当Maven验证构件校验文件失败时该怎么做：ignore（忽略），fail（失败），或者warn（警告）。--&gt;        &lt;checksumPolicy/&gt;       &lt;/releases&gt;       &lt;!-- 如何处理远程仓库里快照版本的下载。有了releases和snapshots这两组配置，POM就可以在每个单独的仓库中，为每种类型的构件采取不同的 策略。例如，可能有人会决定只为开发目的开启对快照版本下载的支持。参见repositories/repository/releases元素 --&gt;       &lt;snapshots&gt;        &lt;enabled/&gt;&lt;updatePolicy/&gt;&lt;checksumPolicy/&gt;       &lt;/snapshots&gt;       &lt;!--远程仓库唯一标识符。可以用来匹配在settings.xml文件里配置的远程仓库--&gt;       &lt;id&gt;banseon-repository-proxy&lt;/id&gt;        &lt;!--远程仓库名称--&gt;                &lt;name&gt;banseon-repository-proxy&lt;/name&gt;                 &lt;!--远程仓库URL，按protocol://hostname/path形式--&gt;                &lt;url&gt;http://192.168.1.169:9999/repository/&lt;/url&gt;                 &lt;!-- 用于定位和排序构件的仓库布局类型-可以是default（默认）或者legacy（遗留）。Maven 2为其仓库提供了一个默认的布局；然 而，Maven 1.x有一种不同的布局。我们可以使用该元素指定布局是default（默认）还是legacy（遗留）。--&gt;                &lt;layout&gt;default&lt;/layout&gt;                       &lt;/repository&gt;         &lt;/repositories&gt;        &lt;!--发现插件的远程仓库列表，这些插件用于构建和报表--&gt;        &lt;pluginRepositories&gt;         &lt;!--包含需要连接到远程插件仓库的信息.参见repositories/repository元素--&gt;      &lt;pluginRepository&gt;       ......      &lt;/pluginRepository&gt;     &lt;/pluginRepositories&gt;        &lt;!--该元素描述了项目相关的所有依赖。 这些依赖组成了项目构建过程中的一个个环节。它们自动从项目定义的仓库中下载。要获取更多信息，请看项目依赖机制。--&gt;         &lt;dependencies&gt;             &lt;dependency&gt;       &lt;!--依赖的group ID--&gt;                &lt;groupId&gt;org.apache.maven&lt;/groupId&gt;                 &lt;!--依赖的artifact ID--&gt;                &lt;artifactId&gt;maven-artifact&lt;/artifactId&gt;                 &lt;!--依赖的版本号。 在Maven 2里, 也可以配置成版本号的范围。--&gt;                &lt;version&gt;3.8.1&lt;/version&gt;                 &lt;!-- 依赖类型，默认类型是jar。它通常表示依赖的文件的扩展名，但也有例外。一个类型可以被映射成另外一个扩展名或分类器。类型经常和使用的打包方式对应， 尽管这也有例外。一些类型的例子：jar，war，ejb-client和test-jar。如果设置extensions为 true，就可以在 plugin里定义新的类型。所以前面的类型的例子不完整。--&gt;                &lt;type&gt;jar&lt;/type&gt;                &lt;!-- 依赖的分类器。分类器可以区分属于同一个POM，但不同构建方式的构件。分类器名被附加到文件名的版本号后面。例如，如果你想要构建两个单独的构件成 JAR，一个使用Java 1.4编译器，另一个使用Java 6编译器，你就可以使用分类器来生成两个单独的JAR构件。--&gt;                &lt;classifier&gt;&lt;/classifier&gt;                &lt;!--依赖范围。在项目发布过程中，帮助决定哪些构件被包括进来。欲知详情请参考依赖机制。                    - compile ：默认范围，用于编译                      - provided：类似于编译，但支持你期待jdk或者容器提供，类似于classpath                      - runtime: 在执行时需要使用                      - test:    用于test任务时使用                      - system: 需要外在提供相应的元素。通过systemPath来取得                      - systemPath: 仅用于范围为system。提供相应的路径                      - optional:   当项目自身被依赖时，标注依赖是否传递。用于连续依赖时使用--&gt;                 &lt;scope&gt;test&lt;/scope&gt;                   &lt;!--仅供system范围使用。注意，不鼓励使用这个元素，并且在新的版本中该元素可能被覆盖掉。该元素为依赖规定了文件系统上的路径。需要绝对路径而不是相对路径。推荐使用属性匹配绝对路径，例如${java.home}。--&gt;                &lt;systemPath&gt;&lt;/systemPath&gt;                 &lt;!--当计算传递依赖时， 从依赖构件列表里，列出被排除的依赖构件集。即告诉maven你只依赖指定的项目，不依赖项目的依赖。此元素主要用于解决版本冲突问题--&gt;                &lt;exclusions&gt;                 &lt;exclusion&gt;                         &lt;artifactId&gt;spring-core&lt;/artifactId&gt;                         &lt;groupId&gt;org.springframework&lt;/groupId&gt;                     &lt;/exclusion&gt;                 &lt;/exclusions&gt;                   &lt;!--可选依赖，如果你在项目B中把C依赖声明为可选，你就需要在依赖于B的项目（例如项目A）中显式的引用对C的依赖。可选依赖阻断依赖的传递性。--&gt;                 &lt;optional&gt;true&lt;/optional&gt;            &lt;/dependency&gt;        &lt;/dependencies&gt;        &lt;!--不赞成使用. 现在Maven忽略该元素.--&gt;        &lt;reports&gt;&lt;/reports&gt;        &lt;!--该元素描述使用报表插件产生报表的规范。当用户执行“mvn site”，这些报表就会运行。 在页面导航栏能看到所有报表的链接。--&gt;     &lt;reporting&gt;      &lt;!--true，则，网站不包括默认的报表。这包括“项目信息”菜单中的报表。--&gt;      &lt;excludeDefaults/&gt;      &lt;!--所有产生的报表存放到哪里。默认值是${project.build.directory}/site。--&gt;      &lt;outputDirectory/&gt;      &lt;!--使用的报表插件和他们的配置。--&gt;      &lt;plugins&gt;       &lt;!--plugin元素包含描述报表插件需要的信息--&gt;       &lt;plugin&gt;        &lt;!--报表插件在仓库里的group ID--&gt;        &lt;groupId/&gt;        &lt;!--报表插件在仓库里的artifact ID--&gt;        &lt;artifactId/&gt;        &lt;!--被使用的报表插件的版本（或版本范围）--&gt;        &lt;version/&gt;        &lt;!--任何配置是否被传播到子项目--&gt;        &lt;inherited/&gt;        &lt;!--报表插件的配置--&gt;        &lt;configuration/&gt;        &lt;!--一组报表的多重规范，每个规范可能有不同的配置。一个规范（报表集）对应一个执行目标 。例如，有1，2，3，4，5，6，7，8，9个报表。1，2，5构成A报表集，对应一个执行目标。2，5，8构成B报表集，对应另一个执行目标--&gt;        &lt;reportSets&gt;         &lt;!--表示报表的一个集合，以及产生该集合的配置--&gt;         &lt;reportSet&gt;          &lt;!--报表集合的唯一标识符，POM继承时用到--&gt;          &lt;id/&gt;          &lt;!--产生报表集合时，被使用的报表的配置--&gt;          &lt;configuration/&gt;          &lt;!--配置是否被继承到子POMs--&gt;          &lt;inherited/&gt;          &lt;!--这个集合里使用到哪些报表--&gt;          &lt;reports/&gt;         &lt;/reportSet&gt;        &lt;/reportSets&gt;       &lt;/plugin&gt;      &lt;/plugins&gt;     &lt;/reporting&gt;     &lt;!-- 继承自该项目的所有子项目的默认依赖信息。这部分的依赖信息不会被立即解析,而是当子项目声明一个依赖（必须描述group ID和 artifact ID信息），如果group ID和artifact ID以外的一些信息没有描述，则通过group ID和artifact ID 匹配到这里的依赖，并使用这里的依赖信息。--&gt;     &lt;dependencyManagement&gt;      &lt;dependencies&gt;       &lt;!--参见dependencies/dependency元素--&gt;       &lt;dependency&gt;        ......       &lt;/dependency&gt;      &lt;/dependencies&gt;     &lt;/dependencyManagement&gt;           &lt;!--项目分发信息，在执行mvn deploy后表示要发布的位置。有了这些信息就可以把网站部署到远程服务器或者把构件部署到远程仓库。--&gt;         &lt;distributionManagement&gt;            &lt;!--部署项目产生的构件到远程仓库需要的信息--&gt;            &lt;repository&gt;             &lt;!--是分配给快照一个唯一的版本号（由时间戳和构建流水号）？还是每次都使用相同的版本号？参见repositories/repository元素--&gt;       &lt;uniqueVersion/&gt;       &lt;id&gt;banseon-maven2&lt;/id&gt;        &lt;name&gt;banseon maven2&lt;/name&gt;                 &lt;url&gt;file://${basedir}/target/deploy&lt;/url&gt;                 &lt;layout/&gt;      &lt;/repository&gt;      &lt;!--构件的快照部署到哪里？如果没有配置该元素，默认部署到repository元素配置的仓库，参见distributionManagement/repository元素--&gt;       &lt;snapshotRepository&gt;       &lt;uniqueVersion/&gt;       &lt;id&gt;banseon-maven2&lt;/id&gt;                &lt;name&gt;Banseon-maven2 Snapshot Repository&lt;/name&gt;                &lt;url&gt;scp://svn.baidu.com/banseon:/usr/local/maven-snapshot&lt;/url&gt;        &lt;layout/&gt;      &lt;/snapshotRepository&gt;      &lt;!--部署项目的网站需要的信息--&gt;             &lt;site&gt;             &lt;!--部署位置的唯一标识符，用来匹配站点和settings.xml文件里的配置--&gt;                 &lt;id&gt;banseon-site&lt;/id&gt;                 &lt;!--部署位置的名称--&gt;                &lt;name&gt;business api website&lt;/name&gt;                 &lt;!--部署位置的URL，按protocol://hostname/path形式--&gt;                &lt;url&gt;                     scp://svn.baidu.com/banseon:/var/www/localhost/banseon-web                  &lt;/url&gt;             &lt;/site&gt;      &lt;!--项目下载页面的URL。如果没有该元素，用户应该参考主页。使用该元素的原因是：帮助定位那些不在仓库里的构件（由于license限制）。--&gt;      &lt;downloadUrl/&gt;      &lt;!--如果构件有了新的group ID和artifact ID（构件移到了新的位置），这里列出构件的重定位信息。--&gt;      &lt;relocation&gt;       &lt;!--构件新的group ID--&gt;       &lt;groupId/&gt;       &lt;!--构件新的artifact ID--&gt;       &lt;artifactId/&gt;       &lt;!--构件新的版本号--&gt;       &lt;version/&gt;       &lt;!--显示给用户的，关于移动的额外信息，例如原因。--&gt;       &lt;message/&gt;      &lt;/relocation&gt;      &lt;!-- 给出该构件在远程仓库的状态。不得在本地项目中设置该元素，因为这是工具自动更新的。有效的值有：none（默认），converted（仓库管理员从 Maven 1 POM转换过来），partner（直接从伙伴Maven 2仓库同步过来），deployed（从Maven 2实例部 署），verified（被核实时正确的和最终的）。--&gt;      &lt;status/&gt;               &lt;/distributionManagement&gt;        &lt;!--以值替代名称，Properties可以在整个POM中使用，也可以作为触发条件（见settings.xml配置文件里activation元素的说明）。格式是&lt;name&gt;value&lt;/name&gt;。--&gt;        &lt;properties/&gt;    &lt;/project&gt;    </code></pre>]]></content>
-      
-      
+      <tags>
+        <tag>Liunx</tag>
+        <tag>DevOps</tag>
+        <tag>Jenkins</tag>
+        <tag>CentOS</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>Java Microbenchmark Harness微基准测试基础</title>
+    <url>/2020/07/07/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Java-Microbenchmark-Harness-Basic/</url>
+    <content><![CDATA[<blockquote>
+<p><strong>If you cannot measure it, you cannot improve it.    –Lord Kelvin</strong></p>
+</blockquote>
+<p><a href="http://openjdk.java.net/projects/code-tools/jmh/" target="_blank" rel="noopener">Java Microbenchmark Harness</a> 是专门进行代码的微基准测试的一套工具API。 为应用提供了数据支持，是评价和比较方法好坏的基准。一般说JMH，是在 <strong>Method 层面上的 Benchmark</strong>，精度可以精确到微秒级。以下记录JMH的使用和相关基础，便于之后查找和学习。</p>
+<p>Benchmark 作为应用框架，产品的基准画像，存在统一的标准，避免了不同测评对象自说自话的尴尬，应用框架各自使用有利于自身场景的测评方式必然不可取。</p>
+<a id="more"></a>
+
+<h2 id="Hello-JHM"><a href="#Hello-JHM" class="headerlink" title="Hello JHM"></a>Hello JHM</h2><h3 id="Maven依赖"><a href="#Maven依赖" class="headerlink" title="Maven依赖"></a>Maven依赖</h3><p>在项目中使用Maven,只需要添加如下依赖：</p>
+<pre><code class="xml">&lt;!-- JMH--&gt;
+&lt;dependency&gt;
+    &lt;groupId&gt;org.openjdk.jmh&lt;/groupId&gt;
+    &lt;artifactId&gt;jmh-core&lt;/artifactId&gt;
+    &lt;version&gt;${jmh.version}&lt;/version&gt;
+&lt;/dependency&gt;
+&lt;dependency&gt;
+    &lt;groupId&gt;org.openjdk.jmh&lt;/groupId&gt;
+    &lt;artifactId&gt;jmh-generator-annprocess&lt;/artifactId&gt;
+    &lt;version&gt;${jmh.version}&lt;/version&gt;
+    &lt;scope&gt;provided&lt;/scope&gt;
+&lt;/dependency&gt;</code></pre>
+<h3 id="性能测试设计"><a href="#性能测试设计" class="headerlink" title="性能测试设计"></a>性能测试设计</h3><p>测试比较Spring和StringBuilder的完成字符串拼接的性能</p>
+<pre><code class="java">/**
+ * 比较字符串直接相加和StringBuilder的效率
+ *
+ * @author Leo Wang
+ * @version 1.0
+ * @date 2020/7/7 16:44
+ */
+@BenchmarkMode(Mode.Throughput)
+@Warmup(iterations = 1,time = 1, timeUnit = TimeUnit.SECONDS)
+@Measurement(iterations = 10,time = 10,timeUnit = TimeUnit.SECONDS)
+@Threads(8)
+@Fork(2)
+@OutputTimeUnit(TimeUnit.MILLISECONDS)
+@State(Scope.Thread)
+public class StringBuilderBenchmark {
+    @Benchmark
+    public void testStringAdd() {
+        String a = &quot;&quot;;
+        for (int i = 0; i &lt; 10; i++) {
+            a += i;
+        }
+        print(a);
+    }
+
+    @Benchmark
+    public void testStringBuilderAdd() {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i &lt; 10; i++) {
+            sb.append(i);
+        }
+        print(sb.toString());
+    }
+
+    private void print(String a) {
+    }</code></pre>
+<h3 id="性能测试执行"><a href="#性能测试执行" class="headerlink" title="性能测试执行"></a>性能测试执行</h3><p>对于JMH来说，其执行方式主要有两种</p>
+<h4 id="直接IDE运行"><a href="#直接IDE运行" class="headerlink" title="直接IDE运行"></a>直接IDE运行</h4><p>对于体量小的测试，可以直接在IDE中完成相关的测试。如上的测试来说，可以直接运行，然后查看相关结果，执行的结果的Main函数如下，创建<em>Options</em>对象，传入需要执行的测试和测试报告的输出地址。直接执行Main方法</p>
+<pre><code class="java">    public static void main(String[] args) throws RunnerException {
+        String userDirPath = System.getProperty(&quot;user.dir&quot;);
+        String benchmarkLogPath = String.format(&quot;%s/%s&quot;,userDirPath,&quot;/StringBenchmark.log&quot;);
+        Options options = new OptionsBuilder()
+                .include(StringBuilderBenchmark.class.getSimpleName())
+                .output(benchmarkLogPath)
+                .build();
+        new Runner(options).run();
+    }</code></pre>
+<p>在使用IDE进行测试时，需要注意不能使用<strong>Dubug</strong>模式启动，否则不能正常完成测试。</p>
+<h4 id="打包成Jar-其他机器上执行"><a href="#打包成Jar-其他机器上执行" class="headerlink" title="打包成Jar,其他机器上执行"></a>打包成Jar,其他机器上执行</h4><p>一般对于大型的测试，需要测试时间比较久，线程比较多，就需要去写好了丢到远端的Linux系统环境中里执行， 不然会在本机执行很久并且需要的性能需求可能达不到测试需求。</p>
+<pre><code class="bash">mvn clean package
+java -jar StringBuilderBenchmark.jar</code></pre>
+<h3 id="测试结果"><a href="#测试结果" class="headerlink" title="测试结果"></a>测试结果</h3><p>当正常跑完项目测试以后，JHM会在指定的文件夹下输出一下的测试结果</p>
+<pre><code class="shell"># JMH version: 1.23
+# VM version: JDK 1.8.0_251, Java HotSpot(TM) 64-Bit Server VM, 25.251-b08
+# VM invoker: /Library/Java/JavaVirtualMachines/jdk1.8.0_251.jdk/Contents/Home/jre/bin/java
+# VM options: -javaagent:/Applications/IntelliJ IDEA.app/Contents/lib/idea_rt.jar=63118:/Applications/IntelliJ IDEA.app/Contents/bin -Dfile.encoding=UTF-8
+# Warmup: 1 iterations, 1 s each
+# Measurement: 10 iterations, 10 s each
+# Timeout: 10 min per iteration
+# Threads: 8 threads, will synchronize iterations
+# Benchmark mode: Throughput, ops/time
+# Benchmark: com.upuphub.lake.skylake.benchmark.StringBuilderBenchmark.testStringAdd
+
+# Run progress: 0.00% complete, ETA 00:06:44
+# Fork: 1 of 2
+# Warmup Iteration   1: 9014.340 ops/ms
+Iteration   1: 21302.297 ops/ms
+Iteration   2: 21807.763 ops/ms
+Iteration   3: 21812.419 ops/ms
+Iteration   4: 21840.912 ops/ms
+Iteration   5: 21985.020 ops/ms
+Iteration   6: 22066.751 ops/ms
+Iteration   7: 22006.021 ops/ms
+Iteration   8: 19239.509 ops/ms
+Iteration   9: 10515.274 ops/ms
+Iteration  10: 11758.987 ops/ms
+
+# Run progress: 25.00% complete, ETA 00:05:21
+# Fork: 2 of 2
+# Warmup Iteration   1: 5273.829 ops/ms
+Iteration   1: 18880.356 ops/ms
+Iteration   2: 22225.847 ops/ms
+Iteration   3: 22017.665 ops/ms
+Iteration   4: 22036.969 ops/ms
+Iteration   5: 22080.422 ops/ms
+Iteration   6: 22262.118 ops/ms
+Iteration   7: 22153.187 ops/ms
+Iteration   8: 22105.884 ops/ms
+Iteration   9: 21613.504 ops/ms
+Iteration  10: 22029.923 ops/ms
+
+
+Result &quot;com.upuphub.lake.skylake.benchmark.StringBuilderBenchmark.testStringAdd&quot;:
+  20587.041 ±(99.9%) 2921.754 ops/ms [Average]
+  (min, avg, max) = (10515.274, 20587.041, 22262.118), stdev = 3364.697
+  CI (99.9%): [17665.287, 23508.796] (assumes normal distribution)
+
+
+# JMH version: 1.23
+# VM version: JDK 1.8.0_251, Java HotSpot(TM) 64-Bit Server VM, 25.251-b08
+# VM invoker: /Library/Java/JavaVirtualMachines/jdk1.8.0_251.jdk/Contents/Home/jre/bin/java
+# VM options: -javaagent:/Applications/IntelliJ IDEA.app/Contents/lib/idea_rt.jar=63118:/Applications/IntelliJ IDEA.app/Contents/bin -Dfile.encoding=UTF-8
+# Warmup: 1 iterations, 1 s each
+# Measurement: 10 iterations, 10 s each
+# Timeout: 10 min per iteration
+# Threads: 8 threads, will synchronize iterations
+# Benchmark mode: Throughput, ops/time
+# Benchmark: com.upuphub.lake.skylake.benchmark.StringBuilderBenchmark.testStringBuilderAdd
+
+# Run progress: 50.00% complete, ETA 00:03:34
+# Fork: 1 of 2
+# Warmup Iteration   1: 50084.373 ops/ms
+Iteration   1: 67510.457 ops/ms
+Iteration   2: 42202.643 ops/ms
+Iteration   3: 41633.858 ops/ms
+Iteration   4: 43352.405 ops/ms
+Iteration   5: 43748.063 ops/ms
+Iteration   6: 45176.476 ops/ms
+Iteration   7: 44649.922 ops/ms
+Iteration   8: 40872.340 ops/ms
+Iteration   9: 40520.724 ops/ms
+Iteration  10: 38853.095 ops/ms
+
+# Run progress: 75.00% complete, ETA 00:01:47
+# Fork: 2 of 2
+# Warmup Iteration   1: 45279.748 ops/ms
+Iteration   1: 71985.226 ops/ms
+Iteration   2: 43291.826 ops/ms
+Iteration   3: 44149.181 ops/ms
+Iteration   4: 43297.043 ops/ms
+Iteration   5: 40614.460 ops/ms
+Iteration   6: 40444.594 ops/ms
+Iteration   7: 40912.490 ops/ms
+Iteration   8: 41428.454 ops/ms
+Iteration   9: 43022.557 ops/ms
+Iteration  10: 43368.455 ops/ms
+
+
+Result &quot;com.upuphub.lake.skylake.benchmark.StringBuilderBenchmark.testStringBuilderAdd&quot;:
+  45051.713 ±(99.9%) 7496.158 ops/ms [Average]
+  (min, avg, max) = (38853.095, 45051.713, 71985.226), stdev = 8632.587
+  CI (99.9%): [37555.555, 52547.872] (assumes normal distribution)
+
+
+# Run complete. Total time: 00:07:08
+
+REMEMBER: The numbers below are just data. To gain reusable insights, you need to follow up on
+why the numbers are the way they are. Use profilers (see -prof, -lprof), design factorial
+experiments, perform baseline and negative tests that provide experimental control, make sure
+the benchmarking environment is safe on JVM/OS/HW level, ask for reviews from the domain experts.
+Do not assume the numbers tell you what you want them to tell.
+
+Benchmark                                     Mode  Cnt      Score      Error   Units
+StringBuilderBenchmark.testStringAdd         thrpt   20  20587.041 ± 2921.754  ops/ms
+StringBuilderBenchmark.testStringBuilderAdd  thrpt   20  45051.713 ± 7496.158  ops/ms</code></pre>
+<p>整个测试报告由三个部分组成，首先分别是<strong>testStringAdd</strong>的测试结果然后是<strong>testStringBuilderAdd</strong>的测试结果，最后时两个测试结果之间的结果汇总和对应的比较。前两个部分的结果是类似的，会列出测试环境的一些基本信息，包括JHM的版本、虚拟机版本和相关一些配置等的信息以及测试的一些配置和设置，然后就是预热迭代执行（Warmup Iteration）， 然后是正常的迭代执行（Iteration），最后是结果（Result）的信息输出。一般来说最关注第三部分，也就是汇总结果。</p>
+<blockquote>
+<p>Tips: 对于汇总结果部分的输出,Error是没有数据的，这里是Score过长挤过去的</p>
+</blockquote>
+<p>可以看出StringBuilder在做字符串拼接的速度比String的直接评价速度好两倍以上。</p>
+<h2 id="JHM的注解和功能"><a href="#JHM的注解和功能" class="headerlink" title="JHM的注解和功能"></a>JHM的注解和功能</h2><h3 id="BenchmarkMode"><a href="#BenchmarkMode" class="headerlink" title="@BenchmarkMode"></a><em>@BenchmarkMode</em></h3><p>基准测试类型。这里选择的是Throughput也就是吞吐量。吞吐量会得到单位时间内可以进行的操作数。</p>
+<ul>
+<li>Throughput: 整体吞吐量，例如“1秒内可以执行多少次调用”。</li>
+<li>AverageTime: 调用的平均时间，例如“每次调用平均耗时xxx毫秒”。</li>
+<li>SampleTime: 随机取样，最后输出取样结果的分布，例如“99%的调用在xxx毫秒以内，99.99%的调用在xxx毫秒以内”</li>
+<li>SingleShotTime: 以上模式都是默认一次 iteration 是 1s，唯有 SingleShotTime 是只运行一次。往往同时把 warmup 次数设为0，用于测试冷启动时的性能。</li>
+<li>All(“all”, “All benchmark modes”): 执行所有模式。</li>
+</ul>
+<h3 id="Warmup"><a href="#Warmup" class="headerlink" title="@Warmup"></a><em>@Warmup</em></h3><p>在进行基准测试前需要进行预热。一般前几次进行程序测试的时候都会比较慢， 所以要让程序进行几轮预热，保证测试的准确性。其中的参数iterations就是预热轮数。</p>
+<blockquote>
+<p>Tips: 因为 JVM 的 JIT 机制的存在，如果某个函数被调用多次之后，JVM 会尝试将其编译成为机器码从而提高执行速度。所以为了让 benchmark 的结果更加接近真实情况就需要进行预热</p>
+</blockquote>
+<h3 id="Measurement"><a href="#Measurement" class="headerlink" title="@Measurement"></a><em>@Measurement</em></h3><p>度量，一些基本的测试参数。</p>
+<ol>
+<li>iterations 进行测试的轮次</li>
+<li>time 每轮进行的时长</li>
+<li>timeUnit 时长单位</li>
+</ol>
+<p>可以根据具体情况调整。一般比较重的东西可以进行大量的测试，放到服务器上运行。</p>
+<h3 id="Threads"><a href="#Threads" class="headerlink" title="@Threads"></a><em>@Threads</em></h3><p>每个进程中的测试线程，根据具体情况选择，一般为cpu乘以2。</p>
+<h3 id="Fork"><a href="#Fork" class="headerlink" title="@Fork"></a><em>@Fork</em></h3><p>进行 fork 的次数。如果 fork 数是2的话，则 JMH 会 fork 出两个进程来进行测试。</p>
+<h3 id="OutputTimeUnit"><a href="#OutputTimeUnit" class="headerlink" title="@OutputTimeUnit"></a><em>@OutputTimeUnit</em></h3><p>基准测试结果的时间类型。一般选择秒、毫秒、微秒。</p>
+<h3 id="Benchmark"><a href="#Benchmark" class="headerlink" title="@Benchmark"></a><em>@Benchmark</em></h3><p>方法级注解，表示该方法是需要进行 benchmark ，用法和 JUnit 的 @Test 类似。</p>
+<h3 id="Param"><a href="#Param" class="headerlink" title="@Param"></a><em>@Param</em></h3><p>属性级注解，@Param 用来指定某项参数的多种情况。适合用来测试一个函数在不同的参数输入的情况下的性能。</p>
+<h3 id="Setup"><a href="#Setup" class="headerlink" title="@Setup"></a><em>@Setup</em></h3><p>方法级注解，需要在测试之前进行一些准备工作，比如对一些数据的初始化。</p>
+<h3 id="TearDown"><a href="#TearDown" class="headerlink" title="@TearDown"></a><em>@TearDown</em></h3><p>方法级注解，在测试之后进行一些结束工作，比如关闭线程池，数据库连接等的，主要用于资源的回收等。</p>
+<h3 id="State"><a href="#State" class="headerlink" title="@State"></a><em>@State</em></h3><p>当使用@Setup参数的时候，必须在类上加这个参数，不然会提示无法运行。</p>
+<p>State 用于声明某个类是一个“状态”，然后接受一个 Scope 参数用来表示该状态的共享范围。 很多 benchmark 会需要一些表示状态的类，JMH 允许你把这些类以依赖注入的方式注入到 benchmark 函数里。Scope 主要分为三种。</p>
+<ol>
+<li>Thread: 该状态为每个线程独享。</li>
+<li>Group: 该状态为同一个组里面所有线程共享。</li>
+<li>Benchmark: 该状态在所有线程间共享。</li>
+</ol>
+<h2 id="补充说明"><a href="#补充说明" class="headerlink" title="补充说明"></a>补充说明</h2><p>在日常的工作和学习中，常常会遇到三种类型的问题，JHM对其能很好就觉很处理。</p>
+<ul>
+<li>对方法或库的不同实现方式的性能分析测试和最后的采用取舍</li>
+<li>方法入参对方法的性能影响和限制</li>
+<li>对项目中的热点方法的优化和其优化效果的定性分析。</li>
+</ul>
+<hr>
+<h2 id="参考和来源"><a href="#参考和来源" class="headerlink" title="参考和来源"></a>参考和来源</h2><ul>
+<li><a href="https://www.xncoding.com/2018/01/07/java/jmh.html" target="_blank" rel="noopener">Java微基准测试框架JMH</a></li>
+<li><a href="http://irfen.me/java-jmh-simple-microbenchmark/" target="_blank" rel="noopener">Java使用JMH进行简单的基准测试Benchmark</a></li>
+<li><a href="http://blog.dyngr.com/blog/2016/10/29/introduction-of-jmh/" target="_blank" rel="noopener">Java 并发编程笔记：JMH 性能测试框架</a></li>
+<li><a href="http://tutorials.jenkov.com/java-performance/jmh.html" target="_blank" rel="noopener">JMH - Java Microbenchmark Harness</a></li>
+</ul>
+]]></content>
       <categories>
-          
-          <category> maven </category>
-          
+        <category>系统调优</category>
       </categories>
-      
-      
-        <tags>
-            
-            <tag> maven </tag>
-            
-        </tags>
-      
-    </entry>
-    
-    
-    
-    <entry>
-      <title>Liuns系统高效文件处理三剑客-Grep/Awk/Sed</title>
-      <link href="2020/08/14/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Liunx-Tips-001-Grep-Awk-Sed/"/>
-      <url>2020/08/14/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Liunx-Tips-001-Grep-Awk-Sed/</url>
-      
-        <content type="html"><![CDATA[<blockquote><p><strong>子曰：“工欲善其事，必先利其器。居是邦也，事其大夫之贤者，友其士之仁者。”</strong> –论语·卫灵公</p></blockquote><h3 id="Grep"><a href="#Grep" class="headerlink" title="Grep"></a>Grep</h3><p><a href="https://zh.wikipedia.org/wiki/Grep" target="_blank" rel="noopener">Grep</a>(global search regular expression(RE) and print out the line)是一款强大的文本搜索工具，支持正则表达式。来自Unix文本编辑器ed类似操作的命令,最初用于Unix操作系统的命令行工具。在给出文件列表或标准输入后，grep会对匹配一个或多个正则表达式的文本进行搜索，并只输出匹配（或者不匹配）的行或文本。</p><pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# grep --help用法: grep [选项]... PATTERN [FILE]...Search for PATTERN in each FILE.Example: grep -i &#39;hello world&#39; menu.h main.c</code></pre><a id="more"></a><pre><code class="shell">Pattern selection and interpretation:  -E, --extended-regexp     PATTERN is an extended regular expression  -F, --fixed-strings       PATTERN is a set of newline-separated strings  -G, --basic-regexp        PATTERN is a basic regular expression (default)  -P, --perl-regexp         PATTERN is a Perl regular expression  -e, --regexp=PATTERN      用 PATTERN 来进行匹配操作  -f, --file=FILE           从 FILE 中取得 PATTERN  -i, --ignore-case         忽略大小写  -w, --word-regexp         强制 PATTERN 仅完全匹配字词  -x, --line-regexp         强制 PATTERN 仅完全匹配一行  -z, --null-data           一个 0 字节的数据行，但不是空行杂项:  -s, --no-messages         不显示错误信息  -v, --invert-match        选中不匹配的行  -V, --version             显示版本信息并退出      --help                显示此帮助并退出Output control:  -m, --max-count=NUM       stop after NUM selected lines  -b, --byte-offset         print the byte offset with output lines  -n, --line-number         print line number with output lines      --line-buffered       flush output on every line  -H, --with-filename       print file name with output lines  -h, --no-filename         suppress the file name prefix on output      --label=LABEL         use LABEL as the standard input file name prefix  -o, --only-matching       只显示匹配PATTERN 部分的行  -q, --quiet, --silent     不显示所有常规输出      --binary-files=TYPE   设定二进制文件的TYPE 类型；                            TYPE 可以是`binary&#39;, `text&#39;, 或`without-match&#39;  -a, --text                等同于 --binary-files=text  -I                        equivalent to --binary-files=without-match  -d, --directories=ACTION  how to handle directories;                            ACTION is &#39;read&#39;, &#39;recurse&#39;, or &#39;skip&#39;  -D, --devices=ACTION      how to handle devices, FIFOs and sockets;                            ACTION is &#39;read&#39; or &#39;skip&#39;  -r, --recursive           like --directories=recurse  -R, --dereference-recursive                            likewise, but follow all symlinks      --include=FILE_PATTERN                            search only files that match FILE_PATTERN      --exclude=FILE_PATTERN                            skip files and directories matching FILE_PATTERN      --exclude-from=FILE   skip files matching any file pattern from FILE      --exclude-dir=PATTERN directories that match PATTERN will be skipped.  -L, --files-without-match print only names of FILEs with no selected lines  -l, --files-with-matches  print only names of FILEs with selected lines  -c, --count               print only a count of selected lines per FILE文件控制:  -B, --before-context=NUM  打印文本及其前面NUM 行  -A, --after-context=NUM   打印文本及其后面NUM 行  -C, --context=NUM         打印NUM 行输出文本  -NUM                      same as --context=NUM      --group-separator=SEP use SEP as a group separator      --no-group-separator  use empty string as a group separator      --color[=WHEN],      --colour[=WHEN]       use markers to highlight the matching strings;                            WHEN is &#39;always&#39;, &#39;never&#39;, or &#39;auto&#39;  -U, --binary              do not strip CR characters at EOL (MSDOS/Windows)</code></pre><p>常用参数:</p><pre><code class="shell">            -v        取反            -i        忽略大小写            -c        符合条件的行数            -n        输出的同时打印行号            ^*        以*开头                     *$         以*结尾             ^$         空行             -a        不忽略二进制数据            -A&lt;n&gt;     除了显示匹配的行外，还显示之后的n行            -b        在符合条件的行之前，显示该行第一个字符的编号</code></pre><p>Demo文案</p><pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.logI came;I saw;i conquered.我来了，我看到了，我征服了.   ——凯撒大帝</code></pre><h4 id="查找符合条件的行"><a href="#查找符合条件的行" class="headerlink" title="查找符合条件的行"></a>查找符合条件的行</h4><pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log |grep &#39;I&#39;I came;I saw;</code></pre><h4 id="查找符合条件的行数"><a href="#查找符合条件的行数" class="headerlink" title="查找符合条件的行数"></a>查找符合条件的行数</h4><pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log |grep &#39;I&#39; -c2</code></pre><h4 id="查找不符合条件的行"><a href="#查找不符合条件的行" class="headerlink" title="查找不符合条件的行"></a>查找不符合条件的行</h4><pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log |grep &#39;I&#39; -vi conquered.我来了，我看到了，我征服了.   ——凯撒大帝</code></pre><h4 id="忽略大小写查找"><a href="#忽略大小写查找" class="headerlink" title="忽略大小写查找"></a>忽略大小写查找</h4><pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log |grep &#39;I&#39; -iI came;I saw;i conquered.</code></pre><h4 id="查找符合条件的行并输出行号"><a href="#查找符合条件的行并输出行号" class="headerlink" title="查找符合条件的行并输出行号"></a>查找符合条件的行并输出行号</h4><pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log |grep &#39;I&#39; -n1:I came;2:I saw;</code></pre><h4 id="以’-’开头的查询"><a href="#以’-’开头的查询" class="headerlink" title="以’*’开头的查询"></a>以’*’开头的查询</h4><pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log |grep &#39;^I&#39;I came;I saw;</code></pre><h4 id="以’-’结尾的查询"><a href="#以’-’结尾的查询" class="headerlink" title="以’*’结尾的查询"></a>以’*’结尾的查询</h4><pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log |grep &#39;; $&#39;I came;I saw;</code></pre><hr><h3 id="Awk"><a href="#Awk" class="headerlink" title="Awk"></a>Awk</h3><p>Awk不仅仅是一个小工具，也可以算得上一种小型的编程语言了，支持if判断分支和while循环语句还有它的内置函数等，是一个要比grep和sed更强大的文本处理工具，但也就意味着要学习的东西更多了。由 Alfred Aho 、Peter Weinberger 和 Brian Kernighan 创始,并以姓氏的首个字母命名.</p><h4 id="基本结构和执行"><a href="#基本结构和执行" class="headerlink" title="基本结构和执行"></a>基本结构和执行</h4><pre><code class="shell">awk &#39;{[pattern] action}&#39; {filenames}  awk &#39;BEGIN{ commands } pattern{ commands } END{ commands }&#39; {filenames}  </code></pre><p>Awk脚本通常由：BEGIN语句块、能够使用模式匹配的通用语句块、END语句块3部分组成，这三个部分是可选的。任意一个部分都可以不出现在脚本中，脚本通常是被单引号或双引号中.</p><ul><li>第一步：执行BEGIN{ commands }语句块中的语句；</li><li>第二步：从文件或标准输入(stdin)读取一行，然后执行pattern{ commands }语句块，它逐行扫描文件，从第一行到最后一行重复这个过程，直到文件全部被读取完毕。</li><li>第三步：当读至输入流末尾时，执行END{ commands }语句块。</li></ul><p>BEGIN语句块在awk开始从输入流中读取行之前被执行，这是一个可选的语句块，比如变量初始化、打印输出表格的表头等语句通常可以写在BEGIN语句块中。</p><p>END语句块在awk从输入流中读取完所有的行之后即被执行，比如打印所有行的分析结果这类信息汇总都是在END语句块中完成，它也是一个可选语句块。</p><p>Pattern语句块中的通用命令是最重要的部分，它也是可选的。如果没有提供pattern语句块，则默认执行{ print }，即打印每一个读取到的行，awk读取的每一行都会执行该语句块。</p><p>action 在{}内指定，一般用来打印，也可以是一个代码段。也就是commands</p><pre><code class="shell">[root@Leonardo-iWzl-Server ~]# awk --helpUsage: awk [POSIX or GNU style options] -f progfile [--] file ...Usage: awk [POSIX or GNU style options] [--] &#39;program&#39; file ...POSIX options:        GNU long options: (standard)    -f progfile        --file=progfile    -F fs            --field-separator=fs    -v var=val        --assign=var=valShort options:        GNU long options: (extensions)    -b            --characters-as-bytes    -c            --traditional    -C            --copyright    -d[file]        --dump-variables[=file]    -e &#39;program-text&#39;    --source=&#39;program-text&#39;    -E file            --exec=file    -g            --gen-pot    -h            --help    -L [fatal]        --lint[=fatal]    -n            --non-decimal-data    -N            --use-lc-numeric    -O            --optimize    -p[file]        --profile[=file]    -P            --posix    -r            --re-interval    -S            --sandbox    -t            --lint-old    -V            --version</code></pre><h4 id="内建参数"><a href="#内建参数" class="headerlink" title="内建参数"></a>内建参数</h4><table><thead><tr><th align="left">变量</th><th align="left">描述</th></tr></thead><tbody><tr><td align="left">$n</td><td align="left">当前记录的第n个字段，字段间由FS分隔</td></tr><tr><td align="left">$0</td><td align="left">完整的输入记录</td></tr><tr><td align="left">ARGC</td><td align="left">命令行参数的数目</td></tr><tr><td align="left">ARGIND</td><td align="left">命令行中当前文件的位置(从0开始算)</td></tr><tr><td align="left">ARGV</td><td align="left">包含命令行参数的数组</td></tr><tr><td align="left">CONVFMT</td><td align="left">数字转换格式(默认值为%.6g)ENVIRON环境变量关联数组</td></tr><tr><td align="left">ERRNO</td><td align="left">最后一个系统错误的描述</td></tr><tr><td align="left">FIELDWIDTHS</td><td align="left">字段宽度列表(用空格键分隔)</td></tr><tr><td align="left">FILENAME</td><td align="left">当前文件名</td></tr><tr><td align="left">FNR</td><td align="left">各文件分别计数的行号</td></tr><tr><td align="left">FS</td><td align="left">字段分隔符(默认是任何空格)</td></tr><tr><td align="left">IGNORECASE</td><td align="left">如果为真，则进行忽略大小写的匹配</td></tr><tr><td align="left">NF</td><td align="left">一条记录的字段的数目</td></tr><tr><td align="left">NR</td><td align="left">已经读出的记录数，就是行号，从1开始</td></tr><tr><td align="left">OFMT</td><td align="left">数字的输出格式(默认值是%.6g)</td></tr><tr><td align="left">OFS</td><td align="left">输出记录分隔符（输出换行符），输出时用指定的符号代替换行符</td></tr><tr><td align="left">ORS</td><td align="left">输出记录分隔符(默认值是一个换行符)</td></tr><tr><td align="left">RLENGTH</td><td align="left">由match函数所匹配的字符串的长度</td></tr><tr><td align="left">RS</td><td align="left">记录分隔符(默认是一个换行符)</td></tr><tr><td align="left">RSTART</td><td align="left">由match函数所匹配的字符串的第一个位置</td></tr><tr><td align="left">SUBSEP</td><td align="left">数组下标分隔符(默认值是/034)</td></tr></tbody></table><h4 id="运算支持"><a href="#运算支持" class="headerlink" title="运算支持"></a>运算支持</h4><table><thead><tr><th align="left">运算符</th><th align="left">描述</th></tr></thead><tbody><tr><td align="left">= += -= <em>= /= %= ^= *</em>=</td><td align="left">赋值</td></tr><tr><td align="left">?:</td><td align="left">C条件表达式</td></tr><tr><td align="left">||</td><td align="left">逻辑或</td></tr><tr><td align="left">&amp;&amp;</td><td align="left">逻辑与</td></tr><tr><td align="left">~ 和 !~</td><td align="left">匹配正则表达式和不匹配正则表达式</td></tr><tr><td align="left">&lt; &lt;= &gt; &gt;= != ==</td><td align="left">关系运算符</td></tr><tr><td align="left">空格</td><td align="left">连接</td></tr><tr><td align="left">+ -</td><td align="left">加，减</td></tr><tr><td align="left">* / %</td><td align="left">乘，除与求余</td></tr><tr><td align="left">+ - !</td><td align="left">一元加，减和逻辑非</td></tr><tr><td align="left">^ ***</td><td align="left">求幂</td></tr><tr><td align="left">++ –</td><td align="left">增加或减少，作为前缀或后缀</td></tr><tr><td align="left">$</td><td align="left">字段引用</td></tr><tr><td align="left">in</td><td align="left">数组成员</td></tr></tbody></table><p>Demo文案</p><pre><code class="shell">[root@Leonardo-iWzl-Server ~]# cat demo.log小米 20 成都 172 60 女小张 21 杭州 182 79 男小文 19 长沙 178 70 男小紫 22 北京 168 50 女</code></pre><h4 id="输出指定位置的文档"><a href="#输出指定位置的文档" class="headerlink" title="输出指定位置的文档"></a>输出指定位置的文档</h4><pre><code class="shell">[root@Leonardo-iWzl-Server ~]# cat demo.log |awk &#39;{print $1,$3,$5}&#39;小米 成都 60小张 杭州 79小文 长沙 70小紫 北京 50</code></pre><h4 id="指定分隔符输出文档"><a href="#指定分隔符输出文档" class="headerlink" title="指定分隔符输出文档"></a>指定分隔符输出文档</h4><pre><code class="shell"># 使用&quot;1&quot;分割[root@Leonardo-iWzl-Server ~]# cat demo.log |awk -F 1 &#39;{print $1}&#39;小米 20 成都小张 2小文小紫 22 北京# 或者使用内建变量[root@Leonardo-iWzl-Server ~]# cat demo.log |awk &#39;BEGIN{FS=&#39;1&#39;} {print $1}&#39;小米 20 成都小张 2小文小紫 22 北京# 使用多个分隔符.先使用&quot;1&quot;分割，然后对分割结果再使用&quot;0&quot;分割[root@Leonardo-iWzl-Server ~]# cat demo.log |awk -F &#39;[10]&#39; &#39;{print $1}&#39;小米 2小张 2小文小紫 22 北京# 或者使用内建变量[root@Leonardo-iWzl-Server ~]# cat demo.log |awk &#39;BEGIN{FS=&quot;[10]&quot;} {print $1}&#39;小米 2小张 2小文小紫 22 北京</code></pre><h4 id="设置计算参数并输出文档"><a href="#设置计算参数并输出文档" class="headerlink" title="设置计算参数并输出文档"></a>设置计算参数并输出文档</h4><pre><code class="shell">#awk -v 设置变量[root@Leonardo-iWzl-Server ~]# cat demo.log |awk -v a=100 &#39;{print $1,$2,a-$2}&#39;小米 20 80小张 21 79小文 19 81小紫 22 78</code></pre>]]></content>
-      
-      
+      <tags>
+        <tag>Java</tag>
+        <tag>基准测试</tag>
+        <tag>系统调优</tag>
+        <tag>JMH</tag>
+        <tag>基础</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>CentOS下Nginx支持SSL协议的编译安装</title>
+    <url>/2020/07/04/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Nginx-under-CentOS-installation/</url>
+    <content><![CDATA[<h2 id="Nginx及其衍生的其他相关优秀开源产品"><a href="#Nginx及其衍生的其他相关优秀开源产品" class="headerlink" title="Nginx及其衍生的其他相关优秀开源产品"></a>Nginx及其衍生的其他相关优秀开源产品</h2><ul>
+<li><a href="http://nginx.org/" target="_blank" rel="noopener">NGINX</a> 是开源、高性能、高可靠的 Web 和反向代理服务器</li>
+<li><a href="https://tengine.taobao.org/" target="_blank" rel="noopener">Tengine</a> Tengine是由淘宝网发起基于Nginx的Web服务器项目</li>
+<li><a href="https://openresty.org/cn/" target="_blank" rel="noopener">OpenResty</a> OpenResty® 是一个基于 Nginx 与 Lua 的高性能 Web 平台</li>
+</ul>
+<h2 id="下载Nginx稳定版包并解压"><a href="#下载Nginx稳定版包并解压" class="headerlink" title="下载Nginx稳定版包并解压"></a>下载Nginx稳定版包并解压</h2><pre><code class="bash">wget http://nginx.org/download/nginx-x.x.x.tar.gz
+tar zxvf nginx-x.x.x.tar.gz
+cd nginx-x.x.x</code></pre>
+<a id="more"></a>
+
+<h2 id="补全需要的库依赖"><a href="#补全需要的库依赖" class="headerlink" title="补全需要的库依赖"></a>补全需要的库依赖</h2><pre><code class="bash">yum install gcc-c++
+yum install -y pcre pcre-devel
+yum install -y zlib zlib-devel
+yum install -y openssl openssl-devel</code></pre>
+<h2 id="执行编译安装"><a href="#执行编译安装" class="headerlink" title="执行编译安装"></a>执行编译安装</h2><p>所有文件放在同一个位置,便于统一管理</p>
+<pre><code class="bash">./configure --prefix=/usr/local/nginx  \
+--conf-path=/usr/local/nginx/etc/nginx.conf  \
+--user=nginx --group=nginx  \
+--error-log-path=/usr/local/nginx/nginxlog/error.log  \
+--http-log-path=/usr/local/nginx/nginxlog/access.log  \
+--pid-path=/usr/local/nginx/pids/nginx.pid  \
+--lock-path=/usr/local/nginx/locks/nginx.lock  \
+--with-http_ssl_module  \
+--with-http_stub_status_module  \
+--with-http_gzip_static_module  \
+--http-client-body-temp-path=/usr/local/nginx/tmp/client  \
+--http-proxy-temp-path=/usr/local/nginx/tmp/proxy  \
+--http-fastcgi-temp-path=/usr/local/nginx/tmp/fastcgi  \
+--http-uwsgi-temp-path=/usr/local/nginx/tmp/uwsgi  \
+--http-scgi-temp-path=/usr/local/nginx/tmp/scgi</code></pre>
+<p>编译结果</p>
+<pre><code class="bash">Configuration summary
+  + using system PCRE library
+  + using system OpenSSL library
+  + using system zlib library
+
+  nginx path prefix: &quot;/usr/local/nginx&quot;
+  nginx binary file: &quot;/usr/local/nginx/sbin/nginx&quot;
+  nginx modules path: &quot;/usr/local/nginx/modules&quot;
+  nginx configuration prefix: &quot;/usr/local/nginx/etc&quot;
+  nginx configuration file: &quot;/usr/local/nginx/etc/nginx.conf&quot;
+  nginx pid file: &quot;/usr/local/nginx/pids/nginx.pid&quot;
+  nginx error log file: &quot;/usr/local/nginx/nginxlog/error.log&quot;
+  nginx http access log file: &quot;/usr/local/nginx/nginxlog/access.log&quot;
+  nginx http client request body temporary files: &quot;/usr/local/nginx/tmp/client&quot;
+  nginx http proxy temporary files: &quot;/usr/local/nginx/tmp/proxy&quot;
+  nginx http fastcgi temporary files: &quot;/usr/local/nginx/tmp/fastcgi&quot;
+  nginx http uwsgi temporary files: &quot;/usr/local/nginx/tmp/uwsgi&quot;
+  nginx http scgi temporary files: &quot;/usr/local/nginx/tmp/scgi</code></pre>
+<p>执行安装</p>
+<pre><code class="bash">make &amp;&amp; make install</code></pre>
+<h2 id="安装后处理"><a href="#安装后处理" class="headerlink" title="安装后处理"></a>安装后处理</h2><p>查看文件结构</p>
+<pre><code class="bash">cd /usr/local/nginx/
+tree
+.
+├── etc
+│   ├── fastcgi.conf
+│   ├── fastcgi.conf.default
+│   ├── fastcgi_params
+│   ├── fastcgi_params.default
+│   ├── koi-utf
+│   ├── koi-win
+│   ├── mime.types
+│   ├── mime.types.default
+│   ├── nginx.conf
+│   ├── nginx.conf.default
+│   ├── scgi_params
+│   ├── scgi_params.default
+│   ├── uwsgi_params
+│   ├── uwsgi_params.default
+│   └── win-utf
+├── html
+│   ├── 50x.html
+│   └── index.html
+├── nginxlog
+├── pids
+└── sbin
+    └── nginx</code></pre>
+<p>完善Nginx目录结构</p>
+<pre><code class="bash">mkdir -pv /usr/local/nginx/tmp/{client,proxy,fastcgi,uwsgi,scgi}</code></pre>
+<h2 id="Nginx启动和监听"><a href="#Nginx启动和监听" class="headerlink" title="Nginx启动和监听"></a>Nginx启动和监听</h2><pre><code class="bash"># 启动
+/usr/local/nginx/sbin/nginx
+# 检查是否启动
+ss -tnlp | grep :80</code></pre>
+]]></content>
       <categories>
-          
-          <category> Tips </category>
-          
+        <category>Nginx</category>
       </categories>
-      
-      
-        <tags>
-            
-            <tag> Liunx </tag>
-            
-            <tag> Tools </tag>
-            
-            <tag> Shell </tag>
-            
-        </tags>
-      
-    </entry>
-    
-    
-    
-    <entry>
-      <title>Jenkins在CentOS系统环境上的搭建和部署</title>
-      <link href="2020/07/23/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Jenkins-programming-environment-setup/"/>
-      <url>2020/07/23/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Jenkins-programming-environment-setup/</url>
-      
-        <content type="html"><![CDATA[<h3 id="Jenkins服务在CentOS系统环境上的搭建和部署"><a href="#Jenkins服务在CentOS系统环境上的搭建和部署" class="headerlink" title="Jenkins服务在CentOS系统环境上的搭建和部署"></a>Jenkins服务在CentOS系统环境上的搭建和部署</h3><blockquote><p><a href="https://www.jenkins.io/zh/" target="_blank" rel="noopener">Jenkins</a> 由Java编写的一个开源的、提供友好操作界面的持续集成(CI)工具，起源于Hudson（Hudson是商用的），主要用于持续、自动的构建/测试软件项目、监控外部任务的运行（这个比较抽象，暂且写上，不做解释）。Jenkins用Java语言编写，可在Tomcat等流行的servlet容器中运行，也可独立运行。通常与版本管理工具(SCM)、构建工具结合使用。常用的版本控制工具有SVN、GIT，构建工具有Maven、Ant、Gradle。</p></blockquote><a id="more"></a>  <p>CI(Continuous integration，中文意思是持续集成)是一种软件开发时间。持续集成强调开发人员提交了新代码之后，立刻进行构建、（单元）测试。根据测试结果，我们可以确定新代码和原有代码能否正确地集成在一起。借用网络图片对CI加以理解。</p><p><img src="http://img.upuphub.com/6464255-1b6e3bfdbece1492.jpg" alt="CI"></p><p> CD(Continuous Delivery， 中文意思持续交付)是在持续集成的基础上，将集成后的代码部署到更贴近真实运行环境(类生产环境)中。比如，我们完成单元测试后，可以把代码部署到连接数据库的Staging环境中更多的测试。如果代码没有问题，可以继续手动部署到生产环境。下图反应的是CI/CD 的大概工作模式。</p><p><img src="http://img.upuphub.com/6464255-ba088ec7257062c0.jpg" alt="Jenkins"></p><!-- more --><h2 id="在线安装Jenkins"><a href="#在线安装Jenkins" class="headerlink" title="在线安装Jenkins"></a>在线安装Jenkins</h2><pre><code class="shell"># 获取 repo$ wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo# 获取key, 如果之前导入 jenkins 的key, 这一步可以忽略$ rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key$ yum update &amp;&amp; yum install jenkins# 启用 jenkins$ systemctl start jenkins</code></pre><h2 id="离线安装Jenkins"><a href="#离线安装Jenkins" class="headerlink" title="离线安装Jenkins"></a>离线安装Jenkins</h2><pre><code class="shell"># 准备安装临时文件夹$ mkdir jenkins$ cd jenkins# 获取最新的稳定版本的Jenkins.rpm文件(https://pkg.jenkins.io/redhat-stable/)$ wget https://pkg.jenkins.io/redhat-stable/jenkins-2.235.2-1.1.noarch.rpm# 执行本地的Yum安装$ yum localinstall jenkins-2.235.2-1.1.noarch.rpm# 启用 jenkins$ systemctl start jenkins</code></pre><h2 id="安装异常解决"><a href="#安装异常解决" class="headerlink" title="安装异常解决"></a>安装异常解决</h2><h3 id="异常信息如下"><a href="#异常信息如下" class="headerlink" title="异常信息如下"></a>异常信息如下</h3><pre><code class="shell">[root@Leonardo-iWzl-Server jenkins]# systemctl start jenkinsJob for jenkins.service failed because the control process exited with error code. See &quot;systemctl status jenkins.service&quot; and &quot;journalctl -xe&quot; for details.[root@Leonardo-iWzl-Server jenkins]# systemctl status jenkins● jenkins.service - LSB: Jenkins Automation Server   Loaded: loaded (/etc/rc.d/init.d/jenkins; bad; vendor preset: disabled)   Active: failed (Result: exit-code) since 四 2020-07-23 10:02:43 EDT; 16s ago     Docs: man:systemd-sysv-generator(8)  Process: 23582 ExecStart=/etc/rc.d/init.d/jenkins start (code=exited, status=1/FAILURE)7月 23 10:02:43 Leonardo-iWzl-Server systemd[1]: Starting LSB: Jenkins Automation Server...7月 23 10:02:43 Leonardo-iWzl-Server runuser[23587]: pam_unix(runuser:session): session opened for user jenkins...d=0)7月 23 10:02:43 Leonardo-iWzl-Server jenkins[23582]: Starting Jenkins bash: /usr/bin/java: No such file or directory7月 23 10:02:43 Leonardo-iWzl-Server runuser[23587]: pam_unix(runuser:session): session closed for user jenkins7月 23 10:02:43 Leonardo-iWzl-Server jenkins[23582]: [FAILED]7月 23 10:02:43 Leonardo-iWzl-Server systemd[1]: jenkins.service: control process exited, code=exited status=17月 23 10:02:43 Leonardo-iWzl-Server systemd[1]: Failed to start LSB: Jenkins Automation Server.7月 23 10:02:43 Leonardo-iWzl-Server systemd[1]: Unit jenkins.service entered failed state.7月 23 10:02:43 Leonardo-iWzl-Server systemd[1]: jenkins.service failed.Hint: Some lines were ellipsized, use -l to show in full.</code></pre><h3 id="原因说明"><a href="#原因说明" class="headerlink" title="原因说明"></a>原因说明</h3><p>Jenkins 默认会在以下目录按顺序搜寻 JDK，一旦找到一个可用的即返回</p><pre><code class="shell">/etc/alternatives/java/usr/lib/jvm/java-1.8.0/bin/java/usr/lib/jvm/jre-1.8.0/bin/java/usr/lib/jvm/java-1.7.0/bin/java/usr/lib/jvm/jre-1.7.0/bin/java/usr/lib/jvm/java-11.0/bin/java/usr/lib/jvm/jre-11.0/bin/java/usr/lib/jvm/java-11-openjdk-amd64/usr/bin/java</code></pre><p>如果系统的以上位置都未安装 JDK，启动时就会报错，可以通过建立软连接进行解决</p><pre><code class="shell"> ln -s /usr/local/java/jdk1.8.0_261/bin/java /usr/bin/java</code></pre><p>完成以上错误处理后,可得到以下输出</p><pre><code class="shell">[root@Leonardo-iWzl-Server jenkins]# systemctl status jenkins● jenkins.service - LSB: Jenkins Automation Server   Loaded: loaded (/etc/rc.d/init.d/jenkins; bad; vendor preset: disabled)   Active: active (running) since 四 2020-07-23 10:10:06 EDT; 4s ago     Docs: man:systemd-sysv-generator(8)  Process: 23606 ExecStart=/etc/rc.d/init.d/jenkins start (code=exited, status=0/SUCCESS)   CGroup: /system.slice/jenkins.service           └─23630 /usr/bin/java -Dcom.sun.akuma.Daemon=daemonized -Djava.awt.headless=true -DJENKINS_HOME=/var/lib/jenkins -jar /usr/lib/jenkins/jenkins.war --logfile=/var/log/jenkins/jenkins.log --webroot=/var/cache/jenkins/war --dae...7月 23 10:10:04 Leonardo-iWzl-Server systemd[1]: Starting LSB: Jenkins Automation Server...7月 23 10:10:04 Leonardo-iWzl-Server runuser[23611]: pam_unix(runuser:session): session opened for user jenkins by (uid=0)7月 23 10:10:06 Leonardo-iWzl-Server runuser[23611]: pam_unix(runuser:session): session closed for user jenkins7月 23 10:10:06 Leonardo-iWzl-Server jenkins[23606]: Starting Jenkins [  OK  ]7月 23 10:10:06 Leonardo-iWzl-Server systemd[1]: Started LSB: Jenkins Automation Server.</code></pre><p> 查看jenkins 的启动参数 <em>ps -ef |grep jenkins</em> </p><pre><code class="shell">[root@Leonardo-iWzl-Server jenkins]# ps -ef |grep jenkinsjenkins  23630     1 49 10:10 ?        00:00:54 /usr/bin/java         -Dcom.sun.akuma.Daemon=daemonized         -Djava.awt.headless=true         -DJENKINS_HOME=/var/lib/jenkins         -jar /usr/lib/jenkins/jenkins.war         --logfile=/var/log/jenkins/jenkins.log         --webroot=/var/cache/jenkins/war         --daemon         --httpPort=8080         --debug=5         --handlerCountMax=100         --handlerCountMaxIdle=20root     23695 23312  0 10:11 pts/0    00:00:00 grep --color=auto jenkins</code></pre><p>在这里看到日志的一些配置和相关的端口、可以通过访问<em>「IP」:8080</em>访问到Jenkins服务</p><h3 id="Jenkins的更新"><a href="#Jenkins的更新" class="headerlink" title="Jenkins的更新"></a>Jenkins的更新</h3><p>对于Jenkins更新可以通过</p><pre><code class="shell">yum update jenkins</code></pre><p>完成更新后,需要重启Jenkins服务</p><h3 id="Jenkins国内镜像配置"><a href="#Jenkins国内镜像配置" class="headerlink" title="Jenkins国内镜像配置"></a>Jenkins国内镜像配置</h3><p>修改<em>/var/lib/jenkins</em> 目录下的<em>hudson.model.UpdateCenter.xml</em>文件内容如下</p><pre><code class="xml">&lt;?xml version=&#39;1.1&#39; encoding=&#39;UTF-8&#39;?&gt;&lt;sites&gt;  &lt;site&gt;    &lt;id&gt;default&lt;/id&gt;    &lt;!-- &lt;url&gt;https://updates.jenkins.io/update-center.json&lt;/url&gt;--&gt;     &lt;url&gt;https://mirrors.tuna.tsinghua.edu.cn/jenkins/updates/update-center.json/url&gt;  &lt;/site&gt;&lt;/sites&gt;</code></pre><p>修改默认配置json文件<em>/var/lib/jenkins/updates/default.json</em></p><pre><code class="shell"># 进入响应文件夹cd /var/lib/jenkins/updates# 备份原始文件cp default.json default.json.bak# 替换更新下载地址sed -i &#39;s/http:\/\/updates.jenkins-ci.org\/download/https:\/\/mirrors.tuna.tsinghua.edu.cn\/jenkins/g&#39; default.json# 替换测试URLsed -i &#39;s/http:\/\/www.google.com/https:\/\/www.baidu.com/g&#39; default.json</code></pre><p>完成以后重启Jenkins服务</p><h3 id="配置Jenkins服务"><a href="#配置Jenkins服务" class="headerlink" title="配置Jenkins服务"></a>配置Jenkins服务</h3><p>之后按提示和Jenkins可视化引导完成剩余的Jenkins环境的搭建部署</p><h2 id="Jenkins的结构导图"><a href="#Jenkins的结构导图" class="headerlink" title="Jenkins的结构导图"></a>Jenkins的结构导图</h2><p><img src="http://img.upuphub.com/6464255-cc56d3af1fdd96df.png" alt="Jenkins"></p><hr><h2 id="参考和引用"><a href="#参考和引用" class="headerlink" title="参考和引用"></a>参考和引用</h2><p><a href="https://www.jianshu.com/p/5f671aca2b5a" target="_blank" rel="noopener">哥本哈根月光-Jenkins详细教程</a></p><p><a href="https://halo.sherlocky.com/archives/jenkins" target="_blank" rel="noopener">CentOS 安装 Jenkins 及 国内下载加速</a></p>]]></content>
-      
-      
+      <tags>
+        <tag>Liunx</tag>
+        <tag>CentOS</tag>
+        <tag>Nginx</tag>
+        <tag>Server</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>支持亿级消息的IM系统模块设计和交互模型</title>
+    <url>/2021/03/23/%E5%8F%8A%E6%97%B6%E9%80%9A%E8%AE%AF/%E6%94%AF%E6%8C%81%E4%BA%BF%E7%BA%A7%E7%94%A8%E6%88%B7%E7%9A%84IM%E7%B3%BB%E7%BB%9F%E6%A8%A1%E5%9D%97%E8%AE%BE%E8%AE%A1%E5%92%8C%E4%BA%A4%E4%BA%92%E6%A8%A1%E5%9E%8B/</url>
+    <content><![CDATA[<h1 id="支持亿级用户的IM系统模块设计和交互模型"><a href="#支持亿级用户的IM系统模块设计和交互模型" class="headerlink" title="支持亿级用户的IM系统模块设计和交互模型"></a>支持亿级用户的IM系统模块设计和交互模型</h1><p>​    现代实现的及时通讯系统一般由长连接和短连接配合使用进行实现，一般的实现架构即Connector和Service两个部分,分别对应长连接服务和短连接服务，<strong>长连接服务主要用于服务端对客户端的推送和新消息到达的通知</strong>，<strong>短连接服务主要用于客户端对于消息的拉取和离线(在线)消息的同步</strong>。当用户数据量增大时,其很容易就会出现以下的缺陷:</p>
+<ul>
+<li><strong>复杂性高</strong>：每个模块服务包含的功能职责增多、模块的边界模糊、 依赖关系不清晰、 代码质量参差不齐、 混乱地堆砌在一起。</li>
+<li><strong>可靠性缺失</strong>： 某个核心服务出现问题，例如死循环、内存溢出等， 可能会导致整个系统不能正常使用。</li>
+<li><strong>拓展成本增大</strong>： 当用户体量增大时,部分服务功能会成为系统瓶颈,当进行服务扩容时,因为部分功能瓶颈的原因，就需要将整个服务进行拓展，带来不需要的成本开销。</li>
+</ul>
+<p>为此就需要对常见IM系统架构进行更加细化的服务拆分,以下就IM服务功能拆分提供参考</p>
+<a id="more"></a>
+
+<h2 id="技术指标"><a href="#技术指标" class="headerlink" title="技术指标"></a>技术指标</h2><ul>
+<li><strong>高可靠</strong>：确保不丢消息；</li>
+<li><strong>高可用</strong>：任意机房或者服务器挂掉，不影响服务；</li>
+<li><strong>实时性</strong>：不管用户在哪里，在线用户消息在1秒内达到（我们实际是75%消息可以做到120ms）；</li>
+<li><strong>有序性</strong>：确保用户消息的有序性，不会出现发送和接受的乱序。</li>
+</ul>
+<p>发hi老大回复大家啊</p>
+]]></content>
       <categories>
-          
-          <category> DevOps </category>
-          
+        <category>及时通讯</category>
       </categories>
-      
-      
-        <tags>
-            
-            <tag> DevOps </tag>
-            
-            <tag> Liunx </tag>
-            
-            <tag> Jenkins </tag>
-            
-            <tag> CentOS </tag>
-            
-        </tags>
-      
-    </entry>
-    
-    
-    
-    <entry>
-      <title>Java Microbenchmark Harness微基准测试陷阱</title>
-      <link href="2020/07/09/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Java-Microbenchmark-Harness-Test-Trap/"/>
-      <url>2020/07/09/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Java-Microbenchmark-Harness-Test-Trap/</url>
-      
-        <content type="html"><![CDATA[<blockquote><p><strong>天下之事，闻者不如见者知之为详，见者不如居者知之为尽。——宋-陆游</strong></p><p><strong>你要知道梨子的滋味，就要亲口尝一下。——毛泽东</strong></p></blockquote><p>俗话说，没有实践就没有发言权，自己实践才能知之为尽，Benchmark 为应用提供了数据支持，是评价和比较方法好坏的基准，Benchmark 的准确性，多样性便显得尤为重要。JMH为Java方法的基准水平提供了很好的量化标准，也为剖析系统性能和技术选型提供的更为有效切可靠的实现手段。</p><p>以下记录在使用Java Microbenchmark Harness做微基准测试容易遇见的误区和相关陷阱，便于之后的查找和说明。</p><a id="more"></a><h2 id="代码预热"><a href="#代码预热" class="headerlink" title="代码预热"></a>代码预热</h2><blockquote><p><strong>Warmup = waiting for the transient responses to settle down</strong></p></blockquote><p>随着JVM虚拟机的优化，JIT的存在，代码的执行往往前期执行结果没有后期的执行结果好。 <code>Benchmark</code> 产生更可靠的结果的原因是，它只度量稳定状态下<code>方法任务</code>的执行时间，而不理会最初的性能。大多数 Java 实现具有复杂的性能生命周期。一般来说，最初的性能往往相当低，然后性能显著提高（常常出现几次性能跃升），直到到达稳定状态。</p><h3 id="类装载"><a href="#类装载" class="headerlink" title="类装载"></a>类装载</h3><p>JVM 通常只在类的第一次使用类时装载它们。所以,方法任务的第一次执行时间包含装载它使用的所有类的时间（如果这些类还没有装载的话）。因为类装载往往涉及磁盘 I/O、解析和检验，这会显著增加<code>方法任务</code>的第一次执行时间。<strong>常常</strong>可以通过多次执行<code>方法任务</code>来消除这种影响。</p><blockquote><p>PS:  <strong>常常</strong>而不是<strong>总是</strong>，这是因为 <code>方法任务</code> 可能具有复杂的分支行为，这可能导致它在任何给定的执行过程中并不使用所有可能用到的类。幸运的是，如果执行任务足够多次，就可能经历所有分支，因此很快就会装载所有相关类）。</p></blockquote><p>如果使用定制的类装载器，就有另一个问题：JVM 可能认为一些类已经成了垃圾，因此决定卸载它。这不太可能严重影响性能，但是仍然会使基准测试结果产生偏差。</p><h3 id="混合模式"><a href="#混合模式" class="headerlink" title="混合模式"></a>混合模式</h3><p>在执行即时（Just-in-time，JIT）编译之前，现代的 JVM 通常会运行代码一段时间（常常是纯解释式运行），从而收集剖析信息。这对基准测试的影响在于，任务可能需要执行许多次，才能达到稳定状态。</p><p>一般来说对稳定状态下的基准测试至少需要以下步骤：</p><ol><li>执行 <code>方法任务</code> 一次，以便装载所有类。</li><li>执行 <code>方法任务</code> 足够多次，以确保出现稳定状态的执行数据。</li></ol><h2 id="陷阱一-死码消除"><a href="#陷阱一-死码消除" class="headerlink" title="陷阱一: 死码消除"></a>陷阱一: 死码消除</h2><p><a href="[https://zh.wikipedia.org/zh-cn/%E6%AD%BB%E7%A2%BC%E5%88%AA%E9%99%A4](https://zh.wikipedia.org/zh-cn/死碼刪除)">死码消除</a>(Dead code elimination）是一种编译最优化技术,在某些情况下，编译器可以判断出某些代码根本不影响输出，所以编译器会消除这些代码,例如注释的代码，不可达的代码块，可达但不被使用的代码，会被判断为死码而在Javac的时候被消除。</p><pre><code class="java">public class ErrorBenchmark {    private double PI = Math.PI;    @Benchmark    public void benchmarkNothing(){        // 19873732.412 ± 6783114.266  ops/ms        //do nothing     }    @Benchmark    public void benchmarkWrong(){        //  20988076.131 ± 7282548.202  ops/ms        Math.log(PI);  // DCE 会被判断为死码而被消除    }    @Benchmark    public double benchmarkRight(){       // 306740.041 ±   52692.696  ops/ms        return Math.log(PI);    }}</code></pre><p>在做测试时，需要注意方法会不会有死码的存在，否者可能会带来一些不合理的测试结果和意外。对于会被判断为死码但又需要进行执行测试方法来说，可以想办法去除孤立的方法执行，例如增加方法返回值，或者使用JMH的提供的API<strong>Blackhole</strong>。</p><pre><code class="java">@Benchmarkpublic void benchmarkRight(Blackhole bh) {    bh.consume(Math.log(PI));}</code></pre><h2 id="陷阱二：常量折叠与常量传播"><a href="#陷阱二：常量折叠与常量传播" class="headerlink" title="陷阱二：常量折叠与常量传播"></a>陷阱二：常量折叠与常量传播</h2><p><a href="[https://zh.wikipedia.org/wiki/%E5%B8%B8%E6%95%B8%E6%8A%98%E7%96%8A#%E5%B8%B8%E6%95%B8%E5%82%B3%E6%92%AD](https://zh.wikipedia.org/wiki/常數折疊#常數傳播)">常数折叠</a>（Constant folding）以及常数传播（constant propagation）都是<a href="https://zh.wikipedia.org/w/index.php?title=編譯器最佳化&action=edit&redlink=1" target="_blank" rel="noopener">编译器最佳化</a>技术。是一个在编译时期简化常数的一个过程。常数在表示式中仅仅代表一个简单的数值，就算一个变数从未被修改也可作为常数，或者直接将一个变数被明确地被标注为常数。</p><pre><code class="java">long number = 2 * 600 * 200;</code></pre><p>多数的现代编译器不会真的产生两个乘法的指令再将结果储存下来，取而代之的，他们会辨识出语句的结构，并在编译时期将数值直接计算出来。常数折叠的时机取决于编译器，有的在编译前期完成，有的在较后期进行。</p><pre><code class="java">private double x = Math.PI;// 编译器会对 final 变量特殊处理 private final double wrongX = Math.PI;@Benchmarkpublic double baseline() {    // 2.220 ± 0.352 ns/op    return Math.PI;}@Benchmarkpublic double measureWrong_1() {     // 2.220 ± 0.352 ns/op    // 错误，结果可以被预测，会发生常量折叠    return Math.log(Math.PI);}@Benchmarkpublic double measureWrong_2() {     // 2.220 ± 0.352 ns/op    // 错误，结果可以被预测，会发生常量折叠    return Math.log(wrongX);}@Benchmarkpublic double measureRight() {     // 22.590 ± 2.636  ns/op    return Math.log(x);}</code></pre><p>由于发生了常量折叠，相同实现下的执行销量完全不同，这个测试在一定程度上说明了final的定义对于方法执行结果的影响。</p><p>此外<strong>常数传播 (</strong>Constant propagation<strong>)</strong> 是一个替代表示式中已知常数的过程，也是在编译时期进行，包含前述所定义，内建函数也适用于常数。</p><pre><code class="java">int x = 520;int y = 260 - 520 / 2;return y * (1314 / x + 2);</code></pre><p>传播可以理解变量的替换，如果进行持续传播，上式则可写成如下</p><pre><code class="java">int x = 14;int y = 0;return 0;</code></pre><h2 id="陷阱三：不要在测试中写循环"><a href="#陷阱三：不要在测试中写循环" class="headerlink" title="陷阱三：不要在测试中写循环"></a>陷阱三：不要在测试中写循环</h2><h2 id="为什么要使用JMH"><a href="#为什么要使用JMH" class="headerlink" title="为什么要使用JMH"></a>为什么要使用JMH</h2><p>对于传统的接口调用测试，可能会使用以下的方式测试</p><pre><code class="java">long startTime = System.currentTimeMillis();benchmarkTestMethod();System.out.println(System.currentTimeMillis()-startTime);</code></pre><p>而JMH则使用</p><pre><code class="java">@Benchmarkpublic void benchmarkTestMethod(){  // do }</code></pre><hr><h2 id="参考和引用"><a href="#参考和引用" class="headerlink" title="参考和引用"></a>参考和引用</h2><ul><li><a href="https://www.ibm.com/developerworks/cn/java/j-benchmark1.html" target="_blank" rel="noopener">IBM Developer Java 代码基准测试的问题</a></li><li><a href="https://www.cnkirito.moe/java-jmh/" target="_blank" rel="noopener">JAVA 拾遗 — JMH 与 8 个测试陷阱</a></li></ul>]]></content>
-      
-      
+      <tags>
+        <tag>及时通讯</tag>
+        <tag>系统架构</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>IM系统的可靠性保障方案设计</title>
+    <url>/2021/03/23/%E5%8F%8A%E6%97%B6%E9%80%9A%E8%AE%AF/IM%E7%B3%BB%E7%BB%9F%E7%9A%84%E5%8F%AF%E9%9D%A0%E6%80%A7%E4%BF%9D%E9%9A%9C%E6%96%B9%E6%A1%88%E8%AE%BE%E8%AE%A1/</url>
+    <content><![CDATA[<div id="hexo-blog-encrypt" data-wpm="Oh, this is an invalid password. Check and try again, please." data-whm="OOPS, these decrypted content may changed, but you can still have a look.">
+  <div class="hbe-input-container">
+  <input type="password" id="hbePass" placeholder="" />
+    <label for="hbePass">输入密码，查看文章</label>
+    <div class="bottom-line"></div>
+  </div>
+  <script id="hbeData" type="hbeData" data-hmacdigest="eec786a40cf7aea934fb8b407653c706146aee44047d4f82cd2f941341428254">ff2aa2f000186a9810700fce1416f63b</script>
+</div>
+<script src="/lib/blog-encrypt.js"></script><link href="/css/blog-encrypt.css" rel="stylesheet" type="text/css">]]></content>
       <categories>
-          
-          <category> 系统调优 </category>
-          
+        <category>及时通讯</category>
       </categories>
-      
-      
-        <tags>
-            
-            <tag> Java </tag>
-            
-            <tag> 基准测试 </tag>
-            
-            <tag> 系统调优 </tag>
-            
-            <tag> 误区和陷阱 </tag>
-            
-            <tag> JMH </tag>
-            
-        </tags>
-      
-    </entry>
-    
-    
-    
-    <entry>
-      <title>Java Microbenchmark Harness微基准测试基础</title>
-      <link href="2020/07/07/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Java-Microbenchmark-Harness-Basic/"/>
-      <url>2020/07/07/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Java-Microbenchmark-Harness-Basic/</url>
-      
-        <content type="html"><![CDATA[<blockquote><p><strong>If you cannot measure it, you cannot improve it.    –Lord Kelvin</strong></p></blockquote><p><a href="http://openjdk.java.net/projects/code-tools/jmh/" target="_blank" rel="noopener">Java Microbenchmark Harness</a> 是专门进行代码的微基准测试的一套工具API。 为应用提供了数据支持，是评价和比较方法好坏的基准。一般说JMH，是在 <strong>Method 层面上的 Benchmark</strong>，精度可以精确到微秒级。以下记录JMH的使用和相关基础，便于之后查找和学习。</p><p>Benchmark 作为应用框架，产品的基准画像，存在统一的标准，避免了不同测评对象自说自话的尴尬，应用框架各自使用有利于自身场景的测评方式必然不可取。</p><a id="more"></a><h2 id="Hello-JHM"><a href="#Hello-JHM" class="headerlink" title="Hello JHM"></a>Hello JHM</h2><h3 id="Maven依赖"><a href="#Maven依赖" class="headerlink" title="Maven依赖"></a>Maven依赖</h3><p>在项目中使用Maven,只需要添加如下依赖：</p><pre><code class="xml">&lt;!-- JMH--&gt;&lt;dependency&gt;    &lt;groupId&gt;org.openjdk.jmh&lt;/groupId&gt;    &lt;artifactId&gt;jmh-core&lt;/artifactId&gt;    &lt;version&gt;${jmh.version}&lt;/version&gt;&lt;/dependency&gt;&lt;dependency&gt;    &lt;groupId&gt;org.openjdk.jmh&lt;/groupId&gt;    &lt;artifactId&gt;jmh-generator-annprocess&lt;/artifactId&gt;    &lt;version&gt;${jmh.version}&lt;/version&gt;    &lt;scope&gt;provided&lt;/scope&gt;&lt;/dependency&gt;</code></pre><h3 id="性能测试设计"><a href="#性能测试设计" class="headerlink" title="性能测试设计"></a>性能测试设计</h3><p>测试比较Spring和StringBuilder的完成字符串拼接的性能</p><pre><code class="java">/** * 比较字符串直接相加和StringBuilder的效率 * * @author Leo Wang * @version 1.0 * @date 2020/7/7 16:44 */@BenchmarkMode(Mode.Throughput)@Warmup(iterations = 1,time = 1, timeUnit = TimeUnit.SECONDS)@Measurement(iterations = 10,time = 10,timeUnit = TimeUnit.SECONDS)@Threads(8)@Fork(2)@OutputTimeUnit(TimeUnit.MILLISECONDS)@State(Scope.Thread)public class StringBuilderBenchmark {    @Benchmark    public void testStringAdd() {        String a = &quot;&quot;;        for (int i = 0; i &lt; 10; i++) {            a += i;        }        print(a);    }    @Benchmark    public void testStringBuilderAdd() {        StringBuilder sb = new StringBuilder();        for (int i = 0; i &lt; 10; i++) {            sb.append(i);        }        print(sb.toString());    }    private void print(String a) {    }</code></pre><h3 id="性能测试执行"><a href="#性能测试执行" class="headerlink" title="性能测试执行"></a>性能测试执行</h3><p>对于JMH来说，其执行方式主要有两种</p><h4 id="直接IDE运行"><a href="#直接IDE运行" class="headerlink" title="直接IDE运行"></a>直接IDE运行</h4><p>对于体量小的测试，可以直接在IDE中完成相关的测试。如上的测试来说，可以直接运行，然后查看相关结果，执行的结果的Main函数如下，创建<em>Options</em>对象，传入需要执行的测试和测试报告的输出地址。直接执行Main方法</p><pre><code class="java">    public static void main(String[] args) throws RunnerException {        String userDirPath = System.getProperty(&quot;user.dir&quot;);        String benchmarkLogPath = String.format(&quot;%s/%s&quot;,userDirPath,&quot;/StringBenchmark.log&quot;);        Options options = new OptionsBuilder()                .include(StringBuilderBenchmark.class.getSimpleName())                .output(benchmarkLogPath)                .build();        new Runner(options).run();    }</code></pre><p>在使用IDE进行测试时，需要注意不能使用<strong>Dubug</strong>模式启动，否则不能正常完成测试。</p><h4 id="打包成Jar-其他机器上执行"><a href="#打包成Jar-其他机器上执行" class="headerlink" title="打包成Jar,其他机器上执行"></a>打包成Jar,其他机器上执行</h4><p>一般对于大型的测试，需要测试时间比较久，线程比较多，就需要去写好了丢到远端的Linux系统环境中里执行， 不然会在本机执行很久并且需要的性能需求可能达不到测试需求。</p><pre><code class="bash">mvn clean packagejava -jar StringBuilderBenchmark.jar</code></pre><h3 id="测试结果"><a href="#测试结果" class="headerlink" title="测试结果"></a>测试结果</h3><p>当正常跑完项目测试以后，JHM会在指定的文件夹下输出一下的测试结果</p><pre><code class="shell"># JMH version: 1.23# VM version: JDK 1.8.0_251, Java HotSpot(TM) 64-Bit Server VM, 25.251-b08# VM invoker: /Library/Java/JavaVirtualMachines/jdk1.8.0_251.jdk/Contents/Home/jre/bin/java# VM options: -javaagent:/Applications/IntelliJ IDEA.app/Contents/lib/idea_rt.jar=63118:/Applications/IntelliJ IDEA.app/Contents/bin -Dfile.encoding=UTF-8# Warmup: 1 iterations, 1 s each# Measurement: 10 iterations, 10 s each# Timeout: 10 min per iteration# Threads: 8 threads, will synchronize iterations# Benchmark mode: Throughput, ops/time# Benchmark: com.upuphub.lake.skylake.benchmark.StringBuilderBenchmark.testStringAdd# Run progress: 0.00% complete, ETA 00:06:44# Fork: 1 of 2# Warmup Iteration   1: 9014.340 ops/msIteration   1: 21302.297 ops/msIteration   2: 21807.763 ops/msIteration   3: 21812.419 ops/msIteration   4: 21840.912 ops/msIteration   5: 21985.020 ops/msIteration   6: 22066.751 ops/msIteration   7: 22006.021 ops/msIteration   8: 19239.509 ops/msIteration   9: 10515.274 ops/msIteration  10: 11758.987 ops/ms# Run progress: 25.00% complete, ETA 00:05:21# Fork: 2 of 2# Warmup Iteration   1: 5273.829 ops/msIteration   1: 18880.356 ops/msIteration   2: 22225.847 ops/msIteration   3: 22017.665 ops/msIteration   4: 22036.969 ops/msIteration   5: 22080.422 ops/msIteration   6: 22262.118 ops/msIteration   7: 22153.187 ops/msIteration   8: 22105.884 ops/msIteration   9: 21613.504 ops/msIteration  10: 22029.923 ops/msResult &quot;com.upuphub.lake.skylake.benchmark.StringBuilderBenchmark.testStringAdd&quot;:  20587.041 ±(99.9%) 2921.754 ops/ms [Average]  (min, avg, max) = (10515.274, 20587.041, 22262.118), stdev = 3364.697  CI (99.9%): [17665.287, 23508.796] (assumes normal distribution)# JMH version: 1.23# VM version: JDK 1.8.0_251, Java HotSpot(TM) 64-Bit Server VM, 25.251-b08# VM invoker: /Library/Java/JavaVirtualMachines/jdk1.8.0_251.jdk/Contents/Home/jre/bin/java# VM options: -javaagent:/Applications/IntelliJ IDEA.app/Contents/lib/idea_rt.jar=63118:/Applications/IntelliJ IDEA.app/Contents/bin -Dfile.encoding=UTF-8# Warmup: 1 iterations, 1 s each# Measurement: 10 iterations, 10 s each# Timeout: 10 min per iteration# Threads: 8 threads, will synchronize iterations# Benchmark mode: Throughput, ops/time# Benchmark: com.upuphub.lake.skylake.benchmark.StringBuilderBenchmark.testStringBuilderAdd# Run progress: 50.00% complete, ETA 00:03:34# Fork: 1 of 2# Warmup Iteration   1: 50084.373 ops/msIteration   1: 67510.457 ops/msIteration   2: 42202.643 ops/msIteration   3: 41633.858 ops/msIteration   4: 43352.405 ops/msIteration   5: 43748.063 ops/msIteration   6: 45176.476 ops/msIteration   7: 44649.922 ops/msIteration   8: 40872.340 ops/msIteration   9: 40520.724 ops/msIteration  10: 38853.095 ops/ms# Run progress: 75.00% complete, ETA 00:01:47# Fork: 2 of 2# Warmup Iteration   1: 45279.748 ops/msIteration   1: 71985.226 ops/msIteration   2: 43291.826 ops/msIteration   3: 44149.181 ops/msIteration   4: 43297.043 ops/msIteration   5: 40614.460 ops/msIteration   6: 40444.594 ops/msIteration   7: 40912.490 ops/msIteration   8: 41428.454 ops/msIteration   9: 43022.557 ops/msIteration  10: 43368.455 ops/msResult &quot;com.upuphub.lake.skylake.benchmark.StringBuilderBenchmark.testStringBuilderAdd&quot;:  45051.713 ±(99.9%) 7496.158 ops/ms [Average]  (min, avg, max) = (38853.095, 45051.713, 71985.226), stdev = 8632.587  CI (99.9%): [37555.555, 52547.872] (assumes normal distribution)# Run complete. Total time: 00:07:08REMEMBER: The numbers below are just data. To gain reusable insights, you need to follow up onwhy the numbers are the way they are. Use profilers (see -prof, -lprof), design factorialexperiments, perform baseline and negative tests that provide experimental control, make surethe benchmarking environment is safe on JVM/OS/HW level, ask for reviews from the domain experts.Do not assume the numbers tell you what you want them to tell.Benchmark                                     Mode  Cnt      Score      Error   UnitsStringBuilderBenchmark.testStringAdd         thrpt   20  20587.041 ± 2921.754  ops/msStringBuilderBenchmark.testStringBuilderAdd  thrpt   20  45051.713 ± 7496.158  ops/ms</code></pre><p>整个测试报告由三个部分组成，首先分别是<strong>testStringAdd</strong>的测试结果然后是<strong>testStringBuilderAdd</strong>的测试结果，最后时两个测试结果之间的结果汇总和对应的比较。前两个部分的结果是类似的，会列出测试环境的一些基本信息，包括JHM的版本、虚拟机版本和相关一些配置等的信息以及测试的一些配置和设置，然后就是预热迭代执行（Warmup Iteration）， 然后是正常的迭代执行（Iteration），最后是结果（Result）的信息输出。一般来说最关注第三部分，也就是汇总结果。</p><blockquote><p>Tips: 对于汇总结果部分的输出,Error是没有数据的，这里是Score过长挤过去的</p></blockquote><p>可以看出StringBuilder在做字符串拼接的速度比String的直接评价速度好两倍以上。</p><h2 id="JHM的注解和功能"><a href="#JHM的注解和功能" class="headerlink" title="JHM的注解和功能"></a>JHM的注解和功能</h2><h3 id="BenchmarkMode"><a href="#BenchmarkMode" class="headerlink" title="@BenchmarkMode"></a><em>@BenchmarkMode</em></h3><p>基准测试类型。这里选择的是Throughput也就是吞吐量。吞吐量会得到单位时间内可以进行的操作数。</p><ul><li>Throughput: 整体吞吐量，例如“1秒内可以执行多少次调用”。</li><li>AverageTime: 调用的平均时间，例如“每次调用平均耗时xxx毫秒”。</li><li>SampleTime: 随机取样，最后输出取样结果的分布，例如“99%的调用在xxx毫秒以内，99.99%的调用在xxx毫秒以内”</li><li>SingleShotTime: 以上模式都是默认一次 iteration 是 1s，唯有 SingleShotTime 是只运行一次。往往同时把 warmup 次数设为0，用于测试冷启动时的性能。</li><li>All(“all”, “All benchmark modes”): 执行所有模式。</li></ul><h3 id="Warmup"><a href="#Warmup" class="headerlink" title="@Warmup"></a><em>@Warmup</em></h3><p>在进行基准测试前需要进行预热。一般前几次进行程序测试的时候都会比较慢， 所以要让程序进行几轮预热，保证测试的准确性。其中的参数iterations就是预热轮数。</p><blockquote><p>Tips: 因为 JVM 的 JIT 机制的存在，如果某个函数被调用多次之后，JVM 会尝试将其编译成为机器码从而提高执行速度。所以为了让 benchmark 的结果更加接近真实情况就需要进行预热</p></blockquote><h3 id="Measurement"><a href="#Measurement" class="headerlink" title="@Measurement"></a><em>@Measurement</em></h3><p>度量，一些基本的测试参数。</p><ol><li>iterations 进行测试的轮次</li><li>time 每轮进行的时长</li><li>timeUnit 时长单位</li></ol><p>可以根据具体情况调整。一般比较重的东西可以进行大量的测试，放到服务器上运行。</p><h3 id="Threads"><a href="#Threads" class="headerlink" title="@Threads"></a><em>@Threads</em></h3><p>每个进程中的测试线程，根据具体情况选择，一般为cpu乘以2。</p><h3 id="Fork"><a href="#Fork" class="headerlink" title="@Fork"></a><em>@Fork</em></h3><p>进行 fork 的次数。如果 fork 数是2的话，则 JMH 会 fork 出两个进程来进行测试。</p><h3 id="OutputTimeUnit"><a href="#OutputTimeUnit" class="headerlink" title="@OutputTimeUnit"></a><em>@OutputTimeUnit</em></h3><p>基准测试结果的时间类型。一般选择秒、毫秒、微秒。</p><h3 id="Benchmark"><a href="#Benchmark" class="headerlink" title="@Benchmark"></a><em>@Benchmark</em></h3><p>方法级注解，表示该方法是需要进行 benchmark ，用法和 JUnit 的 @Test 类似。</p><h3 id="Param"><a href="#Param" class="headerlink" title="@Param"></a><em>@Param</em></h3><p>属性级注解，@Param 用来指定某项参数的多种情况。适合用来测试一个函数在不同的参数输入的情况下的性能。</p><h3 id="Setup"><a href="#Setup" class="headerlink" title="@Setup"></a><em>@Setup</em></h3><p>方法级注解，需要在测试之前进行一些准备工作，比如对一些数据的初始化。</p><h3 id="TearDown"><a href="#TearDown" class="headerlink" title="@TearDown"></a><em>@TearDown</em></h3><p>方法级注解，在测试之后进行一些结束工作，比如关闭线程池，数据库连接等的，主要用于资源的回收等。</p><h3 id="State"><a href="#State" class="headerlink" title="@State"></a><em>@State</em></h3><p>当使用@Setup参数的时候，必须在类上加这个参数，不然会提示无法运行。</p><p>State 用于声明某个类是一个“状态”，然后接受一个 Scope 参数用来表示该状态的共享范围。 很多 benchmark 会需要一些表示状态的类，JMH 允许你把这些类以依赖注入的方式注入到 benchmark 函数里。Scope 主要分为三种。</p><ol><li>Thread: 该状态为每个线程独享。</li><li>Group: 该状态为同一个组里面所有线程共享。</li><li>Benchmark: 该状态在所有线程间共享。</li></ol><h2 id="补充说明"><a href="#补充说明" class="headerlink" title="补充说明"></a>补充说明</h2><p>在日常的工作和学习中，常常会遇到三种类型的问题，JHM对其能很好就觉很处理。</p><ul><li>对方法或库的不同实现方式的性能分析测试和最后的采用取舍</li><li>方法入参对方法的性能影响和限制</li><li>对项目中的热点方法的优化和其优化效果的定性分析。</li></ul><hr><h2 id="参考和来源"><a href="#参考和来源" class="headerlink" title="参考和来源"></a>参考和来源</h2><ul><li><a href="https://www.xncoding.com/2018/01/07/java/jmh.html" target="_blank" rel="noopener">Java微基准测试框架JMH</a></li><li><a href="http://irfen.me/java-jmh-simple-microbenchmark/" target="_blank" rel="noopener">Java使用JMH进行简单的基准测试Benchmark</a></li><li><a href="http://blog.dyngr.com/blog/2016/10/29/introduction-of-jmh/" target="_blank" rel="noopener">Java 并发编程笔记：JMH 性能测试框架</a></li><li><a href="http://tutorials.jenkov.com/java-performance/jmh.html" target="_blank" rel="noopener">JMH - Java Microbenchmark Harness</a></li></ul>]]></content>
-      
-      
+      <tags>
+        <tag>及时通讯</tag>
+        <tag>系统架构</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>Maven项目管理详细</title>
+    <url>/2020/11/13/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Maven-XML-Details/</url>
+    <content><![CDATA[<p><strong>pom.xml</strong> 就像 Make 的 MakeFile、Ant 的 build.xml 一样，Maven 项目的核心是 pom.xml。POM( Project Object Model，项目对象模型 ) 定义了项目的基本信息，用于描述项目如何构建，声明项目依赖，等等。</p>
+<p>在版本号的说明  :  SNAPSHOT – 快照版本，ALPHA – 内侧版本，BETA – 公测版本，RELEASE – 稳定版本，GA – 正式发布</p>
+<a id="more"></a>
+
+<pre><code class="xml">&lt;project xmlns=&quot;http://maven.apache.org/POM/4.0.0&quot;
+  xmlns:xsi=&quot;http://www.w3.org/2001/XMLSchema-instance&quot;
+  xsi:schemaLocation=&quot;http://maven.apache.org/POM/4.0.0
+                      http://maven.apache.org/xsd/maven-4.0.0.xsd&quot;&gt;
+  &lt;modelVersion&gt;4.0.0&lt;/modelVersion&gt;
+
+  &lt;!-- The Basics --&gt;
+  &lt;groupId&gt;...&lt;/groupId&gt;
+  &lt;artifactId&gt;...&lt;/artifactId&gt;
+  &lt;version&gt;...&lt;/version&gt;
+  &lt;packaging&gt;...&lt;/packaging&gt;
+  &lt;dependencies&gt;...&lt;/dependencies&gt;
+  &lt;parent&gt;...&lt;/parent&gt;
+  &lt;dependencyManagement&gt;...&lt;/dependencyManagement&gt;
+  &lt;modules&gt;...&lt;/modules&gt;
+  &lt;properties&gt;...&lt;/properties&gt;
+
+  &lt;!-- Build Settings --&gt;
+  &lt;build&gt;...&lt;/build&gt;
+  &lt;reporting&gt;...&lt;/reporting&gt;
+
+  &lt;!-- More Project Information --&gt;
+  &lt;name&gt;...&lt;/name&gt;
+  &lt;description&gt;...&lt;/description&gt;
+  &lt;url&gt;...&lt;/url&gt;
+  &lt;inceptionYear&gt;...&lt;/inceptionYear&gt;
+  &lt;licenses&gt;...&lt;/licenses&gt;
+  &lt;organization&gt;...&lt;/organization&gt;
+  &lt;developers&gt;...&lt;/developers&gt;
+  &lt;contributors&gt;...&lt;/contributors&gt;
+
+  &lt;!-- Environment Settings --&gt;
+  &lt;issueManagement&gt;...&lt;/issueManagement&gt;
+  &lt;ciManagement&gt;...&lt;/ciManagement&gt;
+  &lt;mailingLists&gt;...&lt;/mailingLists&gt;
+  &lt;scm&gt;...&lt;/scm&gt;
+  &lt;prerequisites&gt;...&lt;/prerequisites&gt;
+  &lt;repositories&gt;...&lt;/repositories&gt;
+  &lt;pluginRepositories&gt;...&lt;/pluginRepositories&gt;
+  &lt;distributionManagement&gt;...&lt;/distributionManagement&gt;
+  &lt;profiles&gt;...&lt;/profiles&gt;
+&lt;/project&gt;</code></pre>
+<pre><code class="xml">&lt;project xmlns=&quot;http://maven.apache.org/POM/4.0.0&quot;     
+    xmlns:xsi=&quot;http://www.w3.org/2001/XMLSchema-instance&quot;     
+xsi:schemaLocation=&quot;http://maven.apache.org/POM/4.0.0http://maven.apache.org/maven-v4_0_0.xsd&quot;&gt;     
+    &lt;!--父项目的坐标。如果项目中没有规定某个元素的值，那么父项目中的对应值即为项目的默认值。 坐标包括group ID，artifact ID和 version。--&gt;    
+    &lt;parent&gt;    
+     &lt;!--被继承的父项目的构件标识符--&gt;    
+     &lt;artifactId/&gt;    
+     &lt;!--被继承的父项目的全球唯一标识符--&gt;    
+     &lt;groupId/&gt;    
+     &lt;!--被继承的父项目的版本--&gt;    
+     &lt;version/&gt;    
+     &lt;!-- 父项目的pom.xml文件的相对路径。相对路径允许你选择一个不同的路径。默认值是../pom.xml。Maven首先在构建当前项目的地方寻找父项 目的pom，其次在文件系统的这个位置（relativePath位置），然后在本地仓库，最后在远程仓库寻找父项目的pom。--&gt;    
+     &lt;relativePath/&gt;    
+ &lt;/parent&gt;    
+ &lt;!--声明项目描述符遵循哪一个POM模型版本。模型本身的版本很少改变，虽然如此，但它仍然是必不可少的，这是为了当Maven引入了新的特性或者其他模型变更的时候，确保稳定性。--&gt;       
+    &lt;modelVersion&gt;4.0.0&lt;/modelVersion&gt;     
+    &lt;!--项目的全球唯一标识符，通常使用全限定的包名区分该项目和其他项目。并且构建时生成的路径也是由此生成， 如com.mycompany.app生成的相对路径为：/com/mycompany/app--&gt;     
+    &lt;groupId&gt;asia.banseon&lt;/groupId&gt;     
+    &lt;!-- 构件的标识符，它和group ID一起唯一标识一个构件。换句话说，你不能有两个不同的项目拥有同样的artifact ID和groupID；在某个 特定的group ID下，artifact ID也必须是唯一的。构件是项目产生的或使用的一个东西，Maven为项目产生的构件包括：JARs，源 码，二进制发布和WARs等。--&gt;     
+    &lt;artifactId&gt;banseon-maven2&lt;/artifactId&gt;     
+    &lt;!--项目产生的构件类型，例如jar、war、ear、pom。插件可以创建他们自己的构件类型，所以前面列的不是全部构件类型--&gt;     
+    &lt;packaging&gt;jar&lt;/packaging&gt;     
+    &lt;!--项目当前版本，格式为:主版本.次版本.增量版本-限定版本号--&gt;     
+    &lt;version&gt;1.0-SNAPSHOT&lt;/version&gt;     
+    &lt;!--项目的名称, Maven产生的文档用--&gt;     
+    &lt;name&gt;banseon-maven&lt;/name&gt;     
+    &lt;!--项目主页的URL, Maven产生的文档用--&gt;     
+    &lt;url&gt;http://www.baidu.com/banseon&lt;/url&gt;     
+    &lt;!-- 项目的详细描述, Maven 产生的文档用。  当这个元素能够用HTML格式描述时（例如，CDATA中的文本会被解析器忽略，就可以包含HTML标 签）， 不鼓励使用纯文本描述。如果你需要修改产生的web站点的索引页面，你应该修改你自己的索引页文件，而不是调整这里的文档。--&gt;     
+    &lt;description&gt;A maven project to study maven.&lt;/description&gt;     
+    &lt;!--描述了这个项目构建环境中的前提条件。--&gt;    
+ &lt;prerequisites&gt;    
+  &lt;!--构建该项目或使用该插件所需要的Maven的最低版本--&gt;    
+    &lt;maven/&gt;    
+ &lt;/prerequisites&gt;    
+ &lt;!--项目的问题管理系统(Bugzilla, Jira, Scarab,或任何你喜欢的问题管理系统)的名称和URL，本例为 jira--&gt;     
+    &lt;issueManagement&gt;    
+     &lt;!--问题管理系统（例如jira）的名字，--&gt;     
+        &lt;system&gt;jira&lt;/system&gt;     
+        &lt;!--该项目使用的问题管理系统的URL--&gt;    
+        &lt;url&gt;http://jira.baidu.com/banseon&lt;/url&gt;     
+    &lt;/issueManagement&gt;     
+    &lt;!--项目持续集成信息--&gt;    
+ &lt;ciManagement&gt;    
+  &lt;!--持续集成系统的名字，例如continuum--&gt;    
+  &lt;system/&gt;    
+  &lt;!--该项目使用的持续集成系统的URL（如果持续集成系统有web接口的话）。--&gt;    
+  &lt;url/&gt;    
+  &lt;!--构建完成时，需要通知的开发者/用户的配置项。包括被通知者信息和通知条件（错误，失败，成功，警告）--&gt;    
+  &lt;notifiers&gt;    
+   &lt;!--配置一种方式，当构建中断时，以该方式通知用户/开发者--&gt;    
+   &lt;notifier&gt;    
+    &lt;!--传送通知的途径--&gt;    
+    &lt;type/&gt;    
+    &lt;!--发生错误时是否通知--&gt;    
+    &lt;sendOnError/&gt;    
+    &lt;!--构建失败时是否通知--&gt;    
+    &lt;sendOnFailure/&gt;    
+    &lt;!--构建成功时是否通知--&gt;    
+    &lt;sendOnSuccess/&gt;    
+    &lt;!--发生警告时是否通知--&gt;    
+    &lt;sendOnWarning/&gt;    
+    &lt;!--不赞成使用。通知发送到哪里--&gt;    
+    &lt;address/&gt;    
+    &lt;!--扩展配置项--&gt;    
+    &lt;configuration/&gt;    
+   &lt;/notifier&gt;    
+  &lt;/notifiers&gt;    
+ &lt;/ciManagement&gt;    
+ &lt;!--项目创建年份，4位数字。当产生版权信息时需要使用这个值。--&gt;    
+    &lt;inceptionYear/&gt;    
+    &lt;!--项目相关邮件列表信息--&gt;     
+    &lt;mailingLists&gt;    
+     &lt;!--该元素描述了项目相关的所有邮件列表。自动产生的网站引用这些信息。--&gt;     
+        &lt;mailingList&gt;     
+         &lt;!--邮件的名称--&gt;    
+            &lt;name&gt;Demo&lt;/name&gt;     
+            &lt;!--发送邮件的地址或链接，如果是邮件地址，创建文档时，mailto: 链接会被自动创建--&gt;     
+            &lt;post&gt;banseon@126.com&lt;/post&gt;     
+            &lt;!--订阅邮件的地址或链接，如果是邮件地址，创建文档时，mailto: 链接会被自动创建--&gt;     
+            &lt;subscribe&gt;banseon@126.com&lt;/subscribe&gt;     
+            &lt;!--取消订阅邮件的地址或链接，如果是邮件地址，创建文档时，mailto: 链接会被自动创建--&gt;     
+            &lt;unsubscribe&gt;banseon@126.com&lt;/unsubscribe&gt;     
+            &lt;!--你可以浏览邮件信息的URL--&gt;    
+            &lt;archive&gt;http:/hi.baidu.com/banseon/demo/dev/&lt;/archive&gt;     
+        &lt;/mailingList&gt;     
+    &lt;/mailingLists&gt;     
+    &lt;!--项目开发者列表--&gt;     
+    &lt;developers&gt;     
+     &lt;!--某个项目开发者的信息--&gt;    
+        &lt;developer&gt;     
+         &lt;!--SCM里项目开发者的唯一标识符--&gt;    
+            &lt;id&gt;HELLO WORLD&lt;/id&gt;     
+            &lt;!--项目开发者的全名--&gt;    
+            &lt;name&gt;banseon&lt;/name&gt;     
+            &lt;!--项目开发者的email--&gt;    
+            &lt;email&gt;banseon@126.com&lt;/email&gt;     
+            &lt;!--项目开发者的主页的URL--&gt;    
+            &lt;url/&gt;    
+            &lt;!--项目开发者在项目中扮演的角色，角色元素描述了各种角色--&gt;    
+            &lt;roles&gt;     
+                &lt;role&gt;Project Manager&lt;/role&gt;     
+                &lt;role&gt;Architect&lt;/role&gt;     
+            &lt;/roles&gt;    
+            &lt;!--项目开发者所属组织--&gt;    
+            &lt;organization&gt;demo&lt;/organization&gt;     
+            &lt;!--项目开发者所属组织的URL--&gt;    
+            &lt;organizationUrl&gt;http://hi.baidu.com/banseon&lt;/organizationUrl&gt;     
+            &lt;!--项目开发者属性，如即时消息如何处理等--&gt;    
+            &lt;properties&gt;     
+                &lt;dept&gt;No&lt;/dept&gt;     
+            &lt;/properties&gt;    
+            &lt;!--项目开发者所在时区， -11到12范围内的整数。--&gt;    
+            &lt;timezone&gt;-5&lt;/timezone&gt;     
+        &lt;/developer&gt;     
+    &lt;/developers&gt;     
+    &lt;!--项目的其他贡献者列表--&gt;     
+    &lt;contributors&gt;    
+     &lt;!--项目的其他贡献者。参见developers/developer元素--&gt;    
+     &lt;contributor&gt;    
+   &lt;name/&gt;&lt;email/&gt;&lt;url/&gt;&lt;organization/&gt;&lt;organizationUrl/&gt;&lt;roles/&gt;&lt;timezone/&gt;&lt;properties/&gt;    
+     &lt;/contributor&gt;         
+    &lt;/contributors&gt;       
+    &lt;!--该元素描述了项目所有License列表。 应该只列出该项目的license列表，不要列出依赖项目的 license列表。如果列出多个license，用户可以选择它们中的一个而不是接受所有license。--&gt;     
+    &lt;licenses&gt;    
+     &lt;!--描述了项目的license，用于生成项目的web站点的license页面，其他一些报表和validation也会用到该元素。--&gt;     
+        &lt;license&gt;    
+         &lt;!--license用于法律上的名称--&gt;    
+            &lt;name&gt;Apache 2&lt;/name&gt;     
+            &lt;!--官方的license正文页面的URL--&gt;    
+            &lt;url&gt;http://www.baidu.com/banseon/LICENSE-2.0.txt&lt;/url&gt;     
+            &lt;!--项目分发的主要方式：    
+              repo，可以从Maven库下载    
+              manual， 用户必须手动下载和安装依赖--&gt;    
+            &lt;distribution&gt;repo&lt;/distribution&gt;     
+            &lt;!--关于license的补充信息--&gt;    
+            &lt;comments&gt;A business-friendly OSS license&lt;/comments&gt;     
+        &lt;/license&gt;     
+    &lt;/licenses&gt;     
+    &lt;!--SCM(Source Control Management)标签允许你配置你的代码库，供Maven web站点和其它插件使用。--&gt;     
+    &lt;scm&gt;     
+        &lt;!--SCM的URL,该URL描述了版本库和如何连接到版本库。欲知详情，请看SCMs提供的URL格式和列表。该连接只读。--&gt;     
+        &lt;connection&gt;     
+            scm:svn:http://svn.baidu.com/banseon/maven/banseon/banseon-maven2-trunk(dao-trunk)      
+        &lt;/connection&gt;     
+        &lt;!--给开发者使用的，类似connection元素。即该连接不仅仅只读--&gt;    
+        &lt;developerConnection&gt;     
+            scm:svn:http://svn.baidu.com/banseon/maven/banseon/dao-trunk      
+        &lt;/developerConnection&gt;    
+        &lt;!--当前代码的标签，在开发阶段默认为HEAD--&gt;    
+        &lt;tag/&gt;           
+        &lt;!--指向项目的可浏览SCM库（例如ViewVC或者Fisheye）的URL。--&gt;     
+        &lt;url&gt;http://svn.baidu.com/banseon&lt;/url&gt;     
+    &lt;/scm&gt;     
+    &lt;!--描述项目所属组织的各种属性。Maven产生的文档用--&gt;     
+    &lt;organization&gt;     
+     &lt;!--组织的全名--&gt;    
+        &lt;name&gt;demo&lt;/name&gt;     
+        &lt;!--组织主页的URL--&gt;    
+        &lt;url&gt;http://www.baidu.com/banseon&lt;/url&gt;     
+    &lt;/organization&gt;    
+    &lt;!--构建项目需要的信息--&gt;    
+    &lt;build&gt;    
+     &lt;!--该元素设置了项目源码目录，当构建项目的时候，构建系统会编译目录里的源码。该路径是相对于pom.xml的相对路径。--&gt;    
+  &lt;sourceDirectory/&gt;    
+  &lt;!--该元素设置了项目脚本源码目录，该目录和源码目录不同：绝大多数情况下，该目录下的内容 会被拷贝到输出目录(因为脚本是被解释的，而不是被编译的)。--&gt;    
+  &lt;scriptSourceDirectory/&gt;    
+  &lt;!--该元素设置了项目单元测试使用的源码目录，当测试项目的时候，构建系统会编译目录里的源码。该路径是相对于pom.xml的相对路径。--&gt;    
+  &lt;testSourceDirectory/&gt;    
+  &lt;!--被编译过的应用程序class文件存放的目录。--&gt;    
+  &lt;outputDirectory/&gt;    
+  &lt;!--被编译过的测试class文件存放的目录。--&gt;    
+  &lt;testOutputDirectory/&gt;    
+  &lt;!--使用来自该项目的一系列构建扩展--&gt;    
+  &lt;extensions&gt;    
+   &lt;!--描述使用到的构建扩展。--&gt;    
+   &lt;extension&gt;    
+    &lt;!--构建扩展的groupId--&gt;    
+    &lt;groupId/&gt;    
+    &lt;!--构建扩展的artifactId--&gt;    
+    &lt;artifactId/&gt;    
+    &lt;!--构建扩展的版本--&gt;    
+    &lt;version/&gt;    
+   &lt;/extension&gt;    
+  &lt;/extensions&gt;    
+  &lt;!--当项目没有规定目标（Maven2 叫做阶段）时的默认值--&gt;    
+  &lt;defaultGoal/&gt;    
+  &lt;!--这个元素描述了项目相关的所有资源路径列表，例如和项目相关的属性文件，这些资源被包含在最终的打包文件里。--&gt;    
+  &lt;resources&gt;    
+   &lt;!--这个元素描述了项目相关或测试相关的所有资源路径--&gt;    
+   &lt;resource&gt;    
+    &lt;!-- 描述了资源的目标路径。该路径相对target/classes目录（例如${project.build.outputDirectory}）。举个例 子，如果你想资源在特定的包里(org.apache.maven.messages)，你就必须该元素设置为org/apache/maven /messages。然而，如果你只是想把资源放到源码目录结构里，就不需要该配置。--&gt;    
+    &lt;targetPath/&gt;    
+    &lt;!--是否使用参数值代替参数名。参数值取自properties元素或者文件里配置的属性，文件在filters元素里列出。--&gt;    
+    &lt;filtering/&gt;    
+    &lt;!--描述存放资源的目录，该路径相对POM路径--&gt;    
+    &lt;directory/&gt;    
+    &lt;!--包含的模式列表，例如**/*.xml.--&gt;    
+    &lt;includes/&gt;    
+    &lt;!--排除的模式列表，例如**/*.xml--&gt;    
+    &lt;excludes/&gt;    
+   &lt;/resource&gt;    
+  &lt;/resources&gt;    
+  &lt;!--这个元素描述了单元测试相关的所有资源路径，例如和单元测试相关的属性文件。--&gt;    
+  &lt;testResources&gt;    
+   &lt;!--这个元素描述了测试相关的所有资源路径，参见build/resources/resource元素的说明--&gt;    
+   &lt;testResource&gt;    
+    &lt;targetPath/&gt;&lt;filtering/&gt;&lt;directory/&gt;&lt;includes/&gt;&lt;excludes/&gt;    
+   &lt;/testResource&gt;    
+  &lt;/testResources&gt;    
+  &lt;!--构建产生的所有文件存放的目录--&gt;    
+  &lt;directory/&gt;    
+  &lt;!--产生的构件的文件名，默认值是${artifactId}-${version}。--&gt;    
+  &lt;finalName/&gt;    
+  &lt;!--当filtering开关打开时，使用到的过滤器属性文件列表--&gt;    
+  &lt;filters/&gt;    
+  &lt;!--子项目可以引用的默认插件信息。该插件配置项直到被引用时才会被解析或绑定到生命周期。给定插件的任何本地配置都会覆盖这里的配置--&gt;    
+  &lt;pluginManagement&gt;    
+   &lt;!--使用的插件列表 。--&gt;    
+   &lt;plugins&gt;    
+    &lt;!--plugin元素包含描述插件所需要的信息。--&gt;    
+    &lt;plugin&gt;    
+     &lt;!--插件在仓库里的group ID--&gt;    
+     &lt;groupId/&gt;    
+     &lt;!--插件在仓库里的artifact ID--&gt;    
+     &lt;artifactId/&gt;    
+     &lt;!--被使用的插件的版本（或版本范围）--&gt;    
+     &lt;version/&gt;    
+     &lt;!--是否从该插件下载Maven扩展（例如打包和类型处理器），由于性能原因，只有在真需要下载时，该元素才被设置成enabled。--&gt;    
+     &lt;extensions/&gt;    
+     &lt;!--在构建生命周期中执行一组目标的配置。每个目标可能有不同的配置。--&gt;    
+     &lt;executions&gt;    
+      &lt;!--execution元素包含了插件执行需要的信息--&gt;    
+      &lt;execution&gt;    
+       &lt;!--执行目标的标识符，用于标识构建过程中的目标，或者匹配继承过程中需要合并的执行目标--&gt;    
+       &lt;id/&gt;    
+       &lt;!--绑定了目标的构建生命周期阶段，如果省略，目标会被绑定到源数据里配置的默认阶段--&gt;    
+       &lt;phase/&gt;    
+       &lt;!--配置的执行目标--&gt;    
+       &lt;goals/&gt;    
+       &lt;!--配置是否被传播到子POM--&gt;    
+       &lt;inherited/&gt;    
+       &lt;!--作为DOM对象的配置--&gt;    
+       &lt;configuration/&gt;    
+      &lt;/execution&gt;    
+     &lt;/executions&gt;    
+     &lt;!--项目引入插件所需要的额外依赖--&gt;    
+     &lt;dependencies&gt;    
+      &lt;!--参见dependencies/dependency元素--&gt;    
+      &lt;dependency&gt;    
+       ......    
+      &lt;/dependency&gt;    
+     &lt;/dependencies&gt;         
+     &lt;!--任何配置是否被传播到子项目--&gt;    
+     &lt;inherited/&gt;    
+     &lt;!--作为DOM对象的配置--&gt;    
+     &lt;configuration/&gt;    
+    &lt;/plugin&gt;    
+   &lt;/plugins&gt;    
+  &lt;/pluginManagement&gt;    
+  &lt;!--使用的插件列表--&gt;    
+  &lt;plugins&gt;    
+   &lt;!--参见build/pluginManagement/plugins/plugin元素--&gt;    
+   &lt;plugin&gt;    
+    &lt;groupId/&gt;&lt;artifactId/&gt;&lt;version/&gt;&lt;extensions/&gt;    
+    &lt;executions&gt;    
+     &lt;execution&gt;    
+      &lt;id/&gt;&lt;phase/&gt;&lt;goals/&gt;&lt;inherited/&gt;&lt;configuration/&gt;    
+     &lt;/execution&gt;    
+    &lt;/executions&gt;    
+    &lt;dependencies&gt;    
+     &lt;!--参见dependencies/dependency元素--&gt;    
+     &lt;dependency&gt;    
+      ......    
+     &lt;/dependency&gt;    
+    &lt;/dependencies&gt;    
+    &lt;goals/&gt;&lt;inherited/&gt;&lt;configuration/&gt;    
+   &lt;/plugin&gt;    
+  &lt;/plugins&gt;    
+ &lt;/build&gt;    
+ &lt;!--在列的项目构建profile，如果被激活，会修改构建处理--&gt;    
+ &lt;profiles&gt;    
+  &lt;!--根据环境参数或命令行参数激活某个构建处理--&gt;    
+  &lt;profile&gt;    
+   &lt;!--构建配置的唯一标识符。即用于命令行激活，也用于在继承时合并具有相同标识符的profile。--&gt;    
+   &lt;id/&gt;    
+   &lt;!--自动触发profile的条件逻辑。Activation是profile的开启钥匙。profile的力量来自于它    
+   能够在某些特定的环境中自动使用某些特定的值；这些环境通过activation元素指定。activation元素并不是激活profile的唯一方式。--&gt;    
+   &lt;activation&gt;    
+    &lt;!--profile默认是否激活的标志--&gt;    
+    &lt;activeByDefault/&gt;    
+    &lt;!--当匹配的jdk被检测到，profile被激活。例如，1.4激活JDK1.4，1.4.0_2，而!1.4激活所有版本不是以1.4开头的JDK。--&gt;    
+    &lt;jdk/&gt;    
+    &lt;!--当匹配的操作系统属性被检测到，profile被激活。os元素可以定义一些操作系统相关的属性。--&gt;    
+    &lt;os&gt;    
+     &lt;!--激活profile的操作系统的名字--&gt;    
+     &lt;name&gt;Windows XP&lt;/name&gt;    
+     &lt;!--激活profile的操作系统所属家族(如 &#39;windows&#39;)--&gt;    
+     &lt;family&gt;Windows&lt;/family&gt;    
+     &lt;!--激活profile的操作系统体系结构 --&gt;    
+     &lt;arch&gt;x86&lt;/arch&gt;    
+     &lt;!--激活profile的操作系统版本--&gt;    
+     &lt;version&gt;5.1.2600&lt;/version&gt;    
+    &lt;/os&gt;    
+    &lt;!--如果Maven检测到某一个属性（其值可以在POM中通过${名称}引用），其拥有对应的名称和值，Profile就会被激活。如果值    
+    字段是空的，那么存在属性名称字段就会激活profile，否则按区分大小写方式匹配属性值字段--&gt;    
+    &lt;property&gt;    
+     &lt;!--激活profile的属性的名称--&gt;    
+     &lt;name&gt;mavenVersion&lt;/name&gt;    
+     &lt;!--激活profile的属性的值--&gt;    
+     &lt;value&gt;2.0.3&lt;/value&gt;    
+    &lt;/property&gt;    
+    &lt;!--提供一个文件名，通过检测该文件的存在或不存在来激活profile。missing检查文件是否存在，如果不存在则激活    
+    profile。另一方面，exists则会检查文件是否存在，如果存在则激活profile。--&gt;    
+    &lt;file&gt;    
+     &lt;!--如果指定的文件存在，则激活profile。--&gt;    
+     &lt;exists&gt;/usr/local/hudson/hudson-home/jobs/maven-guide-zh-to-production/workspace/&lt;/exists&gt;    
+     &lt;!--如果指定的文件不存在，则激活profile。--&gt;    
+     &lt;missing&gt;/usr/local/hudson/hudson-home/jobs/maven-guide-zh-to-production/workspace/&lt;/missing&gt;    
+    &lt;/file&gt;    
+   &lt;/activation&gt;    
+   &lt;!--构建项目所需要的信息。参见build元素--&gt;    
+   &lt;build&gt;    
+    &lt;defaultGoal/&gt;    
+    &lt;resources&gt;    
+     &lt;resource&gt;    
+      &lt;targetPath/&gt;&lt;filtering/&gt;&lt;directory/&gt;&lt;includes/&gt;&lt;excludes/&gt;    
+     &lt;/resource&gt;    
+    &lt;/resources&gt;    
+    &lt;testResources&gt;    
+     &lt;testResource&gt;    
+      &lt;targetPath/&gt;&lt;filtering/&gt;&lt;directory/&gt;&lt;includes/&gt;&lt;excludes/&gt;    
+     &lt;/testResource&gt;    
+    &lt;/testResources&gt;    
+    &lt;directory/&gt;&lt;finalName/&gt;&lt;filters/&gt;    
+    &lt;pluginManagement&gt;    
+     &lt;plugins&gt;    
+      &lt;!--参见build/pluginManagement/plugins/plugin元素--&gt;    
+      &lt;plugin&gt;    
+       &lt;groupId/&gt;&lt;artifactId/&gt;&lt;version/&gt;&lt;extensions/&gt;    
+       &lt;executions&gt;    
+        &lt;execution&gt;    
+         &lt;id/&gt;&lt;phase/&gt;&lt;goals/&gt;&lt;inherited/&gt;&lt;configuration/&gt;    
+        &lt;/execution&gt;    
+       &lt;/executions&gt;    
+       &lt;dependencies&gt;    
+        &lt;!--参见dependencies/dependency元素--&gt;    
+        &lt;dependency&gt;    
+         ......    
+        &lt;/dependency&gt;    
+       &lt;/dependencies&gt;    
+       &lt;goals/&gt;&lt;inherited/&gt;&lt;configuration/&gt;    
+      &lt;/plugin&gt;    
+     &lt;/plugins&gt;    
+    &lt;/pluginManagement&gt;    
+    &lt;plugins&gt;    
+     &lt;!--参见build/pluginManagement/plugins/plugin元素--&gt;    
+     &lt;plugin&gt;    
+      &lt;groupId/&gt;&lt;artifactId/&gt;&lt;version/&gt;&lt;extensions/&gt;    
+      &lt;executions&gt;    
+       &lt;execution&gt;    
+        &lt;id/&gt;&lt;phase/&gt;&lt;goals/&gt;&lt;inherited/&gt;&lt;configuration/&gt;    
+       &lt;/execution&gt;    
+      &lt;/executions&gt;    
+      &lt;dependencies&gt;    
+       &lt;!--参见dependencies/dependency元素--&gt;    
+       &lt;dependency&gt;    
+        ......    
+       &lt;/dependency&gt;    
+      &lt;/dependencies&gt;    
+      &lt;goals/&gt;&lt;inherited/&gt;&lt;configuration/&gt;    
+     &lt;/plugin&gt;    
+    &lt;/plugins&gt;    
+   &lt;/build&gt;    
+   &lt;!--模块（有时称作子项目） 被构建成项目的一部分。列出的每个模块元素是指向该模块的目录的相对路径--&gt;    
+   &lt;modules/&gt;    
+   &lt;!--发现依赖和扩展的远程仓库列表。--&gt;    
+   &lt;repositories&gt;    
+    &lt;!--参见repositories/repository元素--&gt;    
+    &lt;repository&gt;    
+     &lt;releases&gt;    
+      &lt;enabled/&gt;&lt;updatePolicy/&gt;&lt;checksumPolicy/&gt;    
+     &lt;/releases&gt;    
+     &lt;snapshots&gt;    
+      &lt;enabled/&gt;&lt;updatePolicy/&gt;&lt;checksumPolicy/&gt;    
+     &lt;/snapshots&gt;    
+     &lt;id/&gt;&lt;name/&gt;&lt;url/&gt;&lt;layout/&gt;    
+    &lt;/repository&gt;    
+   &lt;/repositories&gt;    
+   &lt;!--发现插件的远程仓库列表，这些插件用于构建和报表--&gt;    
+   &lt;pluginRepositories&gt;    
+    &lt;!--包含需要连接到远程插件仓库的信息.参见repositories/repository元素--&gt;        
+    &lt;pluginRepository&gt;    
+     &lt;releases&gt;    
+      &lt;enabled/&gt;&lt;updatePolicy/&gt;&lt;checksumPolicy/&gt;    
+     &lt;/releases&gt;    
+     &lt;snapshots&gt;    
+      &lt;enabled/&gt;&lt;updatePolicy/&gt;&lt;checksumPolicy/&gt;    
+     &lt;/snapshots&gt;    
+     &lt;id/&gt;&lt;name/&gt;&lt;url/&gt;&lt;layout/&gt;    
+    &lt;/pluginRepository&gt;    
+   &lt;/pluginRepositories&gt;    
+   &lt;!--该元素描述了项目相关的所有依赖。 这些依赖组成了项目构建过程中的一个个环节。它们自动从项目定义的仓库中下载。要获取更多信息，请看项目依赖机制。--&gt;    
+   &lt;dependencies&gt;    
+    &lt;!--参见dependencies/dependency元素--&gt;    
+    &lt;dependency&gt;    
+     ......    
+    &lt;/dependency&gt;    
+   &lt;/dependencies&gt;    
+   &lt;!--不赞成使用. 现在Maven忽略该元素.--&gt;    
+   &lt;reports/&gt;       
+   &lt;!--该元素包括使用报表插件产生报表的规范。当用户执行“mvn site”，这些报表就会运行。 在页面导航栏能看到所有报表的链接。参见reporting元素--&gt;    
+   &lt;reporting&gt;    
+    ......    
+   &lt;/reporting&gt;    
+   &lt;!--参见dependencyManagement元素--&gt;    
+   &lt;dependencyManagement&gt;    
+    &lt;dependencies&gt;    
+     &lt;!--参见dependencies/dependency元素--&gt;    
+     &lt;dependency&gt;    
+      ......    
+     &lt;/dependency&gt;    
+    &lt;/dependencies&gt;    
+   &lt;/dependencyManagement&gt;    
+   &lt;!--参见distributionManagement元素--&gt;    
+   &lt;distributionManagement&gt;    
+    ......    
+   &lt;/distributionManagement&gt;    
+   &lt;!--参见properties元素--&gt;    
+   &lt;properties/&gt;    
+  &lt;/profile&gt;    
+ &lt;/profiles&gt;    
+ &lt;!--模块（有时称作子项目） 被构建成项目的一部分。列出的每个模块元素是指向该模块的目录的相对路径--&gt;    
+ &lt;modules/&gt;    
+    &lt;!--发现依赖和扩展的远程仓库列表。--&gt;     
+    &lt;repositories&gt;     
+     &lt;!--包含需要连接到远程仓库的信息--&gt;    
+        &lt;repository&gt;    
+         &lt;!--如何处理远程仓库里发布版本的下载--&gt;    
+         &lt;releases&gt;    
+          &lt;!--true或者false表示该仓库是否为下载某种类型构件（发布版，快照版）开启。 --&gt;    
+    &lt;enabled/&gt;    
+    &lt;!--该元素指定更新发生的频率。Maven会比较本地POM和远程POM的时间戳。这里的选项是：always（一直），daily（默认，每日），interval：X（这里X是以分钟为单位的时间间隔），或者never（从不）。--&gt;    
+    &lt;updatePolicy/&gt;    
+    &lt;!--当Maven验证构件校验文件失败时该怎么做：ignore（忽略），fail（失败），或者warn（警告）。--&gt;    
+    &lt;checksumPolicy/&gt;    
+   &lt;/releases&gt;    
+   &lt;!-- 如何处理远程仓库里快照版本的下载。有了releases和snapshots这两组配置，POM就可以在每个单独的仓库中，为每种类型的构件采取不同的 策略。例如，可能有人会决定只为开发目的开启对快照版本下载的支持。参见repositories/repository/releases元素 --&gt;    
+   &lt;snapshots&gt;    
+    &lt;enabled/&gt;&lt;updatePolicy/&gt;&lt;checksumPolicy/&gt;    
+   &lt;/snapshots&gt;    
+   &lt;!--远程仓库唯一标识符。可以用来匹配在settings.xml文件里配置的远程仓库--&gt;    
+   &lt;id&gt;banseon-repository-proxy&lt;/id&gt;     
+   &lt;!--远程仓库名称--&gt;    
+            &lt;name&gt;banseon-repository-proxy&lt;/name&gt;     
+            &lt;!--远程仓库URL，按protocol://hostname/path形式--&gt;    
+            &lt;url&gt;http://192.168.1.169:9999/repository/&lt;/url&gt;     
+            &lt;!-- 用于定位和排序构件的仓库布局类型-可以是default（默认）或者legacy（遗留）。Maven 2为其仓库提供了一个默认的布局；然 而，Maven 1.x有一种不同的布局。我们可以使用该元素指定布局是default（默认）还是legacy（遗留）。--&gt;    
+            &lt;layout&gt;default&lt;/layout&gt;               
+        &lt;/repository&gt;     
+    &lt;/repositories&gt;    
+    &lt;!--发现插件的远程仓库列表，这些插件用于构建和报表--&gt;    
+    &lt;pluginRepositories&gt;    
+     &lt;!--包含需要连接到远程插件仓库的信息.参见repositories/repository元素--&gt;    
+  &lt;pluginRepository&gt;    
+   ......    
+  &lt;/pluginRepository&gt;    
+ &lt;/pluginRepositories&gt;    
+
+    &lt;!--该元素描述了项目相关的所有依赖。 这些依赖组成了项目构建过程中的一个个环节。它们自动从项目定义的仓库中下载。要获取更多信息，请看项目依赖机制。--&gt;     
+    &lt;dependencies&gt;     
+        &lt;dependency&gt;    
+   &lt;!--依赖的group ID--&gt;    
+            &lt;groupId&gt;org.apache.maven&lt;/groupId&gt;     
+            &lt;!--依赖的artifact ID--&gt;    
+            &lt;artifactId&gt;maven-artifact&lt;/artifactId&gt;     
+            &lt;!--依赖的版本号。 在Maven 2里, 也可以配置成版本号的范围。--&gt;    
+            &lt;version&gt;3.8.1&lt;/version&gt;     
+            &lt;!-- 依赖类型，默认类型是jar。它通常表示依赖的文件的扩展名，但也有例外。一个类型可以被映射成另外一个扩展名或分类器。类型经常和使用的打包方式对应， 尽管这也有例外。一些类型的例子：jar，war，ejb-client和test-jar。如果设置extensions为 true，就可以在 plugin里定义新的类型。所以前面的类型的例子不完整。--&gt;    
+            &lt;type&gt;jar&lt;/type&gt;    
+            &lt;!-- 依赖的分类器。分类器可以区分属于同一个POM，但不同构建方式的构件。分类器名被附加到文件名的版本号后面。例如，如果你想要构建两个单独的构件成 JAR，一个使用Java 1.4编译器，另一个使用Java 6编译器，你就可以使用分类器来生成两个单独的JAR构件。--&gt;    
+            &lt;classifier&gt;&lt;/classifier&gt;    
+            &lt;!--依赖范围。在项目发布过程中，帮助决定哪些构件被包括进来。欲知详情请参考依赖机制。    
+                - compile ：默认范围，用于编译      
+                - provided：类似于编译，但支持你期待jdk或者容器提供，类似于classpath      
+                - runtime: 在执行时需要使用      
+                - test:    用于test任务时使用      
+                - system: 需要外在提供相应的元素。通过systemPath来取得      
+                - systemPath: 仅用于范围为system。提供相应的路径      
+                - optional:   当项目自身被依赖时，标注依赖是否传递。用于连续依赖时使用--&gt;     
+            &lt;scope&gt;test&lt;/scope&gt;       
+            &lt;!--仅供system范围使用。注意，不鼓励使用这个元素，并且在新的版本中该元素可能被覆盖掉。该元素为依赖规定了文件系统上的路径。需要绝对路径而不是相对路径。推荐使用属性匹配绝对路径，例如${java.home}。--&gt;    
+            &lt;systemPath&gt;&lt;/systemPath&gt;     
+            &lt;!--当计算传递依赖时， 从依赖构件列表里，列出被排除的依赖构件集。即告诉maven你只依赖指定的项目，不依赖项目的依赖。此元素主要用于解决版本冲突问题--&gt;    
+            &lt;exclusions&gt;    
+             &lt;exclusion&gt;     
+                    &lt;artifactId&gt;spring-core&lt;/artifactId&gt;     
+                    &lt;groupId&gt;org.springframework&lt;/groupId&gt;     
+                &lt;/exclusion&gt;     
+            &lt;/exclusions&gt;       
+            &lt;!--可选依赖，如果你在项目B中把C依赖声明为可选，你就需要在依赖于B的项目（例如项目A）中显式的引用对C的依赖。可选依赖阻断依赖的传递性。--&gt;     
+            &lt;optional&gt;true&lt;/optional&gt;    
+        &lt;/dependency&gt;    
+    &lt;/dependencies&gt;    
+    &lt;!--不赞成使用. 现在Maven忽略该元素.--&gt;    
+    &lt;reports&gt;&lt;/reports&gt;    
+    &lt;!--该元素描述使用报表插件产生报表的规范。当用户执行“mvn site”，这些报表就会运行。 在页面导航栏能看到所有报表的链接。--&gt;    
+ &lt;reporting&gt;    
+  &lt;!--true，则，网站不包括默认的报表。这包括“项目信息”菜单中的报表。--&gt;    
+  &lt;excludeDefaults/&gt;    
+  &lt;!--所有产生的报表存放到哪里。默认值是${project.build.directory}/site。--&gt;    
+  &lt;outputDirectory/&gt;    
+  &lt;!--使用的报表插件和他们的配置。--&gt;    
+  &lt;plugins&gt;    
+   &lt;!--plugin元素包含描述报表插件需要的信息--&gt;    
+   &lt;plugin&gt;    
+    &lt;!--报表插件在仓库里的group ID--&gt;    
+    &lt;groupId/&gt;    
+    &lt;!--报表插件在仓库里的artifact ID--&gt;    
+    &lt;artifactId/&gt;    
+    &lt;!--被使用的报表插件的版本（或版本范围）--&gt;    
+    &lt;version/&gt;    
+    &lt;!--任何配置是否被传播到子项目--&gt;    
+    &lt;inherited/&gt;    
+    &lt;!--报表插件的配置--&gt;    
+    &lt;configuration/&gt;    
+    &lt;!--一组报表的多重规范，每个规范可能有不同的配置。一个规范（报表集）对应一个执行目标 。例如，有1，2，3，4，5，6，7，8，9个报表。1，2，5构成A报表集，对应一个执行目标。2，5，8构成B报表集，对应另一个执行目标--&gt;    
+    &lt;reportSets&gt;    
+     &lt;!--表示报表的一个集合，以及产生该集合的配置--&gt;    
+     &lt;reportSet&gt;    
+      &lt;!--报表集合的唯一标识符，POM继承时用到--&gt;    
+      &lt;id/&gt;    
+      &lt;!--产生报表集合时，被使用的报表的配置--&gt;    
+      &lt;configuration/&gt;    
+      &lt;!--配置是否被继承到子POMs--&gt;    
+      &lt;inherited/&gt;    
+      &lt;!--这个集合里使用到哪些报表--&gt;    
+      &lt;reports/&gt;    
+     &lt;/reportSet&gt;    
+    &lt;/reportSets&gt;    
+   &lt;/plugin&gt;    
+  &lt;/plugins&gt;    
+ &lt;/reporting&gt;    
+ &lt;!-- 继承自该项目的所有子项目的默认依赖信息。这部分的依赖信息不会被立即解析,而是当子项目声明一个依赖（必须描述group ID和 artifact ID信息），如果group ID和artifact ID以外的一些信息没有描述，则通过group ID和artifact ID 匹配到这里的依赖，并使用这里的依赖信息。--&gt;    
+ &lt;dependencyManagement&gt;    
+  &lt;dependencies&gt;    
+   &lt;!--参见dependencies/dependency元素--&gt;    
+   &lt;dependency&gt;    
+    ......    
+   &lt;/dependency&gt;    
+  &lt;/dependencies&gt;    
+ &lt;/dependencyManagement&gt;       
+    &lt;!--项目分发信息，在执行mvn deploy后表示要发布的位置。有了这些信息就可以把网站部署到远程服务器或者把构件部署到远程仓库。--&gt;     
+    &lt;distributionManagement&gt;    
+        &lt;!--部署项目产生的构件到远程仓库需要的信息--&gt;    
+        &lt;repository&gt;    
+         &lt;!--是分配给快照一个唯一的版本号（由时间戳和构建流水号）？还是每次都使用相同的版本号？参见repositories/repository元素--&gt;    
+   &lt;uniqueVersion/&gt;    
+   &lt;id&gt;banseon-maven2&lt;/id&gt;     
+   &lt;name&gt;banseon maven2&lt;/name&gt;     
+            &lt;url&gt;file://${basedir}/target/deploy&lt;/url&gt;     
+            &lt;layout/&gt;    
+  &lt;/repository&gt;    
+  &lt;!--构件的快照部署到哪里？如果没有配置该元素，默认部署到repository元素配置的仓库，参见distributionManagement/repository元素--&gt;     
+  &lt;snapshotRepository&gt;    
+   &lt;uniqueVersion/&gt;    
+   &lt;id&gt;banseon-maven2&lt;/id&gt;    
+            &lt;name&gt;Banseon-maven2 Snapshot Repository&lt;/name&gt;    
+            &lt;url&gt;scp://svn.baidu.com/banseon:/usr/local/maven-snapshot&lt;/url&gt;     
+   &lt;layout/&gt;    
+  &lt;/snapshotRepository&gt;    
+  &lt;!--部署项目的网站需要的信息--&gt;     
+        &lt;site&gt;    
+         &lt;!--部署位置的唯一标识符，用来匹配站点和settings.xml文件里的配置--&gt;     
+            &lt;id&gt;banseon-site&lt;/id&gt;     
+            &lt;!--部署位置的名称--&gt;    
+            &lt;name&gt;business api website&lt;/name&gt;     
+            &lt;!--部署位置的URL，按protocol://hostname/path形式--&gt;    
+            &lt;url&gt;     
+                scp://svn.baidu.com/banseon:/var/www/localhost/banseon-web      
+            &lt;/url&gt;     
+        &lt;/site&gt;    
+  &lt;!--项目下载页面的URL。如果没有该元素，用户应该参考主页。使用该元素的原因是：帮助定位那些不在仓库里的构件（由于license限制）。--&gt;    
+  &lt;downloadUrl/&gt;    
+  &lt;!--如果构件有了新的group ID和artifact ID（构件移到了新的位置），这里列出构件的重定位信息。--&gt;    
+  &lt;relocation&gt;    
+   &lt;!--构件新的group ID--&gt;    
+   &lt;groupId/&gt;    
+   &lt;!--构件新的artifact ID--&gt;    
+   &lt;artifactId/&gt;    
+   &lt;!--构件新的版本号--&gt;    
+   &lt;version/&gt;    
+   &lt;!--显示给用户的，关于移动的额外信息，例如原因。--&gt;    
+   &lt;message/&gt;    
+  &lt;/relocation&gt;    
+  &lt;!-- 给出该构件在远程仓库的状态。不得在本地项目中设置该元素，因为这是工具自动更新的。有效的值有：none（默认），converted（仓库管理员从 Maven 1 POM转换过来），partner（直接从伙伴Maven 2仓库同步过来），deployed（从Maven 2实例部 署），verified（被核实时正确的和最终的）。--&gt;    
+  &lt;status/&gt;           
+    &lt;/distributionManagement&gt;    
+    &lt;!--以值替代名称，Properties可以在整个POM中使用，也可以作为触发条件（见settings.xml配置文件里activation元素的说明）。格式是&lt;name&gt;value&lt;/name&gt;。--&gt;    
+    &lt;properties/&gt;    
+&lt;/project&gt;    </code></pre>
+]]></content>
       <categories>
-          
-          <category> 系统调优 </category>
-          
+        <category>maven</category>
       </categories>
-      
-      
-        <tags>
-            
-            <tag> Java </tag>
-            
-            <tag> 基准测试 </tag>
-            
-            <tag> 系统调优 </tag>
-            
-            <tag> JMH </tag>
-            
-            <tag> 基础 </tag>
-            
-        </tags>
-      
-    </entry>
-    
-    
-    
-    <entry>
-      <title>CentOS下Nginx支持SSL协议的编译安装</title>
-      <link href="2020/07/04/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Nginx-under-CentOS-installation/"/>
-      <url>2020/07/04/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Nginx-under-CentOS-installation/</url>
-      
-        <content type="html"><![CDATA[<h2 id="Nginx及其衍生的其他相关优秀开源产品"><a href="#Nginx及其衍生的其他相关优秀开源产品" class="headerlink" title="Nginx及其衍生的其他相关优秀开源产品"></a>Nginx及其衍生的其他相关优秀开源产品</h2><ul><li><a href="http://nginx.org/" target="_blank" rel="noopener">NGINX</a> 是开源、高性能、高可靠的 Web 和反向代理服务器</li><li><a href="https://tengine.taobao.org/" target="_blank" rel="noopener">Tengine</a> Tengine是由淘宝网发起基于Nginx的Web服务器项目</li><li><a href="https://openresty.org/cn/" target="_blank" rel="noopener">OpenResty</a> OpenResty® 是一个基于 Nginx 与 Lua 的高性能 Web 平台</li></ul><h2 id="下载Nginx稳定版包并解压"><a href="#下载Nginx稳定版包并解压" class="headerlink" title="下载Nginx稳定版包并解压"></a>下载Nginx稳定版包并解压</h2><pre><code class="bash">wget http://nginx.org/download/nginx-x.x.x.tar.gztar zxvf nginx-x.x.x.tar.gzcd nginx-x.x.x</code></pre><a id="more"></a><h2 id="补全需要的库依赖"><a href="#补全需要的库依赖" class="headerlink" title="补全需要的库依赖"></a>补全需要的库依赖</h2><pre><code class="bash">yum install gcc-c++yum install -y pcre pcre-develyum install -y zlib zlib-develyum install -y openssl openssl-devel</code></pre><h2 id="执行编译安装"><a href="#执行编译安装" class="headerlink" title="执行编译安装"></a>执行编译安装</h2><p>所有文件放在同一个位置,便于统一管理</p><pre><code class="bash">./configure --prefix=/usr/local/nginx  \--conf-path=/usr/local/nginx/etc/nginx.conf  \--user=nginx --group=nginx  \--error-log-path=/usr/local/nginx/nginxlog/error.log  \--http-log-path=/usr/local/nginx/nginxlog/access.log  \--pid-path=/usr/local/nginx/pids/nginx.pid  \--lock-path=/usr/local/nginx/locks/nginx.lock  \--with-http_ssl_module  \--with-http_stub_status_module  \--with-http_gzip_static_module  \--http-client-body-temp-path=/usr/local/nginx/tmp/client  \--http-proxy-temp-path=/usr/local/nginx/tmp/proxy  \--http-fastcgi-temp-path=/usr/local/nginx/tmp/fastcgi  \--http-uwsgi-temp-path=/usr/local/nginx/tmp/uwsgi  \--http-scgi-temp-path=/usr/local/nginx/tmp/scgi</code></pre><p>编译结果</p><pre><code class="bash">Configuration summary  + using system PCRE library  + using system OpenSSL library  + using system zlib library  nginx path prefix: &quot;/usr/local/nginx&quot;  nginx binary file: &quot;/usr/local/nginx/sbin/nginx&quot;  nginx modules path: &quot;/usr/local/nginx/modules&quot;  nginx configuration prefix: &quot;/usr/local/nginx/etc&quot;  nginx configuration file: &quot;/usr/local/nginx/etc/nginx.conf&quot;  nginx pid file: &quot;/usr/local/nginx/pids/nginx.pid&quot;  nginx error log file: &quot;/usr/local/nginx/nginxlog/error.log&quot;  nginx http access log file: &quot;/usr/local/nginx/nginxlog/access.log&quot;  nginx http client request body temporary files: &quot;/usr/local/nginx/tmp/client&quot;  nginx http proxy temporary files: &quot;/usr/local/nginx/tmp/proxy&quot;  nginx http fastcgi temporary files: &quot;/usr/local/nginx/tmp/fastcgi&quot;  nginx http uwsgi temporary files: &quot;/usr/local/nginx/tmp/uwsgi&quot;  nginx http scgi temporary files: &quot;/usr/local/nginx/tmp/scgi</code></pre><p>执行安装</p><pre><code class="bash">make &amp;&amp; make install</code></pre><h2 id="安装后处理"><a href="#安装后处理" class="headerlink" title="安装后处理"></a>安装后处理</h2><p>查看文件结构</p><pre><code class="bash">cd /usr/local/nginx/tree.├── etc│   ├── fastcgi.conf│   ├── fastcgi.conf.default│   ├── fastcgi_params│   ├── fastcgi_params.default│   ├── koi-utf│   ├── koi-win│   ├── mime.types│   ├── mime.types.default│   ├── nginx.conf│   ├── nginx.conf.default│   ├── scgi_params│   ├── scgi_params.default│   ├── uwsgi_params│   ├── uwsgi_params.default│   └── win-utf├── html│   ├── 50x.html│   └── index.html├── nginxlog├── pids└── sbin    └── nginx</code></pre><p>完善Nginx目录结构</p><pre><code class="bash">mkdir -pv /usr/local/nginx/tmp/{client,proxy,fastcgi,uwsgi,scgi}</code></pre><h2 id="Nginx启动和监听"><a href="#Nginx启动和监听" class="headerlink" title="Nginx启动和监听"></a>Nginx启动和监听</h2><pre><code class="bash"># 启动/usr/local/nginx/sbin/nginx# 检查是否启动ss -tnlp | grep :80</code></pre>]]></content>
-      
-      
+      <tags>
+        <tag>maven</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>高并发网络应用的关键-Unix系统下的五种IO模型</title>
+    <url>/2020/11/22/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Unix-IO-5-Model/</url>
+    <content><![CDATA[<p>Unix 中提供了五种 IO 模型，分别是<strong>阻塞式IO、非阻塞式IO、IO复用、信号驱动式IO、异步IO</strong>。</p>
+<p>一个IO操作通常包括两个阶段：</p>
+<ol>
+<li>等待数据准备好；</li>
+<li>从内核向进程复制数据；</li>
+</ol>
+<p>对于一个套接字上的输入操作，<strong>第一步通常涉及等待数据从网络中到达</strong>。当所等待分组到达时，它被复制到内核中的某个缓冲区。第二步就是把数据从内核缓冲区复制到应用进程缓冲区。</p>
+<p>实际应用程序在系统调用完成上面的 2 步操作时，调用方式的阻塞、非阻塞，操作系统在处理应用程序请求时，处理方式的同步、异步处理的不同，可以分为 5 种 I/O 模型。</p>
+<p>*注：recvfrom 函数(经 Socket 接收数据)，这里把它视为系统调用</p>
+<a id="more"></a>
+
+]]></content>
       <categories>
-          
-          <category> Nginx </category>
-          
+        <category>Unix网络编程</category>
       </categories>
-      
-      
-        <tags>
-            
-            <tag> Liunx </tag>
-            
-            <tag> CentOS </tag>
-            
-            <tag> Nginx </tag>
-            
-            <tag> Server </tag>
-            
-        </tags>
-      
-    </entry>
-    
-    
-  
-  
+      <tags>
+        <tag>Unix</tag>
+        <tag>IO</tag>
+      </tags>
+  </entry>
 </search>

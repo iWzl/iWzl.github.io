@@ -153,7 +153,9 @@
             <blockquote>
 <p><strong>子曰：“工欲善其事，必先利其器。居是邦也，事其大夫之贤者，友其士之仁者。”</strong> –论语·卫灵公</p>
 </blockquote>
-<h3 id="Grep"><a href="#Grep" class="headerlink" title="Grep"></a>Grep</h3><p><a href="https://zh.wikipedia.org/wiki/Grep" target="_blank" rel="noopener">Grep</a>(global search regular expression(RE) and print...</p>
+<h3 id="Grep"><a href="#Grep" class="headerlink" title="Grep"></a>Grep</h3><p><a href="https://zh.wikipedia.org/wiki/Grep" target="_blank" rel="noopener">Grep</a>(global search regular expression(RE) and print out the line)是一款强大的文本搜索工具，支持正则表达式。来自Unix文本编辑器ed类似操作的命令,最初用于Unix操作系统的命令行工具。在给出文件列表或标准输入后，grep会对匹配一个或多个正则表达式的文本进行搜索，并只输出匹配（或者不匹配）的行或文本。</p>
+<pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# grep --help
+用法: grep [选...</code></pre>
             
             <span class="read-more"><a href="/2020/08/14/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Liunx-Tips-001-Grep-Awk-Sed/" title="Read article" class="posttitle">Read article</a>
                 <b class="iconfont icon-arrow-right- gradient-text"></b></span>
@@ -215,7 +217,11 @@
         <div class="md-content animated fadeIn">
             
                 <h3 id="Jenkins服务在CentOS系统环境上的搭建和部署"><a href="#Jenkins服务在CentOS系统环境上的搭建和部署" class="headerlink" title="Jenkins服务在CentOS系统环境上的搭建和部署"></a>Jenkins服务在CentOS系统环境上的搭建和部署</h3><blockquote>
-<p><a href="https://www.jenkins.io/zh/" target="_blank" rel="noopener">Jenkins</a> 由Java编写的一个开源的、提供友好操作界面的持续集成(CI)工具，起源于Hudson（Hudson是商用的），主要用于持续、自动的构建/测试软件项目、监控外部任务的运行（这个比较抽象，暂且写上，不做解释）。Jenkins用Java语言编写，可在Tomcat等流行的servlet容器中运行，也可独立运行。通常与版本管理工具(SCM)、构建工具结合使用。常用的版本控制工具有SVN、GIT，构建工具有Maven、Ant、Gradle...</p></blockquote>
+<p><a href="https://www.jenkins.io/zh/" target="_blank" rel="noopener">Jenkins</a> 由Java编写的一个开源的、提供友好操作界面的持续集成(CI)工具，起源于Hudson（Hudson是商用的），主要用于持续、自动的构建/测试软件项目、监控外部任务的运行（这个比较抽象，暂且写上，不做解释）。Jenkins用Java语言编写，可在Tomcat等流行的servlet容器中运行，也可独立运行。通常与版本管理工具(SCM)、构建工具结合使用。常用的版本控制工具有SVN、GIT，构建工具有Maven、Ant、Gradle。</p>
+</blockquote>
+<a id="more"></a>  
+
+<p>CI(Continuous integration，中文意思是持续集成)是一种软件开发时间。持续集成强调开发人员提交了新代码之后，立刻进行构建、（单元）测试。根据测试结果，我们可以确定新代...</p>
             
             <span class="read-more"><a href="/2020/07/23/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Jenkins-programming-environment-setup/" title="Read article" class="posttitle">Read article</a> <b class="iconfont icon-arrow-right- gradient-text"></b></span>
         </div>
@@ -272,7 +278,10 @@ cd nginx-x.x.x</code></pre>
 <a id="more"></a>
 
 <pre><code class="bash">yum install gcc-c++
-yum install ...</code></pre>
+yum install -y pcre pcre-devel
+yum install -y zlib zlib-devel
+yum install -y openssl openssl-devel</code></pre>
+<p>所有文件放在同一个位置,便...</p>
             
             <span class="read-more"><a href="/2020/07/04/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Nginx-under-CentOS-installation/" title="Read article" class="posttitle">Read article</a> <b class="iconfont icon-arrow-right- gradient-text"></b></span>
         </div>

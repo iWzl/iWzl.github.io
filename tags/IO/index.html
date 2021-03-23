@@ -156,7 +156,10 @@
 <li>等待数据准备好；</li>
 <li>从内核向进程复制数据；</li>
 </ol>
-<p>对于一个套接字上...</p>
+<p>对于一个套接字上的输入操作，<strong>第一步通常涉及等待数据从网络中到达</strong>。当所等待分组到达时，它被复制到内核中的某个缓冲区。第二步就是把数据从内核缓冲区复制到应用进程缓冲区。</p>
+<p>实际应用程序在系统调用完成上面的 2 步操作时，调用方式的阻塞、非阻塞，操作系统在处理应用程序请求时，处理方式的同步、异步处理的不同，可以分为 5 种 I/O 模型。</p>
+<p>*注：recvfrom 函数(经 Socket 接收数据)，这里把它视为系统调用</p>
+...
             
             <span class="read-more"><a href="/2020/11/22/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Unix-IO-5-Model/" title="Read article" class="posttitle">Read article</a>
                 <b class="iconfont icon-arrow-right- gradient-text"></b></span>

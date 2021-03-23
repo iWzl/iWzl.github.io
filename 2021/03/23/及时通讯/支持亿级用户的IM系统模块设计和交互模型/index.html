@@ -10,7 +10,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="google" content="notranslate" />
     <meta name="keywords" content="Upuphub 王子靖,"> 
-    <meta name="description" content="做点记录,省的忘了,支持亿级消息的IM系统模块设计和交互模型"> 
+    <meta name="description" content="做点记录,省的忘了,支持亿级用户的IM系统模块设计和交互模型​    现代实现的及时通讯系统一般由长连接和短连接配合使用进行实现，一般的实现架构即Connector和Service两个部分,分别对应长连接服务和短连接服,"> 
     <meta name="author" content="王.子靖"> 
     <link rel="alternative" href="atom.xml" title="王.子靖" type="application/atom+xml"> 
     <link rel="icon" href="/img/favicon.png"> 
@@ -89,14 +89,14 @@
                 
                 March 23, 2021
             </p>
-            <h3 class="post-title animated fadeInDown"><a href="/2021/03/23/%E5%8F%8A%E6%97%B6%E9%80%9A%E8%AE%AF/%E6%94%AF%E6%8C%81%E4%BA%BF%E7%BA%A7%E6%B6%88%E6%81%AF%E7%9A%84IM%E7%B3%BB%E7%BB%9F%E6%A8%A1%E5%9D%97%E8%AE%BE%E8%AE%A1%E5%92%8C%E4%BA%A4%E4%BA%92%E6%A8%A1%E5%9E%8B/" title="支持亿级消息的IM系统模块设计和交互模型" class="">支持亿级消息的IM系统模块设计和交互模型</a>
+            <h3 class="post-title animated fadeInDown"><a href="/2021/03/23/%E5%8F%8A%E6%97%B6%E9%80%9A%E8%AE%AF/%E6%94%AF%E6%8C%81%E4%BA%BF%E7%BA%A7%E7%94%A8%E6%88%B7%E7%9A%84IM%E7%B3%BB%E7%BB%9F%E6%A8%A1%E5%9D%97%E8%AE%BE%E8%AE%A1%E5%92%8C%E4%BA%A4%E4%BA%92%E6%A8%A1%E5%9E%8B/" title="支持亿级消息的IM系统模块设计和交互模型" class="">支持亿级消息的IM系统模块设计和交互模型</a>
             </h3>
             
             <p class="post-count animated fadeInDown">
                 
                 <span>
                     <b class="iconfont icon-text2"></b> <i>Words count</i>
-                    139
+                    1k
                 </span>
                 
                 
@@ -136,7 +136,23 @@
 <div class="article">
     <div class='main'>
         <div class="content markdown animated fadeIn">
-            <h1 id="支持亿级消息的IM系统模块设计和交互模型"><a href="#支持亿级消息的IM系统模块设计和交互模型" class="headerlink" title="支持亿级消息的IM系统模块设计和交互模型"></a>支持亿级消息的IM系统模块设计和交互模型</h1>
+            <h1 id="支持亿级用户的IM系统模块设计和交互模型"><a href="#支持亿级用户的IM系统模块设计和交互模型" class="headerlink" title="支持亿级用户的IM系统模块设计和交互模型"></a>支持亿级用户的IM系统模块设计和交互模型</h1><p>​    现代实现的及时通讯系统一般由长连接和短连接配合使用进行实现，一般的实现架构即Connector和Service两个部分,分别对应长连接服务和短连接服务，<strong>长连接服务主要用于服务端对客户端的推送和新消息到达的通知</strong>，<strong>短连接服务主要用于客户端对于消息的拉取和离线(在线)消息的同步</strong>。当用户数据量增大时,其很容易就会出现以下的缺陷:</p>
+<ul>
+<li><strong>复杂性高</strong>：每个模块服务包含的功能职责增多、模块的边界模糊、 依赖关系不清晰、 代码质量参差不齐、 混乱地堆砌在一起。</li>
+<li><strong>可靠性缺失</strong>： 某个核心服务出现问题，例如死循环、内存溢出等， 可能会导致整个系统不能正常使用。</li>
+<li><strong>拓展成本增大</strong>： 当用户体量增大时,部分服务功能会成为系统瓶颈,当进行服务扩容时,因为部分功能瓶颈的原因，就需要将整个服务进行拓展，带来不需要的成本开销。</li>
+</ul>
+<p>为此就需要对常见IM系统架构进行更加细化的服务拆分,以下就IM服务功能拆分提供参考</p>
+<a id="more"></a>
+
+<h2 id="技术指标"><a href="#技术指标" class="headerlink" title="技术指标"></a>技术指标</h2><ul>
+<li><strong>高可靠</strong>：确保不丢消息；</li>
+<li><strong>高可用</strong>：任意机房或者服务器挂掉，不影响服务；</li>
+<li><strong>实时性</strong>：不管用户在哪里，在线用户消息在1秒内达到（我们实际是75%消息可以做到120ms）；</li>
+<li><strong>有序性</strong>：确保用户消息的有序性，不会出现发送和接受的乱序。</li>
+</ul>
+<p>发hi老大回复大家啊</p>
+
             <!--[if lt IE 9]><script>document.createElement('audio');</script><![endif]-->
             <audio id="audio" loop="1" preload="auto" controls="controls"
                 data-autoplay="false">
@@ -187,7 +203,7 @@
             <div class="box sticky animated fadeInRight faster">
                 <div id="toc" class="subbox">
                     <h4>Contents</h4>
-                    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#支持亿级消息的IM系统模块设计和交互模型"><span class="toc-number">1.</span> <span class="toc-text">支持亿级消息的IM系统模块设计和交互模型</span></a></li></ol>
+                    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#支持亿级用户的IM系统模块设计和交互模型"><span class="toc-number">1.</span> <span class="toc-text">支持亿级用户的IM系统模块设计和交互模型</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#技术指标"><span class="toc-number">1.1.</span> <span class="toc-text">技术指标</span></a></li></ol></li></ol>
                 </div>
             </div>
             

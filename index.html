@@ -127,13 +127,13 @@
             March 23, 2021
         </p>
         <h3 class="post-title animated fadeInDown">
-            <a href="/2021/03/23/%E5%8F%8A%E6%97%B6%E9%80%9A%E8%AE%AF/%E6%94%AF%E6%8C%81%E4%BA%BF%E7%BA%A7%E6%B6%88%E6%81%AF%E7%9A%84IM%E7%B3%BB%E7%BB%9F%E6%A8%A1%E5%9D%97%E8%AE%BE%E8%AE%A1%E5%92%8C%E4%BA%A4%E4%BA%92%E6%A8%A1%E5%9E%8B/" title="支持亿级消息的IM系统模块设计和交互模型" class="posttitle">支持亿级消息的IM系统模块设计和交互模型</a></h3>
+            <a href="/2021/03/23/%E5%8F%8A%E6%97%B6%E9%80%9A%E8%AE%AF/%E6%94%AF%E6%8C%81%E4%BA%BF%E7%BA%A7%E7%94%A8%E6%88%B7%E7%9A%84IM%E7%B3%BB%E7%BB%9F%E6%A8%A1%E5%9D%97%E8%AE%BE%E8%AE%A1%E5%92%8C%E4%BA%A4%E4%BA%92%E6%A8%A1%E5%9E%8B/" title="支持亿级消息的IM系统模块设计和交互模型" class="posttitle">支持亿级消息的IM系统模块设计和交互模型</a></h3>
         
         <p class="post-count animated fadeInDown">
             
             <span>
                 <b class="iconfont icon-text2"></b> <i>Words count</i>
-                139
+                1k
             </span>
             
             
@@ -150,9 +150,13 @@
         
         <div class="md-content animated fadeIn">
             
+            <p>​    现代实现的及时通讯系统一般由长连接和短连接配合使用进行实现，一般的实现架构即Connector和Service两个部分,分别对应长连接服务和短连接服务，<strong>长连接服务主要用于服务端对客户端的推送和新消息到达的通知</strong>，<strong>短连接服务主要用于客户端对于消息的拉取和离线(在线)消息的同步</strong>。当用户数据量增大时,其很容易就会出现以下的缺陷:</p>
+<ul>
+<li><strong>复杂性高</strong>：每个模块服务包含的功能职责增多、模块的边界模糊、 依赖关系不清晰、 代码质量参差不齐、 混乱地堆砌在一起。</li>
+<li><strong>可靠性缺失</strong>： 某个核心服务出现问题，例如死循环、内存溢出等， 可能会导致整个系统不能正常使用。</li>
+<li><strong>拓展成本增大</strong>： 当用户体量增大时,部分服务功能会成为系统...</li></ul>
             
-            
-            <span class="read-more"><a href="/2021/03/23/%E5%8F%8A%E6%97%B6%E9%80%9A%E8%AE%AF/%E6%94%AF%E6%8C%81%E4%BA%BF%E7%BA%A7%E6%B6%88%E6%81%AF%E7%9A%84IM%E7%B3%BB%E7%BB%9F%E6%A8%A1%E5%9D%97%E8%AE%BE%E8%AE%A1%E5%92%8C%E4%BA%A4%E4%BA%92%E6%A8%A1%E5%9E%8B/" title="Read article" class="posttitle">Read article</a>
+            <span class="read-more"><a href="/2021/03/23/%E5%8F%8A%E6%97%B6%E9%80%9A%E8%AE%AF/%E6%94%AF%E6%8C%81%E4%BA%BF%E7%BA%A7%E7%94%A8%E6%88%B7%E7%9A%84IM%E7%B3%BB%E7%BB%9F%E6%A8%A1%E5%9D%97%E8%AE%BE%E8%AE%A1%E5%92%8C%E4%BA%A4%E4%BA%92%E6%A8%A1%E5%9E%8B/" title="Read article" class="posttitle">Read article</a>
                 <b class="iconfont icon-arrow-right- gradient-text"></b></span>
         </div>
     </div>
@@ -272,7 +276,11 @@
 <li>从内核向进程复制数据；</li>
 </ol>
 <p>对于一个套接字上的输入操作，<strong>第一步通常涉及等待数据从网络中到达</strong>。当所等待分组到达时，它被复制到内核中的某个缓冲区。第二步就是把数据从内核缓冲区复制到应用进程缓冲区。</p>
-<p>实际应用程序在系统调用完成上面的 2 步操作时，调用方式的阻塞、非阻塞，操作系统在处理应用程序请求时，处理方式的同步、异步处理的不同，可以分为 5 种...</p>
+<p>实际应用程序在系统调用完成上面的 2 步操作时，调用方式的阻塞、非阻塞，操作系统在处理应用程序请求时，处理方式的同步、异步处理的不同，可以分为 5 种 I/O 模型。</p>
+<p>*注：recvfrom 函数(经 Socket 接收数据)，这里把它视为系统调用</p>
+<a id="more"></a>
+
+
             
             <span class="read-more"><a href="/2020/11/22/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Unix-IO-5-Model/" title="Read article" class="posttitle">Read article</a> <b class="iconfont icon-arrow-right- gradient-text"></b></span>
         </div>
@@ -322,7 +330,9 @@
 <p>在版本号的说明  :  SNAPSHOT – 快照版本，ALPHA – 内侧版本，BETA – 公测版本，RELEASE – 稳定版本，GA – 正式发布</p>
 <a id="more"></a>
 
-<pre><code class="xml">&lt;project xmlns=&quot;http://maven.apache...</code></pre>
+<pre><code class="xml">&lt;project xmlns=&quot;http://maven.apache.org/POM/4.0.0&quot;
+  xmlns:xsi=&quot;http://www.w3.org/2001/XMLSchema-instance&quot;
+  xsi:schemaLocation...</code></pre>
             
             <span class="read-more"><a href="/2020/11/13/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Maven-XML-Details/" title="Read article" class="posttitle">Read article</a> <b class="iconfont icon-arrow-right- gradient-text"></b></span>
         </div>
@@ -372,7 +382,9 @@
 <p><strong>子曰：“工欲善其事，必先利其器。居是邦也，事其大夫之贤者，友其士之仁者。”</strong> –论语·卫灵公</p>
 </blockquote>
 <h3 id="Grep"><a href="#Grep" class="headerlink" title="Grep"></a>Grep</h3><p><a href="https://zh.wikipedia.org/wiki/Grep" target="_blank" rel="noopener">Grep</a>(global search regular expression(RE) and print out the line)是一款强大的文本搜索工具，支持正则表达式。来自Unix文本编辑器ed类似操作的命令,最初用于Unix操作系统的命令行工具。在给出文件列表或标准输入后，grep会对匹配一个或多个正则表达式的文本进行搜索，并只输出匹配（或者不匹配）的行或文本。</p>
-<pre><code class="shell">[root@Leonardo...</code></pre>
+<pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# grep --help
+用法: grep [选项]... PATTERN [FILE]...
+Search for PATTERN in each...</code></pre>
             
             <span class="read-more"><a href="/2020/08/14/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Liunx-Tips-001-Grep-Awk-Sed/" title="Read article" class="posttitle">Read article</a> <b class="iconfont icon-arrow-right- gradient-text"></b></span>
         </div>
@@ -419,7 +431,11 @@
         <div class="md-content animated fadeIn">
             
                 <h3 id="Jenkins服务在CentOS系统环境上的搭建和部署"><a href="#Jenkins服务在CentOS系统环境上的搭建和部署" class="headerlink" title="Jenkins服务在CentOS系统环境上的搭建和部署"></a>Jenkins服务在CentOS系统环境上的搭建和部署</h3><blockquote>
-<p><a href="https://www.jenkins.io/zh/" target="_blank" rel="noopener">Jenkins</a> 由Java编写的一个开源的、提供友好操作界面的持续集成(CI)工具，起源于Hudson（Hudson是商用的），主要用于持续、自动的构建/测试软件项目、监控外部任务的运行（这个比较抽象，暂且写上，不做解释）。Jenkins用Java语言编写，可在Tomcat等流行的servlet容器中运行，也可独立运行。通常与版本管理工具(SCM)、构建工具结合使用。常用的版本控制工具有SVN、GIT，构建工具有Maven、Ant、Gradle...</p></blockquote>
+<p><a href="https://www.jenkins.io/zh/" target="_blank" rel="noopener">Jenkins</a> 由Java编写的一个开源的、提供友好操作界面的持续集成(CI)工具，起源于Hudson（Hudson是商用的），主要用于持续、自动的构建/测试软件项目、监控外部任务的运行（这个比较抽象，暂且写上，不做解释）。Jenkins用Java语言编写，可在Tomcat等流行的servlet容器中运行，也可独立运行。通常与版本管理工具(SCM)、构建工具结合使用。常用的版本控制工具有SVN、GIT，构建工具有Maven、Ant、Gradle。</p>
+</blockquote>
+<a id="more"></a>  
+
+<p>CI(Continuous integration，中文意思是持续集成)是一种软件开发时间。持续集成强调开发人员提交了新代码之后，立刻进行构建、（单元）测试。根据测试结果，我们可以确定新代...</p>
             
             <span class="read-more"><a href="/2020/07/23/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Jenkins-programming-environment-setup/" title="Read article" class="posttitle">Read article</a> <b class="iconfont icon-arrow-right- gradient-text"></b></span>
         </div>
@@ -470,7 +486,13 @@
 <p><strong>你要知道梨子的滋味，就要亲口尝一下。——毛泽东</strong></p>
 </blockquote>
 <p>俗话说，没有实践就没有发言权，自己实践才能知之为尽，Benchmark 为应用提供了数据支持，是评价和比较方法好坏的基准，Benchmark 的准确性，多样性便显得尤为重要。JMH为Java方法的基准水平提供了很好的量化标准，也为剖析系统性能和技术选型提供的更为有效切可靠的实现手段。</p>
-<p>以下记录在使用Java Microbenchmark Harness做微基准测试容易遇见的误区...</p>
+<p>以下记录在使用Java Microbenchmark Harness做微基准测试容易遇见的误区和相关陷阱，便于之后的查找和说明。</p>
+<a id="more"></a>
+
+<blockquote>
+<p><strong>Warmup = waiting for the transient responses to settle down</strong></p>
+</blockquote>
+<p>随着JVM虚拟机的优化，JIT的存在，...</p>
             
             <span class="read-more"><a href="/2020/07/09/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Java-Microbenchmark-Harness-Test-Trap/" title="Read article" class="posttitle">Read article</a> <b class="iconfont icon-arrow-right- gradient-text"></b></span>
         </div>
@@ -520,7 +542,12 @@
 <p><strong>If you cannot measure it, you cannot improve it.    –Lord Kelvin</strong></p>
 </blockquote>
 <p><a href="http://openjdk.java.net/projects/code-tools/jmh/" target="_blank" rel="noopener">Java Microbenchmark Harness</a> 是专门进行代码的微基准测试的一套工具API。 为应用提供了数据支持，是评价和比较方法好坏的基准。一般说JMH，是在 <strong>Method 层面上的 Benchmark</strong>，精度可以精确到微秒级。以下记录JMH的使用和相关基础，便于之后查找和学习。</p>
-<p>Benchmark 作为应用框架，产品的基准画像，存在统一的标准，避免了不同测评...</p>
+<p>Benchmark 作为应用框架，产品的基准画像，存在统一的标准，避免了不同测评对象自说自话的尴尬，应用框架各自使用有利于自身场景的测评方式必然不可取。</p>
+<a id="more"></a>
+
+<h3 id="Maven依赖"><a href="#Maven依赖" class="headerlink" title="Maven依赖"></a>Maven依赖</h3><p>在项目中使用Maven,只需要添加如下依赖：</p>
+<pre><code class="xml">&lt;!-- JMH--&gt;
+&lt;dependency...</code></pre>
             
             <span class="read-more"><a href="/2020/07/07/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Java-Microbenchmark-Harness-Basic/" title="Read article" class="posttitle">Read article</a> <b class="iconfont icon-arrow-right- gradient-text"></b></span>
         </div>
@@ -577,7 +604,10 @@ cd nginx-x.x.x</code></pre>
 <a id="more"></a>
 
 <pre><code class="bash">yum install gcc-c++
-yum install ...</code></pre>
+yum install -y pcre pcre-devel
+yum install -y zlib zlib-devel
+yum install -y openssl openssl-devel</code></pre>
+<p>所有文件放在同一个位置,便...</p>
             
             <span class="read-more"><a href="/2020/07/04/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Nginx-under-CentOS-installation/" title="Read article" class="posttitle">Read article</a> <b class="iconfont icon-arrow-right- gradient-text"></b></span>
         </div>

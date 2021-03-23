@@ -154,7 +154,12 @@
 <p><strong>天下之事，闻者不如见者知之为详，见者不如居者知之为尽。——宋-陆游</strong></p>
 <p><strong>你要知道梨子的滋味，就要亲口尝一下。——毛泽东</strong></p>
 </blockquote>
-<p>俗话说，没有实践就没有发言权，自己实践才能知之为尽，Benchmark 为应用提...</p>
+<p>俗话说，没有实践就没有发言权，自己实践才能知之为尽，Benchmark 为应用提供了数据支持，是评价和比较方法好坏的基准，Benchmark 的准确性，多样性便显得尤为重要。JMH为Java方法的基准水平提供了很好的量化标准，也为剖析系统性能和技术选型提供的更为有效切可靠的实现手段。</p>
+<p>以下记录在使用Java Microbenchmark Harness做微基准测试容易遇见的误区和相关陷阱，便于之后的查找和说明。</p>
+<a id="more"></a>
+
+<blockquote>
+<p><strong>Warmup = waiting for the transient...</strong></p></blockquote>
             
             <span class="read-more"><a href="/2020/07/09/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Java-Microbenchmark-Harness-Test-Trap/" title="Read article" class="posttitle">Read article</a>
                 <b class="iconfont icon-arrow-right- gradient-text"></b></span>
@@ -219,7 +224,12 @@
 <p><strong>If you cannot measure it, you cannot improve it.    –Lord Kelvin</strong></p>
 </blockquote>
 <p><a href="http://openjdk.java.net/projects/code-tools/jmh/" target="_blank" rel="noopener">Java Microbenchmark Harness</a> 是专门进行代码的微基准测试的一套工具API。 为应用提供了数据支持，是评价和比较方法好坏的基准。一般说JMH，是在 <strong>Method 层面上的 Benchmark</strong>，精度可以精确到微秒级。以下记录JMH的使用和相关基础，便于之后查找和学习。</p>
-<p>Benchmark 作为应用框架，产品的基准画像，存在统一的标准，避免了不同测评...</p>
+<p>Benchmark 作为应用框架，产品的基准画像，存在统一的标准，避免了不同测评对象自说自话的尴尬，应用框架各自使用有利于自身场景的测评方式必然不可取。</p>
+<a id="more"></a>
+
+<h3 id="Maven依赖"><a href="#Maven依赖" class="headerlink" title="Maven依赖"></a>Maven依赖</h3><p>在项目中使用Maven,只需要添加如下依赖：</p>
+<pre><code class="xml">&lt;!-- JMH--&gt;
+&lt;dependency...</code></pre>
             
             <span class="read-more"><a href="/2020/07/07/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Java-Microbenchmark-Harness-Basic/" title="Read article" class="posttitle">Read article</a> <b class="iconfont icon-arrow-right- gradient-text"></b></span>
         </div>
