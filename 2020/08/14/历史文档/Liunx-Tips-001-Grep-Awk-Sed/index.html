@@ -1,0 +1,766 @@
+
+<!DOCTYPE html>
+<html lang="en" class="loading">
+<head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+    <meta name="viewport" content="width=device-width, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Liuns系统高效文件处理三剑客-Grep/Awk/Sed - 王.子靖</title>
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="google" content="notranslate" />
+    <meta name="keywords" content="Upuphub 王子靖,"> 
+    <meta name="description" content="做点记录,省的忘了,
+子曰：“工欲善其事，必先利其器。居是邦也，事其大夫之贤者，友其士之仁者。” –论语·卫灵公
+
+GrepGrep(global search regular expression(RE) and p,"> 
+    <meta name="author" content="王.子靖"> 
+    <link rel="alternative" href="atom.xml" title="王.子靖" type="application/atom+xml"> 
+    <link rel="icon" href="/img/favicon.png"> 
+    
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1429596_nzgqgvnmkjb.css">
+
+    
+<link rel="stylesheet" href="//cdn.bootcss.com/animate.css/3.7.2/animate.min.css">
+
+    
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/social-share.js/1.0.16/css/share.min.css">
+
+    
+<link rel="stylesheet" href="//cdn.bootcss.com/codemirror/5.48.4/codemirror.min.css">
+
+    
+<link rel="stylesheet" href="//cdn.bootcss.com/codemirror/5.48.4/theme/dracula.css">
+
+    
+<link rel="stylesheet" href="/css/obsidian.css">
+
+    
+<link rel="stylesheet" href="/css/ball-atom.min.css">
+
+    
+<meta name="generator" content="Hexo 4.2.1"></head>
+
+
+<body class="loading">
+    <div class="loader">
+        <div class="la-ball-atom la-2x">
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+        </div>
+    </div>
+    <span id="config-title" style="display:none">王.子靖</span>
+    <div id="loader"></div>
+    <div id="single">
+    <div class="scrollbar gradient-bg-rev"></div>
+<div id="top" style="display: block;">
+    <div class="bar" style="width: 0;"></div>
+    <div class="navigation animated fadeIn fast delay-1s">
+        <img id="home-icon" class="icon-home" src="/img/favicon.png" alt="" data-url="https://github.com/iWzl">
+        <div id="play-icon" title="Play/Pause" class="iconfont icon-play"></div>
+        <h3 class="subtitle">Liuns系统高效文件处理三剑客-Grep/Awk/Sed</h3>
+        <div class="social">
+            <!--        <div class="like-icon">-->
+            <!--            <a href="javascript:;" class="likeThis active"><span class="icon-like"></span><span class="count">76</span></a>-->
+            <!--        </div>-->
+            <div>
+                <div class="share">
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+    <div class="section">
+        <div class=article-header-wrapper>
+    <div class="article-header">
+        <div class="article-cover animated fadeIn" style="
+            animation-delay: 600ms;
+            animation-duration: 1.2s;
+            background-image: 
+                radial-gradient(ellipse closest-side, rgba(0, 0, 0, 0.65), #100e17),
+                url(https://img.hellobyebye.com/bbccf633a80f0f4be9035456da6820fe.jpg) ">
+        </div>
+        <div class="else">
+            <p class="animated fadeInDown">
+                
+                <a href="/categories/Tips"><b>「
+                    </b>TIPS<b> 」</b></a>
+                
+                August 14, 2020
+            </p>
+            <h3 class="post-title animated fadeInDown"><a href="/2020/08/14/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Liunx-Tips-001-Grep-Awk-Sed/" title="Liuns系统高效文件处理三剑客-Grep&#x2F;Awk&#x2F;Sed" class="">Liuns系统高效文件处理三剑客-Grep&#x2F;Awk&#x2F;Sed</a>
+            </h3>
+            
+            <p class="post-count animated fadeInDown">
+                
+                <span>
+                    <b class="iconfont icon-text2"></b> <i>Words count</i>
+                    12k
+                </span>
+                
+                
+                <span>
+                    <b class="iconfont icon-timer__s"></b> <i>Reading time</i>
+                    11 mins.
+                </span>
+                
+                
+                
+                <span id="busuanzi_container_page_pv">
+                    <b class="iconfont icon-read"></b> <i>Read count</i>
+                    <span id="busuanzi_value_page_pv">0</span>
+                </span>
+                
+            </p>
+            
+            
+            <ul class="animated fadeInDown post-tags-list" itemprop="keywords"><li class="animated fadeInDown post-tags-list-item"><a class="animated fadeInDown post-tags-list-link" href="/tags/Liunx/" rel="tag">Liunx</a></li><li class="animated fadeInDown post-tags-list-item"><a class="animated fadeInDown post-tags-list-link" href="/tags/Shell/" rel="tag">Shell</a></li><li class="animated fadeInDown post-tags-list-item"><a class="animated fadeInDown post-tags-list-link" href="/tags/Tools/" rel="tag">Tools</a></li></ul>
+            
+        </div>
+    </div>
+</div>
+
+<div class="screen-gradient-after">
+    <div class="screen-gradient-content">
+        <div class="screen-gradient-content-inside">
+            <div class="bold-underline-links screen-gradient-sponsor">
+                <p>
+                    <span class="animated fadeIn delay-1s"></span>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="article">
+    <div class='main'>
+        <div class="content markdown animated fadeIn">
+            <blockquote>
+<p><strong>子曰：“工欲善其事，必先利其器。居是邦也，事其大夫之贤者，友其士之仁者。”</strong> –论语·卫灵公</p>
+</blockquote>
+<h3 id="Grep"><a href="#Grep" class="headerlink" title="Grep"></a>Grep</h3><p><a href="https://zh.wikipedia.org/wiki/Grep" target="_blank" rel="noopener">Grep</a>(global search regular expression(RE) and print out the line)是一款强大的文本搜索工具，支持正则表达式。来自Unix文本编辑器ed类似操作的命令,最初用于Unix操作系统的命令行工具。在给出文件列表或标准输入后，grep会对匹配一个或多个正则表达式的文本进行搜索，并只输出匹配（或者不匹配）的行或文本。</p>
+<pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# grep --help
+用法: grep [选项]... PATTERN [FILE]...
+Search for PATTERN in each FILE.
+Example: grep -i &#39;hello world&#39; menu.h main.c</code></pre>
+<a id="more"></a>
+
+<pre><code class="shell">Pattern selection and interpretation:
+  -E, --extended-regexp     PATTERN is an extended regular expression
+  -F, --fixed-strings       PATTERN is a set of newline-separated strings
+  -G, --basic-regexp        PATTERN is a basic regular expression (default)
+  -P, --perl-regexp         PATTERN is a Perl regular expression
+  -e, --regexp=PATTERN      用 PATTERN 来进行匹配操作
+  -f, --file=FILE           从 FILE 中取得 PATTERN
+  -i, --ignore-case         忽略大小写
+  -w, --word-regexp         强制 PATTERN 仅完全匹配字词
+  -x, --line-regexp         强制 PATTERN 仅完全匹配一行
+  -z, --null-data           一个 0 字节的数据行，但不是空行
+
+杂项:
+  -s, --no-messages         不显示错误信息
+  -v, --invert-match        选中不匹配的行
+  -V, --version             显示版本信息并退出
+      --help                显示此帮助并退出
+
+Output control:
+  -m, --max-count=NUM       stop after NUM selected lines
+  -b, --byte-offset         print the byte offset with output lines
+  -n, --line-number         print line number with output lines
+      --line-buffered       flush output on every line
+  -H, --with-filename       print file name with output lines
+  -h, --no-filename         suppress the file name prefix on output
+      --label=LABEL         use LABEL as the standard input file name prefix
+  -o, --only-matching       只显示匹配PATTERN 部分的行
+  -q, --quiet, --silent     不显示所有常规输出
+      --binary-files=TYPE   设定二进制文件的TYPE 类型；
+                            TYPE 可以是`binary&#39;, `text&#39;, 或`without-match&#39;
+  -a, --text                等同于 --binary-files=text
+  -I                        equivalent to --binary-files=without-match
+  -d, --directories=ACTION  how to handle directories;
+                            ACTION is &#39;read&#39;, &#39;recurse&#39;, or &#39;skip&#39;
+  -D, --devices=ACTION      how to handle devices, FIFOs and sockets;
+                            ACTION is &#39;read&#39; or &#39;skip&#39;
+  -r, --recursive           like --directories=recurse
+  -R, --dereference-recursive
+                            likewise, but follow all symlinks
+      --include=FILE_PATTERN
+                            search only files that match FILE_PATTERN
+      --exclude=FILE_PATTERN
+                            skip files and directories matching FILE_PATTERN
+      --exclude-from=FILE   skip files matching any file pattern from FILE
+      --exclude-dir=PATTERN directories that match PATTERN will be skipped.
+  -L, --files-without-match print only names of FILEs with no selected lines
+  -l, --files-with-matches  print only names of FILEs with selected lines
+  -c, --count               print only a count of selected lines per FILE
+
+文件控制:
+  -B, --before-context=NUM  打印文本及其前面NUM 行
+  -A, --after-context=NUM   打印文本及其后面NUM 行
+  -C, --context=NUM         打印NUM 行输出文本
+  -NUM                      same as --context=NUM
+      --group-separator=SEP use SEP as a group separator
+      --no-group-separator  use empty string as a group separator
+      --color[=WHEN],
+      --colour[=WHEN]       use markers to highlight the matching strings;
+                            WHEN is &#39;always&#39;, &#39;never&#39;, or &#39;auto&#39;
+  -U, --binary              do not strip CR characters at EOL (MSDOS/Windows)</code></pre>
+<p>常用参数:</p>
+<pre><code class="shell">            -v        取反
+            -i        忽略大小写
+            -c        符合条件的行数
+            -n        输出的同时打印行号
+            ^*        以*开头         
+            *$         以*结尾 
+            ^$         空行 
+
+            -a        不忽略二进制数据
+            -A&lt;n&gt;     除了显示匹配的行外，还显示之后的n行
+            -b        在符合条件的行之前，显示该行第一个字符的编号</code></pre>
+<p>Demo文案</p>
+<pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log
+I came;
+I saw;
+i conquered.
+
+我来了，我看到了，我征服了.   ——凯撒大帝</code></pre>
+<h4 id="查找符合条件的行"><a href="#查找符合条件的行" class="headerlink" title="查找符合条件的行"></a>查找符合条件的行</h4><pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log |grep &#39;I&#39;
+I came;
+I saw;</code></pre>
+<h4 id="查找符合条件的行数"><a href="#查找符合条件的行数" class="headerlink" title="查找符合条件的行数"></a>查找符合条件的行数</h4><pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log |grep &#39;I&#39; -c
+2</code></pre>
+<h4 id="查找不符合条件的行"><a href="#查找不符合条件的行" class="headerlink" title="查找不符合条件的行"></a>查找不符合条件的行</h4><pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log |grep &#39;I&#39; -v
+i conquered.
+
+我来了，我看到了，我征服了.   ——凯撒大帝</code></pre>
+<h4 id="忽略大小写查找"><a href="#忽略大小写查找" class="headerlink" title="忽略大小写查找"></a>忽略大小写查找</h4><pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log |grep &#39;I&#39; -i
+I came;
+I saw;
+i conquered.</code></pre>
+<h4 id="查找符合条件的行并输出行号"><a href="#查找符合条件的行并输出行号" class="headerlink" title="查找符合条件的行并输出行号"></a>查找符合条件的行并输出行号</h4><pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log |grep &#39;I&#39; -n
+1:I came;
+2:I saw;</code></pre>
+<h4 id="以’-’开头的查询"><a href="#以’-’开头的查询" class="headerlink" title="以’*’开头的查询"></a>以’*’开头的查询</h4><pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log |grep &#39;^I&#39;
+I came;
+I saw;</code></pre>
+<h4 id="以’-’结尾的查询"><a href="#以’-’结尾的查询" class="headerlink" title="以’*’结尾的查询"></a>以’*’结尾的查询</h4><pre><code class="shell">[root@Leonardo-iWzl-Aliyun-Service ~]# cat demo.log |grep &#39;; $&#39;
+I came;
+I saw;</code></pre>
+<hr>
+<h3 id="Awk"><a href="#Awk" class="headerlink" title="Awk"></a>Awk</h3><p>Awk不仅仅是一个小工具，也可以算得上一种小型的编程语言了，支持if判断分支和while循环语句还有它的内置函数等，是一个要比grep和sed更强大的文本处理工具，但也就意味着要学习的东西更多了。由 Alfred Aho 、Peter Weinberger 和 Brian Kernighan 创始,并以姓氏的首个字母命名.</p>
+<h4 id="基本结构和执行"><a href="#基本结构和执行" class="headerlink" title="基本结构和执行"></a>基本结构和执行</h4><pre><code class="shell">awk &#39;{[pattern] action}&#39; {filenames}  
+awk &#39;BEGIN{ commands } pattern{ commands } END{ commands }&#39; {filenames}  </code></pre>
+<p>Awk脚本通常由：BEGIN语句块、能够使用模式匹配的通用语句块、END语句块3部分组成，这三个部分是可选的。任意一个部分都可以不出现在脚本中，脚本通常是被单引号或双引号中.</p>
+<ul>
+<li>第一步：执行BEGIN{ commands }语句块中的语句；</li>
+<li>第二步：从文件或标准输入(stdin)读取一行，然后执行pattern{ commands }语句块，它逐行扫描文件，从第一行到最后一行重复这个过程，直到文件全部被读取完毕。</li>
+<li>第三步：当读至输入流末尾时，执行END{ commands }语句块。</li>
+</ul>
+<p>BEGIN语句块在awk开始从输入流中读取行之前被执行，这是一个可选的语句块，比如变量初始化、打印输出表格的表头等语句通常可以写在BEGIN语句块中。</p>
+<p>END语句块在awk从输入流中读取完所有的行之后即被执行，比如打印所有行的分析结果这类信息汇总都是在END语句块中完成，它也是一个可选语句块。</p>
+<p>Pattern语句块中的通用命令是最重要的部分，它也是可选的。如果没有提供pattern语句块，则默认执行{ print }，即打印每一个读取到的行，awk读取的每一行都会执行该语句块。</p>
+<p>action 在{}内指定，一般用来打印，也可以是一个代码段。也就是commands</p>
+<pre><code class="shell">[root@Leonardo-iWzl-Server ~]# awk --help
+Usage: awk [POSIX or GNU style options] -f progfile [--] file ...
+Usage: awk [POSIX or GNU style options] [--] &#39;program&#39; file ...
+POSIX options:        GNU long options: (standard)
+    -f progfile        --file=progfile
+    -F fs            --field-separator=fs
+    -v var=val        --assign=var=val
+Short options:        GNU long options: (extensions)
+    -b            --characters-as-bytes
+    -c            --traditional
+    -C            --copyright
+    -d[file]        --dump-variables[=file]
+    -e &#39;program-text&#39;    --source=&#39;program-text&#39;
+    -E file            --exec=file
+    -g            --gen-pot
+    -h            --help
+    -L [fatal]        --lint[=fatal]
+    -n            --non-decimal-data
+    -N            --use-lc-numeric
+    -O            --optimize
+    -p[file]        --profile[=file]
+    -P            --posix
+    -r            --re-interval
+    -S            --sandbox
+    -t            --lint-old
+    -V            --version</code></pre>
+<h4 id="内建参数"><a href="#内建参数" class="headerlink" title="内建参数"></a>内建参数</h4><table>
+<thead>
+<tr>
+<th align="left">变量</th>
+<th align="left">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">$n</td>
+<td align="left">当前记录的第n个字段，字段间由FS分隔</td>
+</tr>
+<tr>
+<td align="left">$0</td>
+<td align="left">完整的输入记录</td>
+</tr>
+<tr>
+<td align="left">ARGC</td>
+<td align="left">命令行参数的数目</td>
+</tr>
+<tr>
+<td align="left">ARGIND</td>
+<td align="left">命令行中当前文件的位置(从0开始算)</td>
+</tr>
+<tr>
+<td align="left">ARGV</td>
+<td align="left">包含命令行参数的数组</td>
+</tr>
+<tr>
+<td align="left">CONVFMT</td>
+<td align="left">数字转换格式(默认值为%.6g)ENVIRON环境变量关联数组</td>
+</tr>
+<tr>
+<td align="left">ERRNO</td>
+<td align="left">最后一个系统错误的描述</td>
+</tr>
+<tr>
+<td align="left">FIELDWIDTHS</td>
+<td align="left">字段宽度列表(用空格键分隔)</td>
+</tr>
+<tr>
+<td align="left">FILENAME</td>
+<td align="left">当前文件名</td>
+</tr>
+<tr>
+<td align="left">FNR</td>
+<td align="left">各文件分别计数的行号</td>
+</tr>
+<tr>
+<td align="left">FS</td>
+<td align="left">字段分隔符(默认是任何空格)</td>
+</tr>
+<tr>
+<td align="left">IGNORECASE</td>
+<td align="left">如果为真，则进行忽略大小写的匹配</td>
+</tr>
+<tr>
+<td align="left">NF</td>
+<td align="left">一条记录的字段的数目</td>
+</tr>
+<tr>
+<td align="left">NR</td>
+<td align="left">已经读出的记录数，就是行号，从1开始</td>
+</tr>
+<tr>
+<td align="left">OFMT</td>
+<td align="left">数字的输出格式(默认值是%.6g)</td>
+</tr>
+<tr>
+<td align="left">OFS</td>
+<td align="left">输出记录分隔符（输出换行符），输出时用指定的符号代替换行符</td>
+</tr>
+<tr>
+<td align="left">ORS</td>
+<td align="left">输出记录分隔符(默认值是一个换行符)</td>
+</tr>
+<tr>
+<td align="left">RLENGTH</td>
+<td align="left">由match函数所匹配的字符串的长度</td>
+</tr>
+<tr>
+<td align="left">RS</td>
+<td align="left">记录分隔符(默认是一个换行符)</td>
+</tr>
+<tr>
+<td align="left">RSTART</td>
+<td align="left">由match函数所匹配的字符串的第一个位置</td>
+</tr>
+<tr>
+<td align="left">SUBSEP</td>
+<td align="left">数组下标分隔符(默认值是/034)</td>
+</tr>
+</tbody></table>
+<h4 id="运算支持"><a href="#运算支持" class="headerlink" title="运算支持"></a>运算支持</h4><table>
+<thead>
+<tr>
+<th align="left">运算符</th>
+<th align="left">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">= += -= <em>= /= %= ^= *</em>=</td>
+<td align="left">赋值</td>
+</tr>
+<tr>
+<td align="left">?:</td>
+<td align="left">C条件表达式</td>
+</tr>
+<tr>
+<td align="left">||</td>
+<td align="left">逻辑或</td>
+</tr>
+<tr>
+<td align="left">&amp;&amp;</td>
+<td align="left">逻辑与</td>
+</tr>
+<tr>
+<td align="left">~ 和 !~</td>
+<td align="left">匹配正则表达式和不匹配正则表达式</td>
+</tr>
+<tr>
+<td align="left">&lt; &lt;= &gt; &gt;= != ==</td>
+<td align="left">关系运算符</td>
+</tr>
+<tr>
+<td align="left">空格</td>
+<td align="left">连接</td>
+</tr>
+<tr>
+<td align="left">+ -</td>
+<td align="left">加，减</td>
+</tr>
+<tr>
+<td align="left">* / %</td>
+<td align="left">乘，除与求余</td>
+</tr>
+<tr>
+<td align="left">+ - !</td>
+<td align="left">一元加，减和逻辑非</td>
+</tr>
+<tr>
+<td align="left">^ ***</td>
+<td align="left">求幂</td>
+</tr>
+<tr>
+<td align="left">++ –</td>
+<td align="left">增加或减少，作为前缀或后缀</td>
+</tr>
+<tr>
+<td align="left">$</td>
+<td align="left">字段引用</td>
+</tr>
+<tr>
+<td align="left">in</td>
+<td align="left">数组成员</td>
+</tr>
+</tbody></table>
+<p>Demo文案</p>
+<pre><code class="shell">[root@Leonardo-iWzl-Server ~]# cat demo.log
+小米 20 成都 172 60 女
+小张 21 杭州 182 79 男
+小文 19 长沙 178 70 男
+小紫 22 北京 168 50 女</code></pre>
+<h4 id="输出指定位置的文档"><a href="#输出指定位置的文档" class="headerlink" title="输出指定位置的文档"></a>输出指定位置的文档</h4><pre><code class="shell">[root@Leonardo-iWzl-Server ~]# cat demo.log |awk &#39;{print $1,$3,$5}&#39;
+小米 成都 60
+小张 杭州 79
+小文 长沙 70
+小紫 北京 50</code></pre>
+<h4 id="指定分隔符输出文档"><a href="#指定分隔符输出文档" class="headerlink" title="指定分隔符输出文档"></a>指定分隔符输出文档</h4><pre><code class="shell"># 使用&quot;1&quot;分割
+[root@Leonardo-iWzl-Server ~]# cat demo.log |awk -F 1 &#39;{print $1}&#39;
+小米 20 成都
+小张 2
+小文
+小紫 22 北京
+
+# 或者使用内建变量
+[root@Leonardo-iWzl-Server ~]# cat demo.log |awk &#39;BEGIN{FS=&#39;1&#39;} {print $1}&#39;
+小米 20 成都
+小张 2
+小文
+小紫 22 北京
+
+# 使用多个分隔符.先使用&quot;1&quot;分割，然后对分割结果再使用&quot;0&quot;分割
+[root@Leonardo-iWzl-Server ~]# cat demo.log |awk -F &#39;[10]&#39; &#39;{print $1}&#39;
+小米 2
+小张 2
+小文
+小紫 22 北京
+
+# 或者使用内建变量
+[root@Leonardo-iWzl-Server ~]# cat demo.log |awk &#39;BEGIN{FS=&quot;[10]&quot;} {print $1}&#39;
+小米 2
+小张 2
+小文
+小紫 22 北京</code></pre>
+<h4 id="设置计算参数并输出文档"><a href="#设置计算参数并输出文档" class="headerlink" title="设置计算参数并输出文档"></a>设置计算参数并输出文档</h4><pre><code class="shell">#awk -v 设置变量
+[root@Leonardo-iWzl-Server ~]# cat demo.log |awk -v a=100 &#39;{print $1,$2,a-$2}&#39;
+小米 20 80
+小张 21 79
+小文 19 81
+小紫 22 78</code></pre>
+
+            <!--[if lt IE 9]><script>document.createElement('audio');</script><![endif]-->
+            <audio id="audio" loop="1" preload="auto" controls="controls"
+                data-autoplay="false">
+                <source type="audio/mpeg" src="">
+            </audio>
+            
+            <ul id="audio-list" style="display:none">
+                
+            </ul>
+            
+            
+            <div class="post-nav">
+                <hr>
+                
+                    <div class="post-nav-item">Previous Post:<a href="/2020/11/13/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Maven-XML-Details/" rel="prev" 
+                        title="Maven项目管理详细">Maven项目管理详细
+                      </a></div>
+                
+                
+                    <div class="post-nav-item">Next Post:<a href="/2020/07/23/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Jenkins-programming-environment-setup/" rel="next" 
+                        title="Jenkins在CentOS系统环境上的搭建和部署">Jenkins在CentOS系统环境上的搭建和部署</a></div>
+                                
+            </div>   
+                        
+            
+            
+        </div>
+        <div class="sidebar">
+            <div class="box animated fadeInRight">
+                <div class="subbox">
+                    <img src="https://img.hellobyebye.com/dd1fae3bda7127d6a0c471bf90485003.jpg" height=300 width=300></img>
+                    <p>王.子靖</p>
+                    <span>Life is like a box of chocolates, you never know what you are going to get.</span>
+                    <dl>
+                        <dd><a href="https://github.com/iWzl" target="_blank"><span
+                                    class=" iconfont icon-github"></span></a></dd>
+                        <dd><a href="" target="_blank"><span
+                                    class=" iconfont icon-twitter"></span></a></dd>
+                        <dd><a href="" target="_blank"><span
+                                    class=" iconfont icon-stack-overflow"></span></a></dd>
+                    </dl>
+                </div>
+                <ul>
+                    <li><a href="/">9 <p>Articles</p></a></li>
+                    <li><a href="/categories">7 <p>Categories</p></a></li>
+                    <li><a href="/tags">19 <p>Tags</p></a></li>
+                </ul>
+            </div>
+            
+            
+            
+            <div class="box sticky animated fadeInRight faster">
+                <div id="toc" class="subbox">
+                    <h4>Contents</h4>
+                    <ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#Grep"><span class="toc-number">1.</span> <span class="toc-text">Grep</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Awk"><span class="toc-number">2.</span> <span class="toc-text">Awk</span></a></li></ol>
+                </div>
+            </div>
+            
+            
+        </div>
+    </div>
+</div>
+
+    </div>
+</div>
+    <div id="back-to-top" class="animated fadeIn faster">
+        <div class="flow"></div>
+        <span class="percentage animated fadeIn faster">0%</span>
+        <span class="iconfont icon-top02 animated fadeIn faster"></span>
+    </div>
+</body>
+<footer>
+    <p class="copyright" id="copyright">
+        &copy; 2021
+        <span class="gradient-text">
+            王.子靖
+        </span>.
+        Powered by <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a>
+        Theme
+        <span class="gradient-text">
+            <a href="https://github.com/TriDiamond/hexo-theme-obsidian" title="Obsidian" target="_blank" rel="noopener">Obsidian</a>
+        </span>
+        <small><a href="https://github.com/TriDiamond/hexo-theme-obsidian/blob/master/CHANGELOG.md" title="v1.4.5" target="_blank" rel="noopener">v1.4.5</a></small>
+    </p>
+</footer>
+
+<script type="text/javascript" src="https://cdn.bootcss.com/mathjax/2.7.6/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+<script>
+  MathJax.Hub.Config({
+    "HTML-CSS": {
+      preferredFont: "TeX",
+      availableFonts: ["STIX", "TeX"],
+      linebreaks: {
+        automatic: true
+      },
+      EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50)
+    },
+    tex2jax: {
+      inlineMath: [
+        ["$", "$"],
+        ["\\(", "\\)"]
+      ],
+      processEscapes: true,
+      ignoreClass: "tex2jax_ignore|dno",
+      skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    },
+    TeX: {
+      noUndefined: {
+        attributes: {
+          mathcolor: "red",
+          mathbackground: "#FFEEEE",
+          mathsize: "90%"
+        }
+      },
+      Macros: {
+        href: "{}"
+      }
+    },
+    messageStyle: "none"
+  });
+</script>
+<script>
+  function initialMathJax() {
+    MathJax.Hub.Queue(function () {
+      var all = MathJax.Hub.getAllJax(),
+        i;
+      // console.log(all);
+      for (i = 0; i < all.length; i += 1) {
+        console.log(all[i].SourceElement().parentNode)
+        all[i].SourceElement().parentNode.className += ' has-jax';
+      }
+    });
+  }
+
+  function reprocessMathJax() {
+    if (typeof MathJax !== 'undefined') {
+      MathJax.Hub.Queue(["Typeset", MathJax.Hub]);
+    }
+  }
+</script>
+
+
+ 
+<script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+<script src="/js/plugin.js"></script>
+<script src="/js/obsidian.js"></script>
+<script src="/js/jquery.truncate.js"></script>
+<script src="/js/search.js"></script>
+ 
+<script src="//cdn.bootcss.com/typed.js/2.0.10/typed.min.js"></script>
+ 
+<script src="//cdn.bootcss.com/blueimp-md5/2.12.0/js/md5.min.js"></script>
+ 
+<script src="//cdnjs.cloudflare.com/ajax/libs/social-share.js/1.0.16/js/social-share.min.js"></script>
+
+
+<script src="https://cdn.bootcss.com/codemirror/5.48.4/codemirror.min.js"></script>
+ 
+<script src="//cdn.bootcss.com/codemirror/5.48.4/mode/protobuf/protobuf.min.js"></script>
+  
+<script src="//cdn.bootcss.com/codemirror/5.48.4/mode/yaml/yaml.min.js"></script>
+  
+<script src="//cdn.bootcss.com/codemirror/5.48.4/mode/javascript/javascript.min.js"></script>
+  
+<script src="//cdn.bootcss.com/codemirror/5.48.4/mode/css/css.min.js"></script>
+  
+<script src="//cdn.bootcss.com/codemirror/5.48.4/mode/xml/xml.min.js"></script>
+  
+<script src="//cdn.bootcss.com/codemirror/5.48.4/mode/htmlmixed/htmlmixed.min.js"></script>
+  
+<script src="//cdn.bootcss.com/codemirror/5.48.4/mode/clike/clike.min.js"></script>
+  
+<script src="//cdn.bootcss.com/codemirror/5.48.4/mode/php/php.min.js"></script>
+  
+<script src="//cdn.bootcss.com/codemirror/5.48.4/mode/shell/shell.min.js"></script>
+  
+<script src="//cdn.bootcss.com/codemirror/5.48.4/mode/python/python.min.js"></script>
+   
+<script src="/js/busuanzi.min.js"></script>
+
+<script>
+  $(document).ready(function () {
+    if ($('span[id^="busuanzi_"]').length) {
+      initialBusuanzi();
+    }
+  });
+</script>
+ 
+<link rel="stylesheet" href="//cdn.bootcss.com/photoswipe/4.1.3/photoswipe.min.css">
+<link rel="stylesheet" href="//cdn.bootcss.com/photoswipe/4.1.3/default-skin/default-skin.min.css">
+
+
+<script src="//cdn.bootcss.com/photoswipe/4.1.3/photoswipe.min.js"></script>
+<script src="//cdn.bootcss.com/photoswipe/4.1.3/photoswipe-ui-default.min.js"></script>
+
+
+<!-- Root element of PhotoSwipe. Must have class pswp. -->
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+    <!-- Background of PhotoSwipe. 
+         It's a separate element as animating opacity is faster than rgba(). -->
+    <div class="pswp__bg"></div>
+    <!-- Slides wrapper with overflow:hidden. -->
+    <div class="pswp__scroll-wrap">
+        <!-- Container that holds slides. 
+            PhotoSwipe keeps only 3 of them in the DOM to save memory.
+            Don't modify these 3 pswp__item elements, data is added later on. -->
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+        <!-- Default (PhotoSwipeUI_Default) interface on top of sliding area. Can be changed. -->
+        <div class="pswp__ui pswp__ui--hidden">
+            <div class="pswp__top-bar">
+                <!--  Controls are self-explanatory. Order can be changed. -->
+                <div class="pswp__counter"></div>
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+                <!-- Preloader demo http://codepen.io/dimsemenov/pen/yyBWoR -->
+                <!-- element will get class pswp__preloader--active when preloader is running -->
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                      <div class="pswp__preloader__cut">
+                        <div class="pswp__preloader__donut"></div>
+                      </div>
+                    </div>
+                </div>
+            </div>
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div> 
+            </div>
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+        </div>
+    </div>
+</div>
+  
+
+<script>
+  function initialTyped() {
+    var typedTextEl = $('.typed-text');
+    if (typedTextEl && typedTextEl.length > 0) {
+      var typed = new Typed('.typed-text', {
+        strings: ['Life is like a box of chocolates, you never know what you are going to get.', 'I am not afraid of tomorrow for I have seen yesterday and love today.'],
+        typeSpeed: 90,
+        loop: true,
+        loopCount: Infinity,
+        backSpeed: 20,
+      });
+    }
+  }
+
+  if ($('.article-header') && $('.article-header').length) {
+    $(document).ready(function () {
+      initialTyped();
+    });
+  }
+</script>
+
+
+
+
+
+
+</html>
