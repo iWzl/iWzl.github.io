@@ -1,6 +1,247 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
+    <title>Java Microbenchmark Harness微基准测试基础</title>
+    <url>/2020/07/07/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Java-Microbenchmark-Harness-Basic/</url>
+    <content><![CDATA[<blockquote>
+<p><strong>If you cannot measure it, you cannot improve it.    –Lord Kelvin</strong></p>
+</blockquote>
+<p><a href="http://openjdk.java.net/projects/code-tools/jmh/" target="_blank" rel="noopener">Java Microbenchmark Harness</a> 是专门进行代码的微基准测试的一套工具API。 为应用提供了数据支持，是评价和比较方法好坏的基准。一般说JMH，是在 <strong>Method 层面上的 Benchmark</strong>，精度可以精确到微秒级。以下记录JMH的使用和相关基础，便于之后查找和学习。</p>
+<p>Benchmark 作为应用框架，产品的基准画像，存在统一的标准，避免了不同测评对象自说自话的尴尬，应用框架各自使用有利于自身场景的测评方式必然不可取。</p>
+<a id="more"></a>
+
+<h2 id="Hello-JHM"><a href="#Hello-JHM" class="headerlink" title="Hello JHM"></a>Hello JHM</h2><h3 id="Maven依赖"><a href="#Maven依赖" class="headerlink" title="Maven依赖"></a>Maven依赖</h3><p>在项目中使用Maven,只需要添加如下依赖：</p>
+<pre><code class="xml">&lt;!-- JMH--&gt;
+&lt;dependency&gt;
+    &lt;groupId&gt;org.openjdk.jmh&lt;/groupId&gt;
+    &lt;artifactId&gt;jmh-core&lt;/artifactId&gt;
+    &lt;version&gt;${jmh.version}&lt;/version&gt;
+&lt;/dependency&gt;
+&lt;dependency&gt;
+    &lt;groupId&gt;org.openjdk.jmh&lt;/groupId&gt;
+    &lt;artifactId&gt;jmh-generator-annprocess&lt;/artifactId&gt;
+    &lt;version&gt;${jmh.version}&lt;/version&gt;
+    &lt;scope&gt;provided&lt;/scope&gt;
+&lt;/dependency&gt;</code></pre>
+<h3 id="性能测试设计"><a href="#性能测试设计" class="headerlink" title="性能测试设计"></a>性能测试设计</h3><p>测试比较Spring和StringBuilder的完成字符串拼接的性能</p>
+<pre><code class="java">/**
+ * 比较字符串直接相加和StringBuilder的效率
+ *
+ * @author Leo Wang
+ * @version 1.0
+ * @date 2020/7/7 16:44
+ */
+@BenchmarkMode(Mode.Throughput)
+@Warmup(iterations = 1,time = 1, timeUnit = TimeUnit.SECONDS)
+@Measurement(iterations = 10,time = 10,timeUnit = TimeUnit.SECONDS)
+@Threads(8)
+@Fork(2)
+@OutputTimeUnit(TimeUnit.MILLISECONDS)
+@State(Scope.Thread)
+public class StringBuilderBenchmark {
+    @Benchmark
+    public void testStringAdd() {
+        String a = &quot;&quot;;
+        for (int i = 0; i &lt; 10; i++) {
+            a += i;
+        }
+        print(a);
+    }
+
+    @Benchmark
+    public void testStringBuilderAdd() {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i &lt; 10; i++) {
+            sb.append(i);
+        }
+        print(sb.toString());
+    }
+
+    private void print(String a) {
+    }</code></pre>
+<h3 id="性能测试执行"><a href="#性能测试执行" class="headerlink" title="性能测试执行"></a>性能测试执行</h3><p>对于JMH来说，其执行方式主要有两种</p>
+<h4 id="直接IDE运行"><a href="#直接IDE运行" class="headerlink" title="直接IDE运行"></a>直接IDE运行</h4><p>对于体量小的测试，可以直接在IDE中完成相关的测试。如上的测试来说，可以直接运行，然后查看相关结果，执行的结果的Main函数如下，创建<em>Options</em>对象，传入需要执行的测试和测试报告的输出地址。直接执行Main方法</p>
+<pre><code class="java">    public static void main(String[] args) throws RunnerException {
+        String userDirPath = System.getProperty(&quot;user.dir&quot;);
+        String benchmarkLogPath = String.format(&quot;%s/%s&quot;,userDirPath,&quot;/StringBenchmark.log&quot;);
+        Options options = new OptionsBuilder()
+                .include(StringBuilderBenchmark.class.getSimpleName())
+                .output(benchmarkLogPath)
+                .build();
+        new Runner(options).run();
+    }</code></pre>
+<p>在使用IDE进行测试时，需要注意不能使用<strong>Dubug</strong>模式启动，否则不能正常完成测试。</p>
+<h4 id="打包成Jar-其他机器上执行"><a href="#打包成Jar-其他机器上执行" class="headerlink" title="打包成Jar,其他机器上执行"></a>打包成Jar,其他机器上执行</h4><p>一般对于大型的测试，需要测试时间比较久，线程比较多，就需要去写好了丢到远端的Linux系统环境中里执行， 不然会在本机执行很久并且需要的性能需求可能达不到测试需求。</p>
+<pre><code class="bash">mvn clean package
+java -jar StringBuilderBenchmark.jar</code></pre>
+<h3 id="测试结果"><a href="#测试结果" class="headerlink" title="测试结果"></a>测试结果</h3><p>当正常跑完项目测试以后，JHM会在指定的文件夹下输出一下的测试结果</p>
+<pre><code class="shell"># JMH version: 1.23
+# VM version: JDK 1.8.0_251, Java HotSpot(TM) 64-Bit Server VM, 25.251-b08
+# VM invoker: /Library/Java/JavaVirtualMachines/jdk1.8.0_251.jdk/Contents/Home/jre/bin/java
+# VM options: -javaagent:/Applications/IntelliJ IDEA.app/Contents/lib/idea_rt.jar=63118:/Applications/IntelliJ IDEA.app/Contents/bin -Dfile.encoding=UTF-8
+# Warmup: 1 iterations, 1 s each
+# Measurement: 10 iterations, 10 s each
+# Timeout: 10 min per iteration
+# Threads: 8 threads, will synchronize iterations
+# Benchmark mode: Throughput, ops/time
+# Benchmark: com.upuphub.lake.skylake.benchmark.StringBuilderBenchmark.testStringAdd
+
+# Run progress: 0.00% complete, ETA 00:06:44
+# Fork: 1 of 2
+# Warmup Iteration   1: 9014.340 ops/ms
+Iteration   1: 21302.297 ops/ms
+Iteration   2: 21807.763 ops/ms
+Iteration   3: 21812.419 ops/ms
+Iteration   4: 21840.912 ops/ms
+Iteration   5: 21985.020 ops/ms
+Iteration   6: 22066.751 ops/ms
+Iteration   7: 22006.021 ops/ms
+Iteration   8: 19239.509 ops/ms
+Iteration   9: 10515.274 ops/ms
+Iteration  10: 11758.987 ops/ms
+
+# Run progress: 25.00% complete, ETA 00:05:21
+# Fork: 2 of 2
+# Warmup Iteration   1: 5273.829 ops/ms
+Iteration   1: 18880.356 ops/ms
+Iteration   2: 22225.847 ops/ms
+Iteration   3: 22017.665 ops/ms
+Iteration   4: 22036.969 ops/ms
+Iteration   5: 22080.422 ops/ms
+Iteration   6: 22262.118 ops/ms
+Iteration   7: 22153.187 ops/ms
+Iteration   8: 22105.884 ops/ms
+Iteration   9: 21613.504 ops/ms
+Iteration  10: 22029.923 ops/ms
+
+
+Result &quot;com.upuphub.lake.skylake.benchmark.StringBuilderBenchmark.testStringAdd&quot;:
+  20587.041 ±(99.9%) 2921.754 ops/ms [Average]
+  (min, avg, max) = (10515.274, 20587.041, 22262.118), stdev = 3364.697
+  CI (99.9%): [17665.287, 23508.796] (assumes normal distribution)
+
+
+# JMH version: 1.23
+# VM version: JDK 1.8.0_251, Java HotSpot(TM) 64-Bit Server VM, 25.251-b08
+# VM invoker: /Library/Java/JavaVirtualMachines/jdk1.8.0_251.jdk/Contents/Home/jre/bin/java
+# VM options: -javaagent:/Applications/IntelliJ IDEA.app/Contents/lib/idea_rt.jar=63118:/Applications/IntelliJ IDEA.app/Contents/bin -Dfile.encoding=UTF-8
+# Warmup: 1 iterations, 1 s each
+# Measurement: 10 iterations, 10 s each
+# Timeout: 10 min per iteration
+# Threads: 8 threads, will synchronize iterations
+# Benchmark mode: Throughput, ops/time
+# Benchmark: com.upuphub.lake.skylake.benchmark.StringBuilderBenchmark.testStringBuilderAdd
+
+# Run progress: 50.00% complete, ETA 00:03:34
+# Fork: 1 of 2
+# Warmup Iteration   1: 50084.373 ops/ms
+Iteration   1: 67510.457 ops/ms
+Iteration   2: 42202.643 ops/ms
+Iteration   3: 41633.858 ops/ms
+Iteration   4: 43352.405 ops/ms
+Iteration   5: 43748.063 ops/ms
+Iteration   6: 45176.476 ops/ms
+Iteration   7: 44649.922 ops/ms
+Iteration   8: 40872.340 ops/ms
+Iteration   9: 40520.724 ops/ms
+Iteration  10: 38853.095 ops/ms
+
+# Run progress: 75.00% complete, ETA 00:01:47
+# Fork: 2 of 2
+# Warmup Iteration   1: 45279.748 ops/ms
+Iteration   1: 71985.226 ops/ms
+Iteration   2: 43291.826 ops/ms
+Iteration   3: 44149.181 ops/ms
+Iteration   4: 43297.043 ops/ms
+Iteration   5: 40614.460 ops/ms
+Iteration   6: 40444.594 ops/ms
+Iteration   7: 40912.490 ops/ms
+Iteration   8: 41428.454 ops/ms
+Iteration   9: 43022.557 ops/ms
+Iteration  10: 43368.455 ops/ms
+
+
+Result &quot;com.upuphub.lake.skylake.benchmark.StringBuilderBenchmark.testStringBuilderAdd&quot;:
+  45051.713 ±(99.9%) 7496.158 ops/ms [Average]
+  (min, avg, max) = (38853.095, 45051.713, 71985.226), stdev = 8632.587
+  CI (99.9%): [37555.555, 52547.872] (assumes normal distribution)
+
+
+# Run complete. Total time: 00:07:08
+
+REMEMBER: The numbers below are just data. To gain reusable insights, you need to follow up on
+why the numbers are the way they are. Use profilers (see -prof, -lprof), design factorial
+experiments, perform baseline and negative tests that provide experimental control, make sure
+the benchmarking environment is safe on JVM/OS/HW level, ask for reviews from the domain experts.
+Do not assume the numbers tell you what you want them to tell.
+
+Benchmark                                     Mode  Cnt      Score      Error   Units
+StringBuilderBenchmark.testStringAdd         thrpt   20  20587.041 ± 2921.754  ops/ms
+StringBuilderBenchmark.testStringBuilderAdd  thrpt   20  45051.713 ± 7496.158  ops/ms</code></pre>
+<p>整个测试报告由三个部分组成，首先分别是<strong>testStringAdd</strong>的测试结果然后是<strong>testStringBuilderAdd</strong>的测试结果，最后时两个测试结果之间的结果汇总和对应的比较。前两个部分的结果是类似的，会列出测试环境的一些基本信息，包括JHM的版本、虚拟机版本和相关一些配置等的信息以及测试的一些配置和设置，然后就是预热迭代执行（Warmup Iteration）， 然后是正常的迭代执行（Iteration），最后是结果（Result）的信息输出。一般来说最关注第三部分，也就是汇总结果。</p>
+<blockquote>
+<p>Tips: 对于汇总结果部分的输出,Error是没有数据的，这里是Score过长挤过去的</p>
+</blockquote>
+<p>可以看出StringBuilder在做字符串拼接的速度比String的直接评价速度好两倍以上。</p>
+<h2 id="JHM的注解和功能"><a href="#JHM的注解和功能" class="headerlink" title="JHM的注解和功能"></a>JHM的注解和功能</h2><h3 id="BenchmarkMode"><a href="#BenchmarkMode" class="headerlink" title="@BenchmarkMode"></a><em>@BenchmarkMode</em></h3><p>基准测试类型。这里选择的是Throughput也就是吞吐量。吞吐量会得到单位时间内可以进行的操作数。</p>
+<ul>
+<li>Throughput: 整体吞吐量，例如“1秒内可以执行多少次调用”。</li>
+<li>AverageTime: 调用的平均时间，例如“每次调用平均耗时xxx毫秒”。</li>
+<li>SampleTime: 随机取样，最后输出取样结果的分布，例如“99%的调用在xxx毫秒以内，99.99%的调用在xxx毫秒以内”</li>
+<li>SingleShotTime: 以上模式都是默认一次 iteration 是 1s，唯有 SingleShotTime 是只运行一次。往往同时把 warmup 次数设为0，用于测试冷启动时的性能。</li>
+<li>All(“all”, “All benchmark modes”): 执行所有模式。</li>
+</ul>
+<h3 id="Warmup"><a href="#Warmup" class="headerlink" title="@Warmup"></a><em>@Warmup</em></h3><p>在进行基准测试前需要进行预热。一般前几次进行程序测试的时候都会比较慢， 所以要让程序进行几轮预热，保证测试的准确性。其中的参数iterations就是预热轮数。</p>
+<blockquote>
+<p>Tips: 因为 JVM 的 JIT 机制的存在，如果某个函数被调用多次之后，JVM 会尝试将其编译成为机器码从而提高执行速度。所以为了让 benchmark 的结果更加接近真实情况就需要进行预热</p>
+</blockquote>
+<h3 id="Measurement"><a href="#Measurement" class="headerlink" title="@Measurement"></a><em>@Measurement</em></h3><p>度量，一些基本的测试参数。</p>
+<ol>
+<li>iterations 进行测试的轮次</li>
+<li>time 每轮进行的时长</li>
+<li>timeUnit 时长单位</li>
+</ol>
+<p>可以根据具体情况调整。一般比较重的东西可以进行大量的测试，放到服务器上运行。</p>
+<h3 id="Threads"><a href="#Threads" class="headerlink" title="@Threads"></a><em>@Threads</em></h3><p>每个进程中的测试线程，根据具体情况选择，一般为cpu乘以2。</p>
+<h3 id="Fork"><a href="#Fork" class="headerlink" title="@Fork"></a><em>@Fork</em></h3><p>进行 fork 的次数。如果 fork 数是2的话，则 JMH 会 fork 出两个进程来进行测试。</p>
+<h3 id="OutputTimeUnit"><a href="#OutputTimeUnit" class="headerlink" title="@OutputTimeUnit"></a><em>@OutputTimeUnit</em></h3><p>基准测试结果的时间类型。一般选择秒、毫秒、微秒。</p>
+<h3 id="Benchmark"><a href="#Benchmark" class="headerlink" title="@Benchmark"></a><em>@Benchmark</em></h3><p>方法级注解，表示该方法是需要进行 benchmark ，用法和 JUnit 的 @Test 类似。</p>
+<h3 id="Param"><a href="#Param" class="headerlink" title="@Param"></a><em>@Param</em></h3><p>属性级注解，@Param 用来指定某项参数的多种情况。适合用来测试一个函数在不同的参数输入的情况下的性能。</p>
+<h3 id="Setup"><a href="#Setup" class="headerlink" title="@Setup"></a><em>@Setup</em></h3><p>方法级注解，需要在测试之前进行一些准备工作，比如对一些数据的初始化。</p>
+<h3 id="TearDown"><a href="#TearDown" class="headerlink" title="@TearDown"></a><em>@TearDown</em></h3><p>方法级注解，在测试之后进行一些结束工作，比如关闭线程池，数据库连接等的，主要用于资源的回收等。</p>
+<h3 id="State"><a href="#State" class="headerlink" title="@State"></a><em>@State</em></h3><p>当使用@Setup参数的时候，必须在类上加这个参数，不然会提示无法运行。</p>
+<p>State 用于声明某个类是一个“状态”，然后接受一个 Scope 参数用来表示该状态的共享范围。 很多 benchmark 会需要一些表示状态的类，JMH 允许你把这些类以依赖注入的方式注入到 benchmark 函数里。Scope 主要分为三种。</p>
+<ol>
+<li>Thread: 该状态为每个线程独享。</li>
+<li>Group: 该状态为同一个组里面所有线程共享。</li>
+<li>Benchmark: 该状态在所有线程间共享。</li>
+</ol>
+<h2 id="补充说明"><a href="#补充说明" class="headerlink" title="补充说明"></a>补充说明</h2><p>在日常的工作和学习中，常常会遇到三种类型的问题，JHM对其能很好就觉很处理。</p>
+<ul>
+<li>对方法或库的不同实现方式的性能分析测试和最后的采用取舍</li>
+<li>方法入参对方法的性能影响和限制</li>
+<li>对项目中的热点方法的优化和其优化效果的定性分析。</li>
+</ul>
+<hr>
+<h2 id="参考和来源"><a href="#参考和来源" class="headerlink" title="参考和来源"></a>参考和来源</h2><ul>
+<li><a href="https://www.xncoding.com/2018/01/07/java/jmh.html" target="_blank" rel="noopener">Java微基准测试框架JMH</a></li>
+<li><a href="http://irfen.me/java-jmh-simple-microbenchmark/" target="_blank" rel="noopener">Java使用JMH进行简单的基准测试Benchmark</a></li>
+<li><a href="http://blog.dyngr.com/blog/2016/10/29/introduction-of-jmh/" target="_blank" rel="noopener">Java 并发编程笔记：JMH 性能测试框架</a></li>
+<li><a href="http://tutorials.jenkov.com/java-performance/jmh.html" target="_blank" rel="noopener">JMH - Java Microbenchmark Harness</a></li>
+</ul>
+]]></content>
+      <categories>
+        <category>系统调优</category>
+      </categories>
+      <tags>
+        <tag>Java</tag>
+        <tag>基准测试</tag>
+        <tag>JMH</tag>
+        <tag>系统调优</tag>
+        <tag>基础</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>Java Microbenchmark Harness微基准测试陷阱</title>
     <url>/2020/07/09/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Java-Microbenchmark-Harness-Test-Trap/</url>
     <content><![CDATA[<blockquote>
@@ -117,9 +358,148 @@ public void benchmarkTestMethod(){
       <tags>
         <tag>Java</tag>
         <tag>基准测试</tag>
+        <tag>JMH</tag>
         <tag>系统调优</tag>
         <tag>误区和陷阱</tag>
-        <tag>JMH</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>Jenkins在CentOS系统环境上的搭建和部署</title>
+    <url>/2020/07/23/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Jenkins-programming-environment-setup/</url>
+    <content><![CDATA[<h3 id="Jenkins服务在CentOS系统环境上的搭建和部署"><a href="#Jenkins服务在CentOS系统环境上的搭建和部署" class="headerlink" title="Jenkins服务在CentOS系统环境上的搭建和部署"></a>Jenkins服务在CentOS系统环境上的搭建和部署</h3><blockquote>
+<p><a href="https://www.jenkins.io/zh/" target="_blank" rel="noopener">Jenkins</a> 由Java编写的一个开源的、提供友好操作界面的持续集成(CI)工具，起源于Hudson（Hudson是商用的），主要用于持续、自动的构建/测试软件项目、监控外部任务的运行（这个比较抽象，暂且写上，不做解释）。Jenkins用Java语言编写，可在Tomcat等流行的servlet容器中运行，也可独立运行。通常与版本管理工具(SCM)、构建工具结合使用。常用的版本控制工具有SVN、GIT，构建工具有Maven、Ant、Gradle。</p>
+</blockquote>
+<a id="more"></a>  
+
+<p>CI(Continuous integration，中文意思是持续集成)是一种软件开发时间。持续集成强调开发人员提交了新代码之后，立刻进行构建、（单元）测试。根据测试结果，我们可以确定新代码和原有代码能否正确地集成在一起。借用网络图片对CI加以理解。</p>
+<p><img src="http://img.upuphub.com/6464255-1b6e3bfdbece1492.jpg" alt="CI"></p>
+<p> CD(Continuous Delivery， 中文意思持续交付)是在持续集成的基础上，将集成后的代码部署到更贴近真实运行环境(类生产环境)中。比如，我们完成单元测试后，可以把代码部署到连接数据库的Staging环境中更多的测试。如果代码没有问题，可以继续手动部署到生产环境。下图反应的是CI/CD 的大概工作模式。</p>
+<p><img src="http://img.upuphub.com/6464255-ba088ec7257062c0.jpg" alt="Jenkins"></p>
+<!-- more -->
+
+<h2 id="在线安装Jenkins"><a href="#在线安装Jenkins" class="headerlink" title="在线安装Jenkins"></a>在线安装Jenkins</h2><pre><code class="shell"># 获取 repo
+$ wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
+
+# 获取key, 如果之前导入 jenkins 的key, 这一步可以忽略
+$ rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key
+
+$ yum update &amp;&amp; yum install jenkins
+
+# 启用 jenkins
+$ systemctl start jenkins</code></pre>
+<h2 id="离线安装Jenkins"><a href="#离线安装Jenkins" class="headerlink" title="离线安装Jenkins"></a>离线安装Jenkins</h2><pre><code class="shell"># 准备安装临时文件夹
+$ mkdir jenkins
+$ cd jenkins
+
+# 获取最新的稳定版本的Jenkins.rpm文件(https://pkg.jenkins.io/redhat-stable/)
+$ wget https://pkg.jenkins.io/redhat-stable/jenkins-2.235.2-1.1.noarch.rpm
+
+# 执行本地的Yum安装
+$ yum localinstall jenkins-2.235.2-1.1.noarch.rpm
+
+# 启用 jenkins
+$ systemctl start jenkins</code></pre>
+<h2 id="安装异常解决"><a href="#安装异常解决" class="headerlink" title="安装异常解决"></a>安装异常解决</h2><h3 id="异常信息如下"><a href="#异常信息如下" class="headerlink" title="异常信息如下"></a>异常信息如下</h3><pre><code class="shell">[root@Leonardo-iWzl-Server jenkins]# systemctl start jenkins
+Job for jenkins.service failed because the control process exited with error code. See &quot;systemctl status jenkins.service&quot; and &quot;journalctl -xe&quot; for details.
+[root@Leonardo-iWzl-Server jenkins]# systemctl status jenkins
+● jenkins.service - LSB: Jenkins Automation Server
+   Loaded: loaded (/etc/rc.d/init.d/jenkins; bad; vendor preset: disabled)
+   Active: failed (Result: exit-code) since 四 2020-07-23 10:02:43 EDT; 16s ago
+     Docs: man:systemd-sysv-generator(8)
+  Process: 23582 ExecStart=/etc/rc.d/init.d/jenkins start (code=exited, status=1/FAILURE)
+
+7月 23 10:02:43 Leonardo-iWzl-Server systemd[1]: Starting LSB: Jenkins Automation Server...
+7月 23 10:02:43 Leonardo-iWzl-Server runuser[23587]: pam_unix(runuser:session): session opened for user jenkins...d=0)
+7月 23 10:02:43 Leonardo-iWzl-Server jenkins[23582]: Starting Jenkins bash: /usr/bin/java: No such file or directory
+7月 23 10:02:43 Leonardo-iWzl-Server runuser[23587]: pam_unix(runuser:session): session closed for user jenkins
+7月 23 10:02:43 Leonardo-iWzl-Server jenkins[23582]: [FAILED]
+7月 23 10:02:43 Leonardo-iWzl-Server systemd[1]: jenkins.service: control process exited, code=exited status=1
+7月 23 10:02:43 Leonardo-iWzl-Server systemd[1]: Failed to start LSB: Jenkins Automation Server.
+7月 23 10:02:43 Leonardo-iWzl-Server systemd[1]: Unit jenkins.service entered failed state.
+7月 23 10:02:43 Leonardo-iWzl-Server systemd[1]: jenkins.service failed.
+Hint: Some lines were ellipsized, use -l to show in full.</code></pre>
+<h3 id="原因说明"><a href="#原因说明" class="headerlink" title="原因说明"></a>原因说明</h3><p>Jenkins 默认会在以下目录按顺序搜寻 JDK，一旦找到一个可用的即返回</p>
+<pre><code class="shell">/etc/alternatives/java
+/usr/lib/jvm/java-1.8.0/bin/java
+/usr/lib/jvm/jre-1.8.0/bin/java
+/usr/lib/jvm/java-1.7.0/bin/java
+/usr/lib/jvm/jre-1.7.0/bin/java
+/usr/lib/jvm/java-11.0/bin/java
+/usr/lib/jvm/jre-11.0/bin/java
+/usr/lib/jvm/java-11-openjdk-amd64
+/usr/bin/java</code></pre>
+<p>如果系统的以上位置都未安装 JDK，启动时就会报错，可以通过建立软连接进行解决</p>
+<pre><code class="shell"> ln -s /usr/local/java/jdk1.8.0_261/bin/java /usr/bin/java</code></pre>
+<p>完成以上错误处理后,可得到以下输出</p>
+<pre><code class="shell">[root@Leonardo-iWzl-Server jenkins]# systemctl status jenkins
+● jenkins.service - LSB: Jenkins Automation Server
+   Loaded: loaded (/etc/rc.d/init.d/jenkins; bad; vendor preset: disabled)
+   Active: active (running) since 四 2020-07-23 10:10:06 EDT; 4s ago
+     Docs: man:systemd-sysv-generator(8)
+  Process: 23606 ExecStart=/etc/rc.d/init.d/jenkins start (code=exited, status=0/SUCCESS)
+   CGroup: /system.slice/jenkins.service
+           └─23630 /usr/bin/java -Dcom.sun.akuma.Daemon=daemonized -Djava.awt.headless=true -DJENKINS_HOME=/var/lib/jenkins -jar /usr/lib/jenkins/jenkins.war --logfile=/var/log/jenkins/jenkins.log --webroot=/var/cache/jenkins/war --dae...
+
+7月 23 10:10:04 Leonardo-iWzl-Server systemd[1]: Starting LSB: Jenkins Automation Server...
+7月 23 10:10:04 Leonardo-iWzl-Server runuser[23611]: pam_unix(runuser:session): session opened for user jenkins by (uid=0)
+7月 23 10:10:06 Leonardo-iWzl-Server runuser[23611]: pam_unix(runuser:session): session closed for user jenkins
+7月 23 10:10:06 Leonardo-iWzl-Server jenkins[23606]: Starting Jenkins [  OK  ]
+7月 23 10:10:06 Leonardo-iWzl-Server systemd[1]: Started LSB: Jenkins Automation Server.</code></pre>
+<p> 查看jenkins 的启动参数 <em>ps -ef |grep jenkins</em> </p>
+<pre><code class="shell">[root@Leonardo-iWzl-Server jenkins]# ps -ef |grep jenkins
+jenkins  23630     1 49 10:10 ?        00:00:54 /usr/bin/java 
+        -Dcom.sun.akuma.Daemon=daemonized 
+        -Djava.awt.headless=true 
+        -DJENKINS_HOME=/var/lib/jenkins 
+        -jar /usr/lib/jenkins/jenkins.war 
+        --logfile=/var/log/jenkins/jenkins.log 
+        --webroot=/var/cache/jenkins/war 
+        --daemon 
+        --httpPort=8080 
+        --debug=5 
+        --handlerCountMax=100 
+        --handlerCountMaxIdle=20
+root     23695 23312  0 10:11 pts/0    00:00:00 grep --color=auto jenkins</code></pre>
+<p>在这里看到日志的一些配置和相关的端口、可以通过访问<em>「IP」:8080</em>访问到Jenkins服务</p>
+<h3 id="Jenkins的更新"><a href="#Jenkins的更新" class="headerlink" title="Jenkins的更新"></a>Jenkins的更新</h3><p>对于Jenkins更新可以通过</p>
+<pre><code class="shell">yum update jenkins</code></pre>
+<p>完成更新后,需要重启Jenkins服务</p>
+<h3 id="Jenkins国内镜像配置"><a href="#Jenkins国内镜像配置" class="headerlink" title="Jenkins国内镜像配置"></a>Jenkins国内镜像配置</h3><p>修改<em>/var/lib/jenkins</em> 目录下的<em>hudson.model.UpdateCenter.xml</em>文件内容如下</p>
+<pre><code class="xml">&lt;?xml version=&#39;1.1&#39; encoding=&#39;UTF-8&#39;?&gt;
+&lt;sites&gt;
+  &lt;site&gt;
+    &lt;id&gt;default&lt;/id&gt;
+    &lt;!-- &lt;url&gt;https://updates.jenkins.io/update-center.json&lt;/url&gt;--&gt;
+     &lt;url&gt;https://mirrors.tuna.tsinghua.edu.cn/jenkins/updates/update-center.json/url&gt;
+  &lt;/site&gt;
+&lt;/sites&gt;</code></pre>
+<p>修改默认配置json文件<em>/var/lib/jenkins/updates/default.json</em></p>
+<pre><code class="shell"># 进入响应文件夹
+cd /var/lib/jenkins/updates
+
+# 备份原始文件
+cp default.json default.json.bak
+
+# 替换更新下载地址
+sed -i &#39;s/http:\/\/updates.jenkins-ci.org\/download/https:\/\/mirrors.tuna.tsinghua.edu.cn\/jenkins/g&#39; default.json
+
+# 替换测试URL
+sed -i &#39;s/http:\/\/www.google.com/https:\/\/www.baidu.com/g&#39; default.json</code></pre>
+<p>完成以后重启Jenkins服务</p>
+<h3 id="配置Jenkins服务"><a href="#配置Jenkins服务" class="headerlink" title="配置Jenkins服务"></a>配置Jenkins服务</h3><p>之后按提示和Jenkins可视化引导完成剩余的Jenkins环境的搭建部署</p>
+<h2 id="Jenkins的结构导图"><a href="#Jenkins的结构导图" class="headerlink" title="Jenkins的结构导图"></a>Jenkins的结构导图</h2><p><img src="http://img.upuphub.com/6464255-cc56d3af1fdd96df.png" alt="Jenkins"></p>
+<hr>
+<h2 id="参考和引用"><a href="#参考和引用" class="headerlink" title="参考和引用"></a>参考和引用</h2><p><a href="https://www.jianshu.com/p/5f671aca2b5a" target="_blank" rel="noopener">哥本哈根月光-Jenkins详细教程</a></p>
+<p><a href="https://halo.sherlocky.com/archives/jenkins" target="_blank" rel="noopener">CentOS 安装 Jenkins 及 国内下载加速</a></p>
+]]></content>
+      <categories>
+        <category>DevOps</category>
+      </categories>
+      <tags>
+        <tag>DevOps</tag>
+        <tag>Liunx</tag>
+        <tag>Jenkins</tag>
+        <tag>CentOS</tag>
       </tags>
   </entry>
   <entry>
@@ -487,386 +867,6 @@ Short options:        GNU long options: (extensions)
       </tags>
   </entry>
   <entry>
-    <title>Jenkins在CentOS系统环境上的搭建和部署</title>
-    <url>/2020/07/23/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Jenkins-programming-environment-setup/</url>
-    <content><![CDATA[<h3 id="Jenkins服务在CentOS系统环境上的搭建和部署"><a href="#Jenkins服务在CentOS系统环境上的搭建和部署" class="headerlink" title="Jenkins服务在CentOS系统环境上的搭建和部署"></a>Jenkins服务在CentOS系统环境上的搭建和部署</h3><blockquote>
-<p><a href="https://www.jenkins.io/zh/" target="_blank" rel="noopener">Jenkins</a> 由Java编写的一个开源的、提供友好操作界面的持续集成(CI)工具，起源于Hudson（Hudson是商用的），主要用于持续、自动的构建/测试软件项目、监控外部任务的运行（这个比较抽象，暂且写上，不做解释）。Jenkins用Java语言编写，可在Tomcat等流行的servlet容器中运行，也可独立运行。通常与版本管理工具(SCM)、构建工具结合使用。常用的版本控制工具有SVN、GIT，构建工具有Maven、Ant、Gradle。</p>
-</blockquote>
-<a id="more"></a>  
-
-<p>CI(Continuous integration，中文意思是持续集成)是一种软件开发时间。持续集成强调开发人员提交了新代码之后，立刻进行构建、（单元）测试。根据测试结果，我们可以确定新代码和原有代码能否正确地集成在一起。借用网络图片对CI加以理解。</p>
-<p><img src="http://img.upuphub.com/6464255-1b6e3bfdbece1492.jpg" alt="CI"></p>
-<p> CD(Continuous Delivery， 中文意思持续交付)是在持续集成的基础上，将集成后的代码部署到更贴近真实运行环境(类生产环境)中。比如，我们完成单元测试后，可以把代码部署到连接数据库的Staging环境中更多的测试。如果代码没有问题，可以继续手动部署到生产环境。下图反应的是CI/CD 的大概工作模式。</p>
-<p><img src="http://img.upuphub.com/6464255-ba088ec7257062c0.jpg" alt="Jenkins"></p>
-<!-- more -->
-
-<h2 id="在线安装Jenkins"><a href="#在线安装Jenkins" class="headerlink" title="在线安装Jenkins"></a>在线安装Jenkins</h2><pre><code class="shell"># 获取 repo
-$ wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
-
-# 获取key, 如果之前导入 jenkins 的key, 这一步可以忽略
-$ rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key
-
-$ yum update &amp;&amp; yum install jenkins
-
-# 启用 jenkins
-$ systemctl start jenkins</code></pre>
-<h2 id="离线安装Jenkins"><a href="#离线安装Jenkins" class="headerlink" title="离线安装Jenkins"></a>离线安装Jenkins</h2><pre><code class="shell"># 准备安装临时文件夹
-$ mkdir jenkins
-$ cd jenkins
-
-# 获取最新的稳定版本的Jenkins.rpm文件(https://pkg.jenkins.io/redhat-stable/)
-$ wget https://pkg.jenkins.io/redhat-stable/jenkins-2.235.2-1.1.noarch.rpm
-
-# 执行本地的Yum安装
-$ yum localinstall jenkins-2.235.2-1.1.noarch.rpm
-
-# 启用 jenkins
-$ systemctl start jenkins</code></pre>
-<h2 id="安装异常解决"><a href="#安装异常解决" class="headerlink" title="安装异常解决"></a>安装异常解决</h2><h3 id="异常信息如下"><a href="#异常信息如下" class="headerlink" title="异常信息如下"></a>异常信息如下</h3><pre><code class="shell">[root@Leonardo-iWzl-Server jenkins]# systemctl start jenkins
-Job for jenkins.service failed because the control process exited with error code. See &quot;systemctl status jenkins.service&quot; and &quot;journalctl -xe&quot; for details.
-[root@Leonardo-iWzl-Server jenkins]# systemctl status jenkins
-● jenkins.service - LSB: Jenkins Automation Server
-   Loaded: loaded (/etc/rc.d/init.d/jenkins; bad; vendor preset: disabled)
-   Active: failed (Result: exit-code) since 四 2020-07-23 10:02:43 EDT; 16s ago
-     Docs: man:systemd-sysv-generator(8)
-  Process: 23582 ExecStart=/etc/rc.d/init.d/jenkins start (code=exited, status=1/FAILURE)
-
-7月 23 10:02:43 Leonardo-iWzl-Server systemd[1]: Starting LSB: Jenkins Automation Server...
-7月 23 10:02:43 Leonardo-iWzl-Server runuser[23587]: pam_unix(runuser:session): session opened for user jenkins...d=0)
-7月 23 10:02:43 Leonardo-iWzl-Server jenkins[23582]: Starting Jenkins bash: /usr/bin/java: No such file or directory
-7月 23 10:02:43 Leonardo-iWzl-Server runuser[23587]: pam_unix(runuser:session): session closed for user jenkins
-7月 23 10:02:43 Leonardo-iWzl-Server jenkins[23582]: [FAILED]
-7月 23 10:02:43 Leonardo-iWzl-Server systemd[1]: jenkins.service: control process exited, code=exited status=1
-7月 23 10:02:43 Leonardo-iWzl-Server systemd[1]: Failed to start LSB: Jenkins Automation Server.
-7月 23 10:02:43 Leonardo-iWzl-Server systemd[1]: Unit jenkins.service entered failed state.
-7月 23 10:02:43 Leonardo-iWzl-Server systemd[1]: jenkins.service failed.
-Hint: Some lines were ellipsized, use -l to show in full.</code></pre>
-<h3 id="原因说明"><a href="#原因说明" class="headerlink" title="原因说明"></a>原因说明</h3><p>Jenkins 默认会在以下目录按顺序搜寻 JDK，一旦找到一个可用的即返回</p>
-<pre><code class="shell">/etc/alternatives/java
-/usr/lib/jvm/java-1.8.0/bin/java
-/usr/lib/jvm/jre-1.8.0/bin/java
-/usr/lib/jvm/java-1.7.0/bin/java
-/usr/lib/jvm/jre-1.7.0/bin/java
-/usr/lib/jvm/java-11.0/bin/java
-/usr/lib/jvm/jre-11.0/bin/java
-/usr/lib/jvm/java-11-openjdk-amd64
-/usr/bin/java</code></pre>
-<p>如果系统的以上位置都未安装 JDK，启动时就会报错，可以通过建立软连接进行解决</p>
-<pre><code class="shell"> ln -s /usr/local/java/jdk1.8.0_261/bin/java /usr/bin/java</code></pre>
-<p>完成以上错误处理后,可得到以下输出</p>
-<pre><code class="shell">[root@Leonardo-iWzl-Server jenkins]# systemctl status jenkins
-● jenkins.service - LSB: Jenkins Automation Server
-   Loaded: loaded (/etc/rc.d/init.d/jenkins; bad; vendor preset: disabled)
-   Active: active (running) since 四 2020-07-23 10:10:06 EDT; 4s ago
-     Docs: man:systemd-sysv-generator(8)
-  Process: 23606 ExecStart=/etc/rc.d/init.d/jenkins start (code=exited, status=0/SUCCESS)
-   CGroup: /system.slice/jenkins.service
-           └─23630 /usr/bin/java -Dcom.sun.akuma.Daemon=daemonized -Djava.awt.headless=true -DJENKINS_HOME=/var/lib/jenkins -jar /usr/lib/jenkins/jenkins.war --logfile=/var/log/jenkins/jenkins.log --webroot=/var/cache/jenkins/war --dae...
-
-7月 23 10:10:04 Leonardo-iWzl-Server systemd[1]: Starting LSB: Jenkins Automation Server...
-7月 23 10:10:04 Leonardo-iWzl-Server runuser[23611]: pam_unix(runuser:session): session opened for user jenkins by (uid=0)
-7月 23 10:10:06 Leonardo-iWzl-Server runuser[23611]: pam_unix(runuser:session): session closed for user jenkins
-7月 23 10:10:06 Leonardo-iWzl-Server jenkins[23606]: Starting Jenkins [  OK  ]
-7月 23 10:10:06 Leonardo-iWzl-Server systemd[1]: Started LSB: Jenkins Automation Server.</code></pre>
-<p> 查看jenkins 的启动参数 <em>ps -ef |grep jenkins</em> </p>
-<pre><code class="shell">[root@Leonardo-iWzl-Server jenkins]# ps -ef |grep jenkins
-jenkins  23630     1 49 10:10 ?        00:00:54 /usr/bin/java 
-        -Dcom.sun.akuma.Daemon=daemonized 
-        -Djava.awt.headless=true 
-        -DJENKINS_HOME=/var/lib/jenkins 
-        -jar /usr/lib/jenkins/jenkins.war 
-        --logfile=/var/log/jenkins/jenkins.log 
-        --webroot=/var/cache/jenkins/war 
-        --daemon 
-        --httpPort=8080 
-        --debug=5 
-        --handlerCountMax=100 
-        --handlerCountMaxIdle=20
-root     23695 23312  0 10:11 pts/0    00:00:00 grep --color=auto jenkins</code></pre>
-<p>在这里看到日志的一些配置和相关的端口、可以通过访问<em>「IP」:8080</em>访问到Jenkins服务</p>
-<h3 id="Jenkins的更新"><a href="#Jenkins的更新" class="headerlink" title="Jenkins的更新"></a>Jenkins的更新</h3><p>对于Jenkins更新可以通过</p>
-<pre><code class="shell">yum update jenkins</code></pre>
-<p>完成更新后,需要重启Jenkins服务</p>
-<h3 id="Jenkins国内镜像配置"><a href="#Jenkins国内镜像配置" class="headerlink" title="Jenkins国内镜像配置"></a>Jenkins国内镜像配置</h3><p>修改<em>/var/lib/jenkins</em> 目录下的<em>hudson.model.UpdateCenter.xml</em>文件内容如下</p>
-<pre><code class="xml">&lt;?xml version=&#39;1.1&#39; encoding=&#39;UTF-8&#39;?&gt;
-&lt;sites&gt;
-  &lt;site&gt;
-    &lt;id&gt;default&lt;/id&gt;
-    &lt;!-- &lt;url&gt;https://updates.jenkins.io/update-center.json&lt;/url&gt;--&gt;
-     &lt;url&gt;https://mirrors.tuna.tsinghua.edu.cn/jenkins/updates/update-center.json/url&gt;
-  &lt;/site&gt;
-&lt;/sites&gt;</code></pre>
-<p>修改默认配置json文件<em>/var/lib/jenkins/updates/default.json</em></p>
-<pre><code class="shell"># 进入响应文件夹
-cd /var/lib/jenkins/updates
-
-# 备份原始文件
-cp default.json default.json.bak
-
-# 替换更新下载地址
-sed -i &#39;s/http:\/\/updates.jenkins-ci.org\/download/https:\/\/mirrors.tuna.tsinghua.edu.cn\/jenkins/g&#39; default.json
-
-# 替换测试URL
-sed -i &#39;s/http:\/\/www.google.com/https:\/\/www.baidu.com/g&#39; default.json</code></pre>
-<p>完成以后重启Jenkins服务</p>
-<h3 id="配置Jenkins服务"><a href="#配置Jenkins服务" class="headerlink" title="配置Jenkins服务"></a>配置Jenkins服务</h3><p>之后按提示和Jenkins可视化引导完成剩余的Jenkins环境的搭建部署</p>
-<h2 id="Jenkins的结构导图"><a href="#Jenkins的结构导图" class="headerlink" title="Jenkins的结构导图"></a>Jenkins的结构导图</h2><p><img src="http://img.upuphub.com/6464255-cc56d3af1fdd96df.png" alt="Jenkins"></p>
-<hr>
-<h2 id="参考和引用"><a href="#参考和引用" class="headerlink" title="参考和引用"></a>参考和引用</h2><p><a href="https://www.jianshu.com/p/5f671aca2b5a" target="_blank" rel="noopener">哥本哈根月光-Jenkins详细教程</a></p>
-<p><a href="https://halo.sherlocky.com/archives/jenkins" target="_blank" rel="noopener">CentOS 安装 Jenkins 及 国内下载加速</a></p>
-]]></content>
-      <categories>
-        <category>DevOps</category>
-      </categories>
-      <tags>
-        <tag>Liunx</tag>
-        <tag>DevOps</tag>
-        <tag>Jenkins</tag>
-        <tag>CentOS</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>Java Microbenchmark Harness微基准测试基础</title>
-    <url>/2020/07/07/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Java-Microbenchmark-Harness-Basic/</url>
-    <content><![CDATA[<blockquote>
-<p><strong>If you cannot measure it, you cannot improve it.    –Lord Kelvin</strong></p>
-</blockquote>
-<p><a href="http://openjdk.java.net/projects/code-tools/jmh/" target="_blank" rel="noopener">Java Microbenchmark Harness</a> 是专门进行代码的微基准测试的一套工具API。 为应用提供了数据支持，是评价和比较方法好坏的基准。一般说JMH，是在 <strong>Method 层面上的 Benchmark</strong>，精度可以精确到微秒级。以下记录JMH的使用和相关基础，便于之后查找和学习。</p>
-<p>Benchmark 作为应用框架，产品的基准画像，存在统一的标准，避免了不同测评对象自说自话的尴尬，应用框架各自使用有利于自身场景的测评方式必然不可取。</p>
-<a id="more"></a>
-
-<h2 id="Hello-JHM"><a href="#Hello-JHM" class="headerlink" title="Hello JHM"></a>Hello JHM</h2><h3 id="Maven依赖"><a href="#Maven依赖" class="headerlink" title="Maven依赖"></a>Maven依赖</h3><p>在项目中使用Maven,只需要添加如下依赖：</p>
-<pre><code class="xml">&lt;!-- JMH--&gt;
-&lt;dependency&gt;
-    &lt;groupId&gt;org.openjdk.jmh&lt;/groupId&gt;
-    &lt;artifactId&gt;jmh-core&lt;/artifactId&gt;
-    &lt;version&gt;${jmh.version}&lt;/version&gt;
-&lt;/dependency&gt;
-&lt;dependency&gt;
-    &lt;groupId&gt;org.openjdk.jmh&lt;/groupId&gt;
-    &lt;artifactId&gt;jmh-generator-annprocess&lt;/artifactId&gt;
-    &lt;version&gt;${jmh.version}&lt;/version&gt;
-    &lt;scope&gt;provided&lt;/scope&gt;
-&lt;/dependency&gt;</code></pre>
-<h3 id="性能测试设计"><a href="#性能测试设计" class="headerlink" title="性能测试设计"></a>性能测试设计</h3><p>测试比较Spring和StringBuilder的完成字符串拼接的性能</p>
-<pre><code class="java">/**
- * 比较字符串直接相加和StringBuilder的效率
- *
- * @author Leo Wang
- * @version 1.0
- * @date 2020/7/7 16:44
- */
-@BenchmarkMode(Mode.Throughput)
-@Warmup(iterations = 1,time = 1, timeUnit = TimeUnit.SECONDS)
-@Measurement(iterations = 10,time = 10,timeUnit = TimeUnit.SECONDS)
-@Threads(8)
-@Fork(2)
-@OutputTimeUnit(TimeUnit.MILLISECONDS)
-@State(Scope.Thread)
-public class StringBuilderBenchmark {
-    @Benchmark
-    public void testStringAdd() {
-        String a = &quot;&quot;;
-        for (int i = 0; i &lt; 10; i++) {
-            a += i;
-        }
-        print(a);
-    }
-
-    @Benchmark
-    public void testStringBuilderAdd() {
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i &lt; 10; i++) {
-            sb.append(i);
-        }
-        print(sb.toString());
-    }
-
-    private void print(String a) {
-    }</code></pre>
-<h3 id="性能测试执行"><a href="#性能测试执行" class="headerlink" title="性能测试执行"></a>性能测试执行</h3><p>对于JMH来说，其执行方式主要有两种</p>
-<h4 id="直接IDE运行"><a href="#直接IDE运行" class="headerlink" title="直接IDE运行"></a>直接IDE运行</h4><p>对于体量小的测试，可以直接在IDE中完成相关的测试。如上的测试来说，可以直接运行，然后查看相关结果，执行的结果的Main函数如下，创建<em>Options</em>对象，传入需要执行的测试和测试报告的输出地址。直接执行Main方法</p>
-<pre><code class="java">    public static void main(String[] args) throws RunnerException {
-        String userDirPath = System.getProperty(&quot;user.dir&quot;);
-        String benchmarkLogPath = String.format(&quot;%s/%s&quot;,userDirPath,&quot;/StringBenchmark.log&quot;);
-        Options options = new OptionsBuilder()
-                .include(StringBuilderBenchmark.class.getSimpleName())
-                .output(benchmarkLogPath)
-                .build();
-        new Runner(options).run();
-    }</code></pre>
-<p>在使用IDE进行测试时，需要注意不能使用<strong>Dubug</strong>模式启动，否则不能正常完成测试。</p>
-<h4 id="打包成Jar-其他机器上执行"><a href="#打包成Jar-其他机器上执行" class="headerlink" title="打包成Jar,其他机器上执行"></a>打包成Jar,其他机器上执行</h4><p>一般对于大型的测试，需要测试时间比较久，线程比较多，就需要去写好了丢到远端的Linux系统环境中里执行， 不然会在本机执行很久并且需要的性能需求可能达不到测试需求。</p>
-<pre><code class="bash">mvn clean package
-java -jar StringBuilderBenchmark.jar</code></pre>
-<h3 id="测试结果"><a href="#测试结果" class="headerlink" title="测试结果"></a>测试结果</h3><p>当正常跑完项目测试以后，JHM会在指定的文件夹下输出一下的测试结果</p>
-<pre><code class="shell"># JMH version: 1.23
-# VM version: JDK 1.8.0_251, Java HotSpot(TM) 64-Bit Server VM, 25.251-b08
-# VM invoker: /Library/Java/JavaVirtualMachines/jdk1.8.0_251.jdk/Contents/Home/jre/bin/java
-# VM options: -javaagent:/Applications/IntelliJ IDEA.app/Contents/lib/idea_rt.jar=63118:/Applications/IntelliJ IDEA.app/Contents/bin -Dfile.encoding=UTF-8
-# Warmup: 1 iterations, 1 s each
-# Measurement: 10 iterations, 10 s each
-# Timeout: 10 min per iteration
-# Threads: 8 threads, will synchronize iterations
-# Benchmark mode: Throughput, ops/time
-# Benchmark: com.upuphub.lake.skylake.benchmark.StringBuilderBenchmark.testStringAdd
-
-# Run progress: 0.00% complete, ETA 00:06:44
-# Fork: 1 of 2
-# Warmup Iteration   1: 9014.340 ops/ms
-Iteration   1: 21302.297 ops/ms
-Iteration   2: 21807.763 ops/ms
-Iteration   3: 21812.419 ops/ms
-Iteration   4: 21840.912 ops/ms
-Iteration   5: 21985.020 ops/ms
-Iteration   6: 22066.751 ops/ms
-Iteration   7: 22006.021 ops/ms
-Iteration   8: 19239.509 ops/ms
-Iteration   9: 10515.274 ops/ms
-Iteration  10: 11758.987 ops/ms
-
-# Run progress: 25.00% complete, ETA 00:05:21
-# Fork: 2 of 2
-# Warmup Iteration   1: 5273.829 ops/ms
-Iteration   1: 18880.356 ops/ms
-Iteration   2: 22225.847 ops/ms
-Iteration   3: 22017.665 ops/ms
-Iteration   4: 22036.969 ops/ms
-Iteration   5: 22080.422 ops/ms
-Iteration   6: 22262.118 ops/ms
-Iteration   7: 22153.187 ops/ms
-Iteration   8: 22105.884 ops/ms
-Iteration   9: 21613.504 ops/ms
-Iteration  10: 22029.923 ops/ms
-
-
-Result &quot;com.upuphub.lake.skylake.benchmark.StringBuilderBenchmark.testStringAdd&quot;:
-  20587.041 ±(99.9%) 2921.754 ops/ms [Average]
-  (min, avg, max) = (10515.274, 20587.041, 22262.118), stdev = 3364.697
-  CI (99.9%): [17665.287, 23508.796] (assumes normal distribution)
-
-
-# JMH version: 1.23
-# VM version: JDK 1.8.0_251, Java HotSpot(TM) 64-Bit Server VM, 25.251-b08
-# VM invoker: /Library/Java/JavaVirtualMachines/jdk1.8.0_251.jdk/Contents/Home/jre/bin/java
-# VM options: -javaagent:/Applications/IntelliJ IDEA.app/Contents/lib/idea_rt.jar=63118:/Applications/IntelliJ IDEA.app/Contents/bin -Dfile.encoding=UTF-8
-# Warmup: 1 iterations, 1 s each
-# Measurement: 10 iterations, 10 s each
-# Timeout: 10 min per iteration
-# Threads: 8 threads, will synchronize iterations
-# Benchmark mode: Throughput, ops/time
-# Benchmark: com.upuphub.lake.skylake.benchmark.StringBuilderBenchmark.testStringBuilderAdd
-
-# Run progress: 50.00% complete, ETA 00:03:34
-# Fork: 1 of 2
-# Warmup Iteration   1: 50084.373 ops/ms
-Iteration   1: 67510.457 ops/ms
-Iteration   2: 42202.643 ops/ms
-Iteration   3: 41633.858 ops/ms
-Iteration   4: 43352.405 ops/ms
-Iteration   5: 43748.063 ops/ms
-Iteration   6: 45176.476 ops/ms
-Iteration   7: 44649.922 ops/ms
-Iteration   8: 40872.340 ops/ms
-Iteration   9: 40520.724 ops/ms
-Iteration  10: 38853.095 ops/ms
-
-# Run progress: 75.00% complete, ETA 00:01:47
-# Fork: 2 of 2
-# Warmup Iteration   1: 45279.748 ops/ms
-Iteration   1: 71985.226 ops/ms
-Iteration   2: 43291.826 ops/ms
-Iteration   3: 44149.181 ops/ms
-Iteration   4: 43297.043 ops/ms
-Iteration   5: 40614.460 ops/ms
-Iteration   6: 40444.594 ops/ms
-Iteration   7: 40912.490 ops/ms
-Iteration   8: 41428.454 ops/ms
-Iteration   9: 43022.557 ops/ms
-Iteration  10: 43368.455 ops/ms
-
-
-Result &quot;com.upuphub.lake.skylake.benchmark.StringBuilderBenchmark.testStringBuilderAdd&quot;:
-  45051.713 ±(99.9%) 7496.158 ops/ms [Average]
-  (min, avg, max) = (38853.095, 45051.713, 71985.226), stdev = 8632.587
-  CI (99.9%): [37555.555, 52547.872] (assumes normal distribution)
-
-
-# Run complete. Total time: 00:07:08
-
-REMEMBER: The numbers below are just data. To gain reusable insights, you need to follow up on
-why the numbers are the way they are. Use profilers (see -prof, -lprof), design factorial
-experiments, perform baseline and negative tests that provide experimental control, make sure
-the benchmarking environment is safe on JVM/OS/HW level, ask for reviews from the domain experts.
-Do not assume the numbers tell you what you want them to tell.
-
-Benchmark                                     Mode  Cnt      Score      Error   Units
-StringBuilderBenchmark.testStringAdd         thrpt   20  20587.041 ± 2921.754  ops/ms
-StringBuilderBenchmark.testStringBuilderAdd  thrpt   20  45051.713 ± 7496.158  ops/ms</code></pre>
-<p>整个测试报告由三个部分组成，首先分别是<strong>testStringAdd</strong>的测试结果然后是<strong>testStringBuilderAdd</strong>的测试结果，最后时两个测试结果之间的结果汇总和对应的比较。前两个部分的结果是类似的，会列出测试环境的一些基本信息，包括JHM的版本、虚拟机版本和相关一些配置等的信息以及测试的一些配置和设置，然后就是预热迭代执行（Warmup Iteration）， 然后是正常的迭代执行（Iteration），最后是结果（Result）的信息输出。一般来说最关注第三部分，也就是汇总结果。</p>
-<blockquote>
-<p>Tips: 对于汇总结果部分的输出,Error是没有数据的，这里是Score过长挤过去的</p>
-</blockquote>
-<p>可以看出StringBuilder在做字符串拼接的速度比String的直接评价速度好两倍以上。</p>
-<h2 id="JHM的注解和功能"><a href="#JHM的注解和功能" class="headerlink" title="JHM的注解和功能"></a>JHM的注解和功能</h2><h3 id="BenchmarkMode"><a href="#BenchmarkMode" class="headerlink" title="@BenchmarkMode"></a><em>@BenchmarkMode</em></h3><p>基准测试类型。这里选择的是Throughput也就是吞吐量。吞吐量会得到单位时间内可以进行的操作数。</p>
-<ul>
-<li>Throughput: 整体吞吐量，例如“1秒内可以执行多少次调用”。</li>
-<li>AverageTime: 调用的平均时间，例如“每次调用平均耗时xxx毫秒”。</li>
-<li>SampleTime: 随机取样，最后输出取样结果的分布，例如“99%的调用在xxx毫秒以内，99.99%的调用在xxx毫秒以内”</li>
-<li>SingleShotTime: 以上模式都是默认一次 iteration 是 1s，唯有 SingleShotTime 是只运行一次。往往同时把 warmup 次数设为0，用于测试冷启动时的性能。</li>
-<li>All(“all”, “All benchmark modes”): 执行所有模式。</li>
-</ul>
-<h3 id="Warmup"><a href="#Warmup" class="headerlink" title="@Warmup"></a><em>@Warmup</em></h3><p>在进行基准测试前需要进行预热。一般前几次进行程序测试的时候都会比较慢， 所以要让程序进行几轮预热，保证测试的准确性。其中的参数iterations就是预热轮数。</p>
-<blockquote>
-<p>Tips: 因为 JVM 的 JIT 机制的存在，如果某个函数被调用多次之后，JVM 会尝试将其编译成为机器码从而提高执行速度。所以为了让 benchmark 的结果更加接近真实情况就需要进行预热</p>
-</blockquote>
-<h3 id="Measurement"><a href="#Measurement" class="headerlink" title="@Measurement"></a><em>@Measurement</em></h3><p>度量，一些基本的测试参数。</p>
-<ol>
-<li>iterations 进行测试的轮次</li>
-<li>time 每轮进行的时长</li>
-<li>timeUnit 时长单位</li>
-</ol>
-<p>可以根据具体情况调整。一般比较重的东西可以进行大量的测试，放到服务器上运行。</p>
-<h3 id="Threads"><a href="#Threads" class="headerlink" title="@Threads"></a><em>@Threads</em></h3><p>每个进程中的测试线程，根据具体情况选择，一般为cpu乘以2。</p>
-<h3 id="Fork"><a href="#Fork" class="headerlink" title="@Fork"></a><em>@Fork</em></h3><p>进行 fork 的次数。如果 fork 数是2的话，则 JMH 会 fork 出两个进程来进行测试。</p>
-<h3 id="OutputTimeUnit"><a href="#OutputTimeUnit" class="headerlink" title="@OutputTimeUnit"></a><em>@OutputTimeUnit</em></h3><p>基准测试结果的时间类型。一般选择秒、毫秒、微秒。</p>
-<h3 id="Benchmark"><a href="#Benchmark" class="headerlink" title="@Benchmark"></a><em>@Benchmark</em></h3><p>方法级注解，表示该方法是需要进行 benchmark ，用法和 JUnit 的 @Test 类似。</p>
-<h3 id="Param"><a href="#Param" class="headerlink" title="@Param"></a><em>@Param</em></h3><p>属性级注解，@Param 用来指定某项参数的多种情况。适合用来测试一个函数在不同的参数输入的情况下的性能。</p>
-<h3 id="Setup"><a href="#Setup" class="headerlink" title="@Setup"></a><em>@Setup</em></h3><p>方法级注解，需要在测试之前进行一些准备工作，比如对一些数据的初始化。</p>
-<h3 id="TearDown"><a href="#TearDown" class="headerlink" title="@TearDown"></a><em>@TearDown</em></h3><p>方法级注解，在测试之后进行一些结束工作，比如关闭线程池，数据库连接等的，主要用于资源的回收等。</p>
-<h3 id="State"><a href="#State" class="headerlink" title="@State"></a><em>@State</em></h3><p>当使用@Setup参数的时候，必须在类上加这个参数，不然会提示无法运行。</p>
-<p>State 用于声明某个类是一个“状态”，然后接受一个 Scope 参数用来表示该状态的共享范围。 很多 benchmark 会需要一些表示状态的类，JMH 允许你把这些类以依赖注入的方式注入到 benchmark 函数里。Scope 主要分为三种。</p>
-<ol>
-<li>Thread: 该状态为每个线程独享。</li>
-<li>Group: 该状态为同一个组里面所有线程共享。</li>
-<li>Benchmark: 该状态在所有线程间共享。</li>
-</ol>
-<h2 id="补充说明"><a href="#补充说明" class="headerlink" title="补充说明"></a>补充说明</h2><p>在日常的工作和学习中，常常会遇到三种类型的问题，JHM对其能很好就觉很处理。</p>
-<ul>
-<li>对方法或库的不同实现方式的性能分析测试和最后的采用取舍</li>
-<li>方法入参对方法的性能影响和限制</li>
-<li>对项目中的热点方法的优化和其优化效果的定性分析。</li>
-</ul>
-<hr>
-<h2 id="参考和来源"><a href="#参考和来源" class="headerlink" title="参考和来源"></a>参考和来源</h2><ul>
-<li><a href="https://www.xncoding.com/2018/01/07/java/jmh.html" target="_blank" rel="noopener">Java微基准测试框架JMH</a></li>
-<li><a href="http://irfen.me/java-jmh-simple-microbenchmark/" target="_blank" rel="noopener">Java使用JMH进行简单的基准测试Benchmark</a></li>
-<li><a href="http://blog.dyngr.com/blog/2016/10/29/introduction-of-jmh/" target="_blank" rel="noopener">Java 并发编程笔记：JMH 性能测试框架</a></li>
-<li><a href="http://tutorials.jenkov.com/java-performance/jmh.html" target="_blank" rel="noopener">JMH - Java Microbenchmark Harness</a></li>
-</ul>
-]]></content>
-      <categories>
-        <category>系统调优</category>
-      </categories>
-      <tags>
-        <tag>Java</tag>
-        <tag>基准测试</tag>
-        <tag>系统调优</tag>
-        <tag>JMH</tag>
-        <tag>基础</tag>
-      </tags>
-  </entry>
-  <entry>
     <title>CentOS下Nginx支持SSL协议的编译安装</title>
     <url>/2020/07/04/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Nginx-under-CentOS-installation/</url>
     <content><![CDATA[<h2 id="Nginx及其衍生的其他相关优秀开源产品"><a href="#Nginx及其衍生的其他相关优秀开源产品" class="headerlink" title="Nginx及其衍生的其他相关优秀开源产品"></a>Nginx及其衍生的其他相关优秀开源产品</h2><ul>
@@ -967,7 +967,7 @@ ss -tnlp | grep :80</code></pre>
   <entry>
     <title>支持亿级消息的IM系统模块设计和交互模型</title>
     <url>/2021/03/23/%E5%8F%8A%E6%97%B6%E9%80%9A%E8%AE%AF/%E6%94%AF%E6%8C%81%E4%BA%BF%E7%BA%A7%E7%94%A8%E6%88%B7%E7%9A%84IM%E7%B3%BB%E7%BB%9F%E6%A8%A1%E5%9D%97%E8%AE%BE%E8%AE%A1%E5%92%8C%E4%BA%A4%E4%BA%92%E6%A8%A1%E5%9E%8B/</url>
-    <content><![CDATA[<h1 id="支持亿级用户的IM系统模块设计和交互模型"><a href="#支持亿级用户的IM系统模块设计和交互模型" class="headerlink" title="支持亿级用户的IM系统模块设计和交互模型"></a>支持亿级用户的IM系统模块设计和交互模型</h1><p>​    现代实现的及时通讯系统一般由长连接和短连接配合使用进行实现，一般的实现架构即Connector和Service两个部分,分别对应长连接服务和短连接服务，<strong>长连接服务主要用于服务端对客户端的推送和新消息到达的通知</strong>，<strong>短连接服务主要用于客户端对于消息的拉取和离线(在线)消息的同步</strong>。当用户数据量增大时,其很容易就会出现以下的缺陷:</p>
+    <content><![CDATA[<h1 id="支持亿级用户的IM系统模块设计"><a href="#支持亿级用户的IM系统模块设计" class="headerlink" title="支持亿级用户的IM系统模块设计"></a>支持亿级用户的IM系统模块设计</h1><p>现代实现的及时通讯系统一般由长连接和短连接配合使用进行实现，一般的实现架构即Connector和Service两个部分,分别对应长连接服务和短连接服务，<strong>长连接服务主要用于服务端对客户端的推送和新消息到达的通知</strong>，<strong>短连接服务主要用于客户端对于消息的拉取和离线(在线)消息的同步</strong>。当用户数据量增大时,其很容易就会出现以下的缺陷:</p>
 <ul>
 <li><strong>复杂性高</strong>：每个模块服务包含的功能职责增多、模块的边界模糊、 依赖关系不清晰、 代码质量参差不齐、 混乱地堆砌在一起。</li>
 <li><strong>可靠性缺失</strong>： 某个核心服务出现问题，例如死循环、内存溢出等， 可能会导致整个系统不能正常使用。</li>
@@ -982,14 +982,81 @@ ss -tnlp | grep :80</code></pre>
 <li><strong>实时性</strong>：不管用户在哪里，在线用户消息在1秒内达到（我们实际是75%消息可以做到120ms）；</li>
 <li><strong>有序性</strong>：确保用户消息的有序性，不会出现发送和接受的乱序。</li>
 </ul>
-<p>发hi老大回复大家啊</p>
-]]></content>
+<h2 id="架构拆分"><a href="#架构拆分" class="headerlink" title="架构拆分"></a>架构拆分</h2><p>当需要满足亿级用户量的IM架构时，需要将IM服务的进行更加精细化的服务拆分</p>
+<ul>
+<li><strong>业务系统</strong>：服务及时通讯的业务逻辑</li>
+<li><strong>信令系统</strong>：负责用户登录，用户在线状态的维护，以及在线用户的下行推送</li>
+<li><strong>推送系统</strong>：负责消息的在线推送和离线推送</li>
+<li><strong>持久化系统</strong>：负责消息和文件的存储和查询</li>
+</ul>
+<h3 id="业务系统"><a href="#业务系统" class="headerlink" title="业务系统"></a><strong>业务系统</strong></h3><p>业务系统的详细来说在于<strong>专注处理IM相关的业务逻辑</strong>，主要使用短连接进行实现(HTTP协议)</p>
+<ul>
+<li>消息发送的鉴权和支持(optional)：客户端通过短连接发送消息</li>
+<li>维护用户数据：用户基本信息等</li>
+<li>维护好友关系：好友请求、好友列表、好友信息等</li>
+<li>维护群组信息：群创建、解散、成员管理等</li>
+<li>提供数据：在线消息(optional)、离线拉取、历史记录同步</li>
+<li>其它逻辑：比如通过存储和推送系统，存储消息和发送通知</li>
+</ul>
+<p>其功能和实际的架构可以根据具体的业务量和自身的系统架构进行更加细化的服务细分</p>
+<h3 id="信令系统"><a href="#信令系统" class="headerlink" title="信令系统"></a><strong>信令系统</strong></h3><p>对于IM系统来说，是最主要和最核心的需求和职责，主要维护服务端与客户端的长连接(socket)，其主要职责包含以下3个部分</p>
+<h4 id="维护用户在线状态"><a href="#维护用户在线状态" class="headerlink" title="维护用户在线状态"></a><strong>维护用户在线状态</strong></h4><p>当用户体量大时，需要建立大量的Socket连接和用户接入，为此单台机器是不能满足业务需求的，其落地和必然是集群化的服务，多台服务未用户提供连接服务。当用户A需要给用户B发送消息时,是需要知道用户B当前连接上了那个服务器上，然后通过该台服务器上的Socket连接向用户发送下行通知信息。</p>
+<h4 id="下行通知数据下发"><a href="#下行通知数据下发" class="headerlink" title="下行通知数据下发"></a><strong>下行通知数据下发</strong></h4><p>与维护用户在线状态的职责相关，当用户在线的时，如果有其它用户给他发消息，就需要走在线的系统推送，直接将新消息告知到客户端，而不是走离线推送信息。</p>
+<h4 id="业务协议内容的分发"><a href="#业务协议内容的分发" class="headerlink" title="业务协议内容的分发"></a><strong>业务协议内容的分发</strong></h4><p>信令服务不只可以处理IM请求，也可以处理其它类型的业务请求。为了处理不同的业务，就需要有分发能力。一般来说会使用Protobuf定义下发的业务协议，其中可能会包括SVID(Service Id)或是CMD(Commond)字段来标识消息数据类型，用户通过该标识能表明当前业务包的功能(eg:心跳和连接授权、QoS、消息到达、用户特权变更等)并交由业务服务进行处理。</p>
+<p>这样不管用户有多少的业务或是多少的实现表达，客户端与服务器端仅需要维护一个Socket连接。</p>
+<h4 id="信令服务的服务拆分"><a href="#信令服务的服务拆分" class="headerlink" title="信令服务的服务拆分"></a><strong>信令服务的服务拆分</strong></h4><p>信令系统为了实现以上这3个职责，同时要确保我们服务可平行扩展的能力和稳定性，在实际的技术实现上，我们实际上把信令服务分拆为3个服务模块。</p>
+<p><strong>- 连接授权和维护(Login服务)</strong></p>
+<ul>
+<li><em>主要负责维护用户长链接：</em></li>
+</ul>
+<p>客户端与服务器之间长连接的维护、长连接的连接认证、连接的心跳。用户完成业务模块的登陆操作后，会持有登陆完成后授权给用户Token或者相关凭证、Login服务会接受客户端的连接并对用户心跳包持有的Token进行验证、如果成功就将认证结果发送到Online服务，当授权验证不通过时,直接关闭该次连接。</p>
+<p>Login对并发要求比较高，一般要支持TCP+UDP+Websocket几种方式，单服务可以做到10-250万之间。从服务稳定性角度触发，建议是控制VM的CPU/内存，单服务器以20-50万为合适。</p>
+<p>Login服务器本身没有状态，任何一个Login服务断掉，客户端检测到以后重连另一个Login服务器并发送心跳包，对整体服务可靠性基本没有影响。</p>
+<p><strong>- 在线信息的维护和同步(Online服务)</strong></p>
+<ul>
+<li><em>主要负责维护用户的在线信息:</em></li>
+</ul>
+<p>当用户掉线或者根本不在线，Online服务里用户相关信息就是空</p>
+<p>当用户在线时，Online就能找到用户登录在哪个集群，哪个Login服务器上</p>
+<p>多个Login服务器会连接到Online，定期同步用户登录和离线信息，把用户状态信息存储在共有的存储服务中(Redis集群)。因此也是无状态的，任何一个Online服务挂掉，不影响整体服务能力。当集群规模不大，用户规模也不大时，Online服务也可以收到Login服务里去。</p>
+<p>当规模比较大，建议分拆出来，一方面简化Login的逻辑复杂度，同时避免写共有的存储服务的慢操作，在Login服务里。因为Login要同时处理50万以上的并发链接，不适合在循环里嵌入慢操作。</p>
+<p><strong>- 协议的解析和业务的路由(Route服务)</strong></p>
+<ul>
+<li><em>主要负责信令系统跟其它子系统的交互：</em></li>
+</ul>
+<p>Route下接Login服务，可以接受用户业务信息（IM），也可以往用户推送下行消息。多个后端业务系统可以接入到Route，按照服务类型（SVID、CMD）注册。</p>
+<p>比如IM服务可以接入到Route, 注册SVID_IM。这样Login接收到SVID=SVID_IM的消息，转发给Route，Route就可以根据SVID转发给IM相关的服务。</p>
+<p>Route简单的根据SVID做转发，不处理具体的业务逻辑，因此也是无状态的。一个信令集群可以有多个Route服务，任何服务挂了不影响整体服务能力。</p>
+<h1 id="支持亿级用户的IM系统的交互模型"><a href="#支持亿级用户的IM系统的交互模型" class="headerlink" title="支持亿级用户的IM系统的交互模型"></a>支持亿级用户的IM系统的交互模型</h1>]]></content>
       <categories>
         <category>及时通讯</category>
       </categories>
       <tags>
         <tag>及时通讯</tag>
         <tag>系统架构</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>高并发网络应用的关键-Unix系统下的五种IO模型</title>
+    <url>/2020/11/22/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Unix-IO-5-Model/</url>
+    <content><![CDATA[<p>Unix 中提供了五种 IO 模型，分别是<strong>阻塞式IO、非阻塞式IO、IO复用、信号驱动式IO、异步IO</strong>。</p>
+<p>一个IO操作通常包括两个阶段：</p>
+<ol>
+<li>等待数据准备好；</li>
+<li>从内核向进程复制数据；</li>
+</ol>
+<p>对于一个套接字上的输入操作，<strong>第一步通常涉及等待数据从网络中到达</strong>。当所等待分组到达时，它被复制到内核中的某个缓冲区。第二步就是把数据从内核缓冲区复制到应用进程缓冲区。</p>
+<p>实际应用程序在系统调用完成上面的 2 步操作时，调用方式的阻塞、非阻塞，操作系统在处理应用程序请求时，处理方式的同步、异步处理的不同，可以分为 5 种 I/O 模型。</p>
+<p>*注：recvfrom 函数(经 Socket 接收数据)，这里把它视为系统调用</p>
+<a id="more"></a>
+
+]]></content>
+      <categories>
+        <category>Unix网络编程</category>
+      </categories>
+      <tags>
+        <tag>Unix</tag>
+        <tag>IO</tag>
       </tags>
   </entry>
   <entry>
@@ -1668,29 +1735,6 @@ xsi:schemaLocation=&quot;http://maven.apache.org/POM/4.0.0http://maven.apache.or
       </categories>
       <tags>
         <tag>maven</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>高并发网络应用的关键-Unix系统下的五种IO模型</title>
-    <url>/2020/11/22/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Unix-IO-5-Model/</url>
-    <content><![CDATA[<p>Unix 中提供了五种 IO 模型，分别是<strong>阻塞式IO、非阻塞式IO、IO复用、信号驱动式IO、异步IO</strong>。</p>
-<p>一个IO操作通常包括两个阶段：</p>
-<ol>
-<li>等待数据准备好；</li>
-<li>从内核向进程复制数据；</li>
-</ol>
-<p>对于一个套接字上的输入操作，<strong>第一步通常涉及等待数据从网络中到达</strong>。当所等待分组到达时，它被复制到内核中的某个缓冲区。第二步就是把数据从内核缓冲区复制到应用进程缓冲区。</p>
-<p>实际应用程序在系统调用完成上面的 2 步操作时，调用方式的阻塞、非阻塞，操作系统在处理应用程序请求时，处理方式的同步、异步处理的不同，可以分为 5 种 I/O 模型。</p>
-<p>*注：recvfrom 函数(经 Socket 接收数据)，这里把它视为系统调用</p>
-<a id="more"></a>
-
-]]></content>
-      <categories>
-        <category>Unix网络编程</category>
-      </categories>
-      <tags>
-        <tag>Unix</tag>
-        <tag>IO</tag>
       </tags>
   </entry>
 </search>
