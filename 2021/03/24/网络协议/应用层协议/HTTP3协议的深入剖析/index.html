@@ -5,18 +5,13 @@
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
     <meta name="viewport" content="width=device-width, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>高并发网络应用的关键-Unix系统下的五种IO模型 - 王.子靖</title>
+    <title>HTTP3协议的深入剖析 - 王.子靖</title>
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="google" content="notranslate" />
     <meta name="keywords" content="Upuphub 王子靖,"> 
-    <meta name="description" content="做点记录,省的忘了,Unix 中提供了五种 IO 模型，分别是阻塞式IO、非阻塞式IO、IO复用、信号驱动式IO、异步IO。
-一个IO操作通常包括两个阶段：
-
-等待数据准备好；
-从内核向进程复制数据；
-
-对于一个套接字,"> 
+    <meta name="description" content="做点记录,省的忘了,HTTP3协议的深入剖析自2017年起HTTP3协议已发布了34个Draft，推出在即，Chrome、Nginx等软件都在跟进实现最新的草案。本文将介绍HTTP3协议规范、应用场景及实现原理。
+20,"> 
     <meta name="author" content="王.子靖"> 
     <link rel="alternative" href="atom.xml" title="王.子靖" type="application/atom+xml"> 
     <link rel="icon" href="/img/favicon.png"> 
@@ -63,7 +58,7 @@
     <div class="navigation animated fadeIn fast delay-1s">
         <img id="home-icon" class="icon-home" src="/img/favicon.png" alt="" data-url="https://github.com/iWzl">
         <div id="play-icon" title="Play/Pause" class="iconfont icon-play"></div>
-        <h3 class="subtitle">高并发网络应用的关键-Unix系统下的五种IO模型</h3>
+        <h3 class="subtitle">HTTP3协议的深入剖析</h3>
         <div class="social">
             <!--        <div class="like-icon">-->
             <!--            <a href="javascript:;" class="likeThis active"><span class="icon-like"></span><span class="count">76</span></a>-->
@@ -90,25 +85,25 @@
         <div class="else">
             <p class="animated fadeInDown">
                 
-                <a href="/categories/Unix网络编程"><b>「
-                    </b>UNIX网络编程<b> 」</b></a>
+                <a href="/categories/网络协议"><b>「
+                    </b>网络协议<b> 」</b></a>
                 
-                November 22, 2020
+                March 24, 2021
             </p>
-            <h3 class="post-title animated fadeInDown"><a href="/2020/11/22/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Unix-IO-5-Model/" title="高并发网络应用的关键-Unix系统下的五种IO模型" class="">高并发网络应用的关键-Unix系统下的五种IO模型</a>
+            <h3 class="post-title animated fadeInDown"><a href="/2021/03/24/%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE/%E5%BA%94%E7%94%A8%E5%B1%82%E5%8D%8F%E8%AE%AE/HTTP3%E5%8D%8F%E8%AE%AE%E7%9A%84%E6%B7%B1%E5%85%A5%E5%89%96%E6%9E%90/" title="HTTP3协议的深入剖析" class="">HTTP3协议的深入剖析</a>
             </h3>
             
             <p class="post-count animated fadeInDown">
                 
                 <span>
                     <b class="iconfont icon-text2"></b> <i>Words count</i>
-                    415
+                    5k
                 </span>
                 
                 
                 <span>
                     <b class="iconfont icon-timer__s"></b> <i>Reading time</i>
-                    1 mins.
+                    5 mins.
                 </span>
                 
                 
@@ -121,7 +116,7 @@
             </p>
             
             
-            <ul class="animated fadeInDown post-tags-list" itemprop="keywords"><li class="animated fadeInDown post-tags-list-item"><a class="animated fadeInDown post-tags-list-link" href="/tags/IO/" rel="tag">IO</a></li><li class="animated fadeInDown post-tags-list-item"><a class="animated fadeInDown post-tags-list-link" href="/tags/Unix/" rel="tag">Unix</a></li></ul>
+            <ul class="animated fadeInDown post-tags-list" itemprop="keywords"><li class="animated fadeInDown post-tags-list-item"><a class="animated fadeInDown post-tags-list-link" href="/tags/HTTP%E5%8D%8F%E8%AE%AE/" rel="tag">HTTP协议</a></li><li class="animated fadeInDown post-tags-list-item"><a class="animated fadeInDown post-tags-list-link" href="/tags/%E5%BA%94%E7%94%A8%E5%B1%82/" rel="tag">应用层</a></li><li class="animated fadeInDown post-tags-list-item"><a class="animated fadeInDown post-tags-list-link" href="/tags/%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE/" rel="tag">网络协议</a></li></ul>
             
         </div>
     </div>
@@ -132,7 +127,7 @@
         <div class="screen-gradient-content-inside">
             <div class="bold-underline-links screen-gradient-sponsor">
                 <p>
-                    <span class="animated fadeIn delay-1s"></span>
+                    <span class="animated fadeIn delay-1s">原文来自陶辉老师的《深入剖析HTTP3协议》,这里做一些转载和自己的记录,免得忘了</span>
                 </p>
             </div>
         </div>
@@ -142,17 +137,58 @@
 <div class="article">
     <div class='main'>
         <div class="content markdown animated fadeIn">
-            <p>Unix 中提供了五种 IO 模型，分别是<strong>阻塞式IO、非阻塞式IO、IO复用、信号驱动式IO、异步IO</strong>。</p>
-<p>一个IO操作通常包括两个阶段：</p>
+            <h1 id="HTTP3协议的深入剖析"><a href="#HTTP3协议的深入剖析" class="headerlink" title="HTTP3协议的深入剖析"></a>HTTP3协议的深入剖析</h1><p>自2017年起HTTP3协议已发布了34个Draft，推出在即，Chrome、Nginx等软件都在跟进实现最新的草案。本文将介绍HTTP3协议规范、应用场景及实现原理。</p>
+<p>2015年HTTP2协议正式推出后，已经有接近一半的互联网站点在使用它：</p>
+<p><img src="https://img.hellobyebye.com/doc/2021032412271216165600321616560032829XkbSZ6.png" alt="http2站点使用率_20200824"></p>
+<p>（图片来自<a href="https://w3techs.com/technologies/details/ce-http2）" target="_blank" rel="noopener">https://w3techs.com/technologies/details/ce-http2）</a></p>
+<p>HTTP2协议虽然大幅提升了HTTP/1.1的性能，然而，基于TCP实现的HTTP2遗留下3个问题：</p>
+<ul>
+<li>有序字节流引出的 <strong>队头阻塞</strong><a href="https://en.wikipedia.org/wiki/Head-of-line_blocking" target="_blank" rel="noopener">（Head-of-line blocking）</a>，使得HTTP2的多路复用能力大打折扣；</li>
+<li><strong>TCP与TLS叠加了握手时延</strong>，建链时长还有1倍的下降空间；</li>
+<li>基于TCP四元组确定一个连接，这种诞生于有线网络的设计，并不适合移动状态下的无线网络，这意味着<strong>IP地址的频繁变动会导致TCP连接、TLS会话反复握手</strong>，成本高昂。</li>
+</ul>
+<p>HTTP3协议解决了这些问题：</p>
+<ul>
+<li>HTTP3基于UDP协议重新定义了连接，在QUIC层实现了无序、并发字节流的传输，解决了队头阻塞问题（包括基于QPACK解决了动态表的队头阻塞）；</li>
+<li>HTTP3重新定义了TLS协议加密QUIC头部的方式，既提高了网络攻击成本，又降低了建立连接的速度（仅需1个RTT就可以同时完成建链与密钥协商）；</li>
+<li>HTTP3 将Packet、QUIC Frame、HTTP3 Frame分离，实现了连接迁移功能，降低了5G环境下高速移动设备的连接维护成本。</li>
+</ul>
+<h1 id="HTTP3协议到底是什么？"><a href="#HTTP3协议到底是什么？" class="headerlink" title="HTTP3协议到底是什么？"></a>HTTP3协议到底是什么？</h1><p>就像HTTP2协议一样，HTTP3并没有改变HTTP1的语义。那什么是HTTP语义呢？在我看来，它包括以下3个点：</p>
+<ul>
+<li>请求只能由客户端发起，而服务器针对每个请求返回一个响应；</li>
+<li>请求与响应都由Header、Body（可选）组成，其中请求必须含有URL和方法，而响应必须含有响应码；</li>
+<li>Header中各Name对应的含义保持不变。</li>
+</ul>
+<p>HTTP3在保持HTTP1语义不变的情况下，更改了编码格式，这由2个原因所致：</p>
+<p>首先，是为了减少编码长度。下图中HTTP1协议的编码使用了ASCII码，用空格、冒号以及\r\n作为分隔符，编码效率很低：</p>
+<p><img src="https://img.hellobyebye.com/doc/2021032412285116165601311616560131825jRwhn2.png" alt="HTTP协议语义"></p>
+<p>HTTP2与HTTP3采用二进制、静态表、动态表与Huffman算法对HTTP Header编码，不只提供了高压缩率，还加快了发送端编码、接收端解码的速度。</p>
+<p>其次，由于HTTP1协议不支持多路复用，这样高并发只能通过多开一些TCP连接实现。然而，通过TCP实现高并发有3个弊端：</p>
+<ul>
+<li>实现成本高。TCP是由操作系统内核实现的，如果通过多线程实现并发，并发线程数不能太多，否则线程间切换成本会以指数级上升；如果通过异步、非阻塞socket实现并发，开发效率又太低；</li>
+<li>每个TCP连接与TLS会话都叠加了2-3个RTT的建链成本；</li>
+<li>TCP连接有一个防止出现拥塞的慢启动流程，它会对每个TCP连接都产生减速效果。</li>
+</ul>
+<p>因此，HTTP2与HTTP3都在应用层实现了多路复用功能</p>
+<p><img src="https://img.hellobyebye.com/doc/2021032412294816165601881616560188614XVaK0p.png" alt="多路复用"></p>
+<p>（图片来自：<a href="https://blog.cloudflare.com/http3-the-past-present-and-future/）" target="_blank" rel="noopener">https://blog.cloudflare.com/http3-the-past-present-and-future/）</a></p>
+<p>HTTP2协议基于TCP有序字节流实现，因此<strong>应用层的多路复用并不能做到无序地并发，在丢包场景下会出现队头阻塞问题。</strong>如下面的动态图片所示，服务器返回的绿色响应由5个TCP报文组成，而黄色响应由4个TCP报文组成，当第2个黄色报文丢失后，即使客户端接收到完整的5个绿色报文，但TCP层不会允许应用进程的read函数读取到最后5个报文，并发成了一纸空谈：</p>
+<p><img src="https://img.hellobyebye.com/doc/2021032412310516165602651616560265144TQYO1C.gif" alt="阻塞队列"></p>
+<p>当网络繁忙时，丢包概率会很高，多路复用受到了很大限制。因此， <strong>HTTP3采用UDP作为传输层协议，重新实现了无序连接，并在此基础上通过有序的QUIC Stream提供了多路复用</strong> ，如下图所示：</p>
+<p><img src="https://img.hellobyebye.com/doc/2021032412320016165603201616560320171ONaX6s.png" alt="协议的调整"></p>
+<p>（图片来自：<a href="https://blog.cloudflare.com/http3-the-past-present-and-future/）" target="_blank" rel="noopener">https://blog.cloudflare.com/http3-the-past-present-and-future/）</a></p>
+<p>最早这一实验性协议由Google推出，并命名为gQUIC，因此，IETF草案中仍然保留了QUIC概念，用来描述HTTP3协议的传输层和表示层。HTTP3协议规范由以下5个部分组成：</p>
 <ol>
-<li>等待数据准备好；</li>
-<li>从内核向进程复制数据；</li>
+<li>QUIC层由<a href="https://tools.ietf.org/html/draft-ietf-quic-transport-29" target="_blank" rel="noopener">https://tools.ietf.org/html/draft-ietf-quic-transport-29</a> 描述，它定义了连接、报文的可靠传输、有序字节流的实现；</li>
+<li>TLS协议会将QUIC层的部分报文头部暴露在明文中，方便代理服务器进行路由。<a href="https://tools.ietf.org/html/draft-ietf-quic-tls-29" target="_blank" rel="noopener">https://tools.ietf.org/html/draft-ietf-quic-tls-29</a> 规范定义了QUIC与TLS的结合方式；</li>
+<li>丢包检测、RTO重传定时器预估等功能由<a href="https://tools.ietf.org/html/draft-ietf-quic-recovery-29" target="_blank" rel="noopener">https://tools.ietf.org/html/draft-ietf-quic-recovery-29</a> 定义，目前拥塞控制使用了类似TCP New RENO的算法，未来有可能更换为基于带宽检测的算法（例如BBR）；</li>
+<li>基于以上3个规范，<a href="https://tools.ietf.org/html/draft-ietf-quic-http-29" target="_blank" rel="noopener">https://tools.ietf.org/html/draft-ietf-quic-http-29</a> 定义了HTTP语义的实现，包括服务器推送、请求响应的传输等；</li>
+<li>在HTTP2中，由HPACK规范定义HTTP头部的压缩算法。由于HPACK动态表的更新具有时序性，无法满足HTTP3的要求。在HTTP3中，QPACK定义HTTP头部的编码：<a href="https://tools.ietf.org/html/draft-ietf-quic-qpack-16" target="_blank" rel="noopener">https://tools.ietf.org/html/draft-ietf-quic-qpack-16</a> 。注意，以上规范的最新草案都到了29，而QPACK相对简单，它目前更新到16。</li>
 </ol>
-<p>对于一个套接字上的输入操作，<strong>第一步通常涉及等待数据从网络中到达</strong>。当所等待分组到达时，它被复制到内核中的某个缓冲区。第二步就是把数据从内核缓冲区复制到应用进程缓冲区。</p>
-<p>实际应用程序在系统调用完成上面的 2 步操作时，调用方式的阻塞、非阻塞，操作系统在处理应用程序请求时，处理方式的同步、异步处理的不同，可以分为 5 种 I/O 模型。</p>
-<p>*注：recvfrom 函数(经 Socket 接收数据)，这里把它视为系统调用</p>
-<a id="more"></a>
-
+<p>自1991年诞生的HTTP/0.9协议已不再使用， <strong>但1996推出的HTTP/1.0、1999年推出的HTTP/1.1、2015年推出的HTTP2协议仍然共存于互联网中（HTTP/1.0在企业内网中还在广为使用，例如Nginx与上游的默认协议还是1.0版本），即将面世的HTTP3协议的加入，将会进一步增加协议适配的复杂度</strong> 。</p>
+<h1 id="文章来源和引用说明"><a href="#文章来源和引用说明" class="headerlink" title="文章来源和引用说明"></a>文章来源和引用说明</h1><blockquote>
+<p><strong>本文作者：</strong> 陶辉<br><strong>本文链接：</strong> <a href="https://www.taohui.tech/2021/02/04/网络协议/深入剖析HTTP3协议/" target="_blank" rel="noopener">https://www.taohui.tech/2021/02/04/网络协议/深入剖析HTTP3协议/</a></p>
+</blockquote>
 
             <!--[if lt IE 9]><script>document.createElement('audio');</script><![endif]-->
             <audio id="audio" loop="1" preload="auto" controls="controls"
@@ -168,13 +204,9 @@
             <div class="post-nav">
                 <hr>
                 
-                    <div class="post-nav-item">Previous Post:<a href="/2021/03/23/%E5%8F%8A%E6%97%B6%E9%80%9A%E8%AE%AF/IM%E7%B3%BB%E7%BB%9F%E7%9A%84%E5%8F%AF%E9%9D%A0%E6%80%A7%E4%BF%9D%E9%9A%9C%E6%96%B9%E6%A1%88%E8%AE%BE%E8%AE%A1/" rel="prev" 
-                        title="IM系统的可靠性保障方案设计">IM系统的可靠性保障方案设计
-                      </a></div>
                 
-                
-                    <div class="post-nav-item">Next Post:<a href="/2020/11/13/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Maven-XML-Details/" rel="next" 
-                        title="Maven项目管理详细">Maven项目管理详细</a></div>
+                    <div class="post-nav-item">Next Post:<a href="/2021/03/23/%E5%8F%8A%E6%97%B6%E9%80%9A%E8%AE%AF/%E6%94%AF%E6%8C%81%E4%BA%BF%E7%BA%A7%E7%94%A8%E6%88%B7%E7%9A%84IM%E7%B3%BB%E7%BB%9F%E6%A8%A1%E5%9D%97%E8%AE%BE%E8%AE%A1/" rel="next" 
+                        title="支持亿级消息的IM系统模块设计">支持亿级消息的IM系统模块设计</a></div>
                                 
             </div>   
                         
@@ -204,6 +236,13 @@
             </div>
             
             
+            
+            <div class="box sticky animated fadeInRight faster">
+                <div id="toc" class="subbox">
+                    <h4>Contents</h4>
+                    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#HTTP3协议的深入剖析"><span class="toc-number">1.</span> <span class="toc-text">HTTP3协议的深入剖析</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#HTTP3协议到底是什么？"><span class="toc-number">2.</span> <span class="toc-text">HTTP3协议到底是什么？</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#文章来源和引用说明"><span class="toc-number">3.</span> <span class="toc-text">文章来源和引用说明</span></a></li></ol>
+                </div>
+            </div>
             
             
         </div>
