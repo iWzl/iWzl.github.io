@@ -1,233 +1,114 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
-    <title>Java Microbenchmark Harness微基准测试基础</title>
-    <url>/2020/07/07/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Java-Microbenchmark-Harness-Basic/</url>
+    <title>Java Microbenchmark Harness微基准测试陷阱</title>
+    <url>/2020/07/09/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Java-Microbenchmark-Harness-Test-Trap/</url>
     <content><![CDATA[<blockquote>
-<p><strong>If you cannot measure it, you cannot improve it.    –Lord Kelvin</strong></p>
+<p><strong>天下之事，闻者不如见者知之为详，见者不如居者知之为尽。——宋-陆游</strong></p>
+<p><strong>你要知道梨子的滋味，就要亲口尝一下。——毛泽东</strong></p>
 </blockquote>
-<p><a href="http://openjdk.java.net/projects/code-tools/jmh/" target="_blank" rel="noopener">Java Microbenchmark Harness</a> 是专门进行代码的微基准测试的一套工具API。 为应用提供了数据支持，是评价和比较方法好坏的基准。一般说JMH，是在 <strong>Method 层面上的 Benchmark</strong>，精度可以精确到微秒级。以下记录JMH的使用和相关基础，便于之后查找和学习。</p>
-<p>Benchmark 作为应用框架，产品的基准画像，存在统一的标准，避免了不同测评对象自说自话的尴尬，应用框架各自使用有利于自身场景的测评方式必然不可取。</p>
+<p>俗话说，没有实践就没有发言权，自己实践才能知之为尽，Benchmark 为应用提供了数据支持，是评价和比较方法好坏的基准，Benchmark 的准确性，多样性便显得尤为重要。JMH为Java方法的基准水平提供了很好的量化标准，也为剖析系统性能和技术选型提供的更为有效切可靠的实现手段。</p>
+<p>以下记录在使用Java Microbenchmark Harness做微基准测试容易遇见的误区和相关陷阱，便于之后的查找和说明。</p>
 <a id="more"></a>
 
-<h2 id="Hello-JHM"><a href="#Hello-JHM" class="headerlink" title="Hello JHM"></a>Hello JHM</h2><h3 id="Maven依赖"><a href="#Maven依赖" class="headerlink" title="Maven依赖"></a>Maven依赖</h3><p>在项目中使用Maven,只需要添加如下依赖：</p>
-<pre><code class="xml">&lt;!-- JMH--&gt;
-&lt;dependency&gt;
-    &lt;groupId&gt;org.openjdk.jmh&lt;/groupId&gt;
-    &lt;artifactId&gt;jmh-core&lt;/artifactId&gt;
-    &lt;version&gt;${jmh.version}&lt;/version&gt;
-&lt;/dependency&gt;
-&lt;dependency&gt;
-    &lt;groupId&gt;org.openjdk.jmh&lt;/groupId&gt;
-    &lt;artifactId&gt;jmh-generator-annprocess&lt;/artifactId&gt;
-    &lt;version&gt;${jmh.version}&lt;/version&gt;
-    &lt;scope&gt;provided&lt;/scope&gt;
-&lt;/dependency&gt;</code></pre>
-<h3 id="性能测试设计"><a href="#性能测试设计" class="headerlink" title="性能测试设计"></a>性能测试设计</h3><p>测试比较Spring和StringBuilder的完成字符串拼接的性能</p>
-<pre><code class="java">/**
- * 比较字符串直接相加和StringBuilder的效率
- *
- * @author Leo Wang
- * @version 1.0
- * @date 2020/7/7 16:44
- */
-@BenchmarkMode(Mode.Throughput)
-@Warmup(iterations = 1,time = 1, timeUnit = TimeUnit.SECONDS)
-@Measurement(iterations = 10,time = 10,timeUnit = TimeUnit.SECONDS)
-@Threads(8)
-@Fork(2)
-@OutputTimeUnit(TimeUnit.MILLISECONDS)
-@State(Scope.Thread)
-public class StringBuilderBenchmark {
+<h2 id="代码预热"><a href="#代码预热" class="headerlink" title="代码预热"></a>代码预热</h2><blockquote>
+<p><strong>Warmup = waiting for the transient responses to settle down</strong></p>
+</blockquote>
+<p>随着JVM虚拟机的优化，JIT的存在，代码的执行往往前期执行结果没有后期的执行结果好。 <code>Benchmark</code> 产生更可靠的结果的原因是，它只度量稳定状态下<code>方法任务</code>的执行时间，而不理会最初的性能。大多数 Java 实现具有复杂的性能生命周期。一般来说，最初的性能往往相当低，然后性能显著提高（常常出现几次性能跃升），直到到达稳定状态。</p>
+<h3 id="类装载"><a href="#类装载" class="headerlink" title="类装载"></a>类装载</h3><p>JVM 通常只在类的第一次使用类时装载它们。所以,方法任务的第一次执行时间包含装载它使用的所有类的时间（如果这些类还没有装载的话）。因为类装载往往涉及磁盘 I/O、解析和检验，这会显著增加<code>方法任务</code>的第一次执行时间。<strong>常常</strong>可以通过多次执行<code>方法任务</code>来消除这种影响。</p>
+<blockquote>
+<p>PS:  <strong>常常</strong>而不是<strong>总是</strong>，这是因为 <code>方法任务</code> 可能具有复杂的分支行为，这可能导致它在任何给定的执行过程中并不使用所有可能用到的类。幸运的是，如果执行任务足够多次，就可能经历所有分支，因此很快就会装载所有相关类）。</p>
+</blockquote>
+<p>如果使用定制的类装载器，就有另一个问题：JVM 可能认为一些类已经成了垃圾，因此决定卸载它。这不太可能严重影响性能，但是仍然会使基准测试结果产生偏差。</p>
+<h3 id="混合模式"><a href="#混合模式" class="headerlink" title="混合模式"></a>混合模式</h3><p>在执行即时（Just-in-time，JIT）编译之前，现代的 JVM 通常会运行代码一段时间（常常是纯解释式运行），从而收集剖析信息。这对基准测试的影响在于，任务可能需要执行许多次，才能达到稳定状态。</p>
+<p>一般来说对稳定状态下的基准测试至少需要以下步骤：</p>
+<ol>
+<li>执行 <code>方法任务</code> 一次，以便装载所有类。</li>
+<li>执行 <code>方法任务</code> 足够多次，以确保出现稳定状态的执行数据。</li>
+</ol>
+<h2 id="陷阱一-死码消除"><a href="#陷阱一-死码消除" class="headerlink" title="陷阱一: 死码消除"></a>陷阱一: 死码消除</h2><p><a href="[https://zh.wikipedia.org/zh-cn/%E6%AD%BB%E7%A2%BC%E5%88%AA%E9%99%A4](https://zh.wikipedia.org/zh-cn/死碼刪除)">死码消除</a>(Dead code elimination）是一种编译最优化技术,在某些情况下，编译器可以判断出某些代码根本不影响输出，所以编译器会消除这些代码,例如注释的代码，不可达的代码块，可达但不被使用的代码，会被判断为死码而在Javac的时候被消除。</p>
+<pre><code class="java">public class ErrorBenchmark {
+    private double PI = Math.PI;
+
     @Benchmark
-    public void testStringAdd() {
-        String a = &quot;&quot;;
-        for (int i = 0; i &lt; 10; i++) {
-            a += i;
-        }
-        print(a);
+    public void benchmarkNothing(){
+        // 19873732.412 ± 6783114.266  ops/ms
+        //do nothing 
     }
 
     @Benchmark
-    public void testStringBuilderAdd() {
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i &lt; 10; i++) {
-            sb.append(i);
-        }
-        print(sb.toString());
+    public void benchmarkWrong(){
+        //  20988076.131 ± 7282548.202  ops/ms
+        Math.log(PI);  // DCE 会被判断为死码而被消除
     }
 
-    private void print(String a) {
-    }</code></pre>
-<h3 id="性能测试执行"><a href="#性能测试执行" class="headerlink" title="性能测试执行"></a>性能测试执行</h3><p>对于JMH来说，其执行方式主要有两种</p>
-<h4 id="直接IDE运行"><a href="#直接IDE运行" class="headerlink" title="直接IDE运行"></a>直接IDE运行</h4><p>对于体量小的测试，可以直接在IDE中完成相关的测试。如上的测试来说，可以直接运行，然后查看相关结果，执行的结果的Main函数如下，创建<em>Options</em>对象，传入需要执行的测试和测试报告的输出地址。直接执行Main方法</p>
-<pre><code class="java">    public static void main(String[] args) throws RunnerException {
-        String userDirPath = System.getProperty(&quot;user.dir&quot;);
-        String benchmarkLogPath = String.format(&quot;%s/%s&quot;,userDirPath,&quot;/StringBenchmark.log&quot;);
-        Options options = new OptionsBuilder()
-                .include(StringBuilderBenchmark.class.getSimpleName())
-                .output(benchmarkLogPath)
-                .build();
-        new Runner(options).run();
-    }</code></pre>
-<p>在使用IDE进行测试时，需要注意不能使用<strong>Dubug</strong>模式启动，否则不能正常完成测试。</p>
-<h4 id="打包成Jar-其他机器上执行"><a href="#打包成Jar-其他机器上执行" class="headerlink" title="打包成Jar,其他机器上执行"></a>打包成Jar,其他机器上执行</h4><p>一般对于大型的测试，需要测试时间比较久，线程比较多，就需要去写好了丢到远端的Linux系统环境中里执行， 不然会在本机执行很久并且需要的性能需求可能达不到测试需求。</p>
-<pre><code class="bash">mvn clean package
-java -jar StringBuilderBenchmark.jar</code></pre>
-<h3 id="测试结果"><a href="#测试结果" class="headerlink" title="测试结果"></a>测试结果</h3><p>当正常跑完项目测试以后，JHM会在指定的文件夹下输出一下的测试结果</p>
-<pre><code class="shell"># JMH version: 1.23
-# VM version: JDK 1.8.0_251, Java HotSpot(TM) 64-Bit Server VM, 25.251-b08
-# VM invoker: /Library/Java/JavaVirtualMachines/jdk1.8.0_251.jdk/Contents/Home/jre/bin/java
-# VM options: -javaagent:/Applications/IntelliJ IDEA.app/Contents/lib/idea_rt.jar=63118:/Applications/IntelliJ IDEA.app/Contents/bin -Dfile.encoding=UTF-8
-# Warmup: 1 iterations, 1 s each
-# Measurement: 10 iterations, 10 s each
-# Timeout: 10 min per iteration
-# Threads: 8 threads, will synchronize iterations
-# Benchmark mode: Throughput, ops/time
-# Benchmark: com.upuphub.lake.skylake.benchmark.StringBuilderBenchmark.testStringAdd
+    @Benchmark
+    public double benchmarkRight(){
+       // 306740.041 ±   52692.696  ops/ms
+        return Math.log(PI);
+    }
 
-# Run progress: 0.00% complete, ETA 00:06:44
-# Fork: 1 of 2
-# Warmup Iteration   1: 9014.340 ops/ms
-Iteration   1: 21302.297 ops/ms
-Iteration   2: 21807.763 ops/ms
-Iteration   3: 21812.419 ops/ms
-Iteration   4: 21840.912 ops/ms
-Iteration   5: 21985.020 ops/ms
-Iteration   6: 22066.751 ops/ms
-Iteration   7: 22006.021 ops/ms
-Iteration   8: 19239.509 ops/ms
-Iteration   9: 10515.274 ops/ms
-Iteration  10: 11758.987 ops/ms
+}</code></pre>
+<p>在做测试时，需要注意方法会不会有死码的存在，否者可能会带来一些不合理的测试结果和意外。对于会被判断为死码但又需要进行执行测试方法来说，可以想办法去除孤立的方法执行，例如增加方法返回值，或者使用JMH的提供的API<strong>Blackhole</strong>。</p>
+<pre><code class="java">@Benchmark
+public void benchmarkRight(Blackhole bh) {
+    bh.consume(Math.log(PI));
+}</code></pre>
+<h2 id="陷阱二：常量折叠与常量传播"><a href="#陷阱二：常量折叠与常量传播" class="headerlink" title="陷阱二：常量折叠与常量传播"></a>陷阱二：常量折叠与常量传播</h2><p><a href="[https://zh.wikipedia.org/wiki/%E5%B8%B8%E6%95%B8%E6%8A%98%E7%96%8A#%E5%B8%B8%E6%95%B8%E5%82%B3%E6%92%AD](https://zh.wikipedia.org/wiki/常數折疊#常數傳播)">常数折叠</a>（Constant folding）以及常数传播（constant propagation）都是<a href="https://zh.wikipedia.org/w/index.php?title=編譯器最佳化&action=edit&redlink=1" target="_blank" rel="noopener">编译器最佳化</a>技术。是一个在编译时期简化常数的一个过程。常数在表示式中仅仅代表一个简单的数值，就算一个变数从未被修改也可作为常数，或者直接将一个变数被明确地被标注为常数。</p>
+<pre><code class="java">long number = 2 * 600 * 200;</code></pre>
+<p>多数的现代编译器不会真的产生两个乘法的指令再将结果储存下来，取而代之的，他们会辨识出语句的结构，并在编译时期将数值直接计算出来。常数折叠的时机取决于编译器，有的在编译前期完成，有的在较后期进行。</p>
+<pre><code class="java">private double x = Math.PI;
 
-# Run progress: 25.00% complete, ETA 00:05:21
-# Fork: 2 of 2
-# Warmup Iteration   1: 5273.829 ops/ms
-Iteration   1: 18880.356 ops/ms
-Iteration   2: 22225.847 ops/ms
-Iteration   3: 22017.665 ops/ms
-Iteration   4: 22036.969 ops/ms
-Iteration   5: 22080.422 ops/ms
-Iteration   6: 22262.118 ops/ms
-Iteration   7: 22153.187 ops/ms
-Iteration   8: 22105.884 ops/ms
-Iteration   9: 21613.504 ops/ms
-Iteration  10: 22029.923 ops/ms
+// 编译器会对 final 变量特殊处理 
+private final double wrongX = Math.PI;
 
+@Benchmark
+public double baseline() {
+    // 2.220 ± 0.352 ns/op
+    return Math.PI;
+}
 
-Result &quot;com.upuphub.lake.skylake.benchmark.StringBuilderBenchmark.testStringAdd&quot;:
-  20587.041 ±(99.9%) 2921.754 ops/ms [Average]
-  (min, avg, max) = (10515.274, 20587.041, 22262.118), stdev = 3364.697
-  CI (99.9%): [17665.287, 23508.796] (assumes normal distribution)
+@Benchmark
+public double measureWrong_1() { 
+    // 2.220 ± 0.352 ns/op
+    // 错误，结果可以被预测，会发生常量折叠
+    return Math.log(Math.PI);
+}
 
+@Benchmark
+public double measureWrong_2() { 
+    // 2.220 ± 0.352 ns/op
+    // 错误，结果可以被预测，会发生常量折叠
+    return Math.log(wrongX);
+}
 
-# JMH version: 1.23
-# VM version: JDK 1.8.0_251, Java HotSpot(TM) 64-Bit Server VM, 25.251-b08
-# VM invoker: /Library/Java/JavaVirtualMachines/jdk1.8.0_251.jdk/Contents/Home/jre/bin/java
-# VM options: -javaagent:/Applications/IntelliJ IDEA.app/Contents/lib/idea_rt.jar=63118:/Applications/IntelliJ IDEA.app/Contents/bin -Dfile.encoding=UTF-8
-# Warmup: 1 iterations, 1 s each
-# Measurement: 10 iterations, 10 s each
-# Timeout: 10 min per iteration
-# Threads: 8 threads, will synchronize iterations
-# Benchmark mode: Throughput, ops/time
-# Benchmark: com.upuphub.lake.skylake.benchmark.StringBuilderBenchmark.testStringBuilderAdd
-
-# Run progress: 50.00% complete, ETA 00:03:34
-# Fork: 1 of 2
-# Warmup Iteration   1: 50084.373 ops/ms
-Iteration   1: 67510.457 ops/ms
-Iteration   2: 42202.643 ops/ms
-Iteration   3: 41633.858 ops/ms
-Iteration   4: 43352.405 ops/ms
-Iteration   5: 43748.063 ops/ms
-Iteration   6: 45176.476 ops/ms
-Iteration   7: 44649.922 ops/ms
-Iteration   8: 40872.340 ops/ms
-Iteration   9: 40520.724 ops/ms
-Iteration  10: 38853.095 ops/ms
-
-# Run progress: 75.00% complete, ETA 00:01:47
-# Fork: 2 of 2
-# Warmup Iteration   1: 45279.748 ops/ms
-Iteration   1: 71985.226 ops/ms
-Iteration   2: 43291.826 ops/ms
-Iteration   3: 44149.181 ops/ms
-Iteration   4: 43297.043 ops/ms
-Iteration   5: 40614.460 ops/ms
-Iteration   6: 40444.594 ops/ms
-Iteration   7: 40912.490 ops/ms
-Iteration   8: 41428.454 ops/ms
-Iteration   9: 43022.557 ops/ms
-Iteration  10: 43368.455 ops/ms
-
-
-Result &quot;com.upuphub.lake.skylake.benchmark.StringBuilderBenchmark.testStringBuilderAdd&quot;:
-  45051.713 ±(99.9%) 7496.158 ops/ms [Average]
-  (min, avg, max) = (38853.095, 45051.713, 71985.226), stdev = 8632.587
-  CI (99.9%): [37555.555, 52547.872] (assumes normal distribution)
-
-
-# Run complete. Total time: 00:07:08
-
-REMEMBER: The numbers below are just data. To gain reusable insights, you need to follow up on
-why the numbers are the way they are. Use profilers (see -prof, -lprof), design factorial
-experiments, perform baseline and negative tests that provide experimental control, make sure
-the benchmarking environment is safe on JVM/OS/HW level, ask for reviews from the domain experts.
-Do not assume the numbers tell you what you want them to tell.
-
-Benchmark                                     Mode  Cnt      Score      Error   Units
-StringBuilderBenchmark.testStringAdd         thrpt   20  20587.041 ± 2921.754  ops/ms
-StringBuilderBenchmark.testStringBuilderAdd  thrpt   20  45051.713 ± 7496.158  ops/ms</code></pre>
-<p>整个测试报告由三个部分组成，首先分别是<strong>testStringAdd</strong>的测试结果然后是<strong>testStringBuilderAdd</strong>的测试结果，最后时两个测试结果之间的结果汇总和对应的比较。前两个部分的结果是类似的，会列出测试环境的一些基本信息，包括JHM的版本、虚拟机版本和相关一些配置等的信息以及测试的一些配置和设置，然后就是预热迭代执行（Warmup Iteration）， 然后是正常的迭代执行（Iteration），最后是结果（Result）的信息输出。一般来说最关注第三部分，也就是汇总结果。</p>
-<blockquote>
-<p>Tips: 对于汇总结果部分的输出,Error是没有数据的，这里是Score过长挤过去的</p>
-</blockquote>
-<p>可以看出StringBuilder在做字符串拼接的速度比String的直接评价速度好两倍以上。</p>
-<h2 id="JHM的注解和功能"><a href="#JHM的注解和功能" class="headerlink" title="JHM的注解和功能"></a>JHM的注解和功能</h2><h3 id="BenchmarkMode"><a href="#BenchmarkMode" class="headerlink" title="@BenchmarkMode"></a><em>@BenchmarkMode</em></h3><p>基准测试类型。这里选择的是Throughput也就是吞吐量。吞吐量会得到单位时间内可以进行的操作数。</p>
-<ul>
-<li>Throughput: 整体吞吐量，例如“1秒内可以执行多少次调用”。</li>
-<li>AverageTime: 调用的平均时间，例如“每次调用平均耗时xxx毫秒”。</li>
-<li>SampleTime: 随机取样，最后输出取样结果的分布，例如“99%的调用在xxx毫秒以内，99.99%的调用在xxx毫秒以内”</li>
-<li>SingleShotTime: 以上模式都是默认一次 iteration 是 1s，唯有 SingleShotTime 是只运行一次。往往同时把 warmup 次数设为0，用于测试冷启动时的性能。</li>
-<li>All(“all”, “All benchmark modes”): 执行所有模式。</li>
-</ul>
-<h3 id="Warmup"><a href="#Warmup" class="headerlink" title="@Warmup"></a><em>@Warmup</em></h3><p>在进行基准测试前需要进行预热。一般前几次进行程序测试的时候都会比较慢， 所以要让程序进行几轮预热，保证测试的准确性。其中的参数iterations就是预热轮数。</p>
-<blockquote>
-<p>Tips: 因为 JVM 的 JIT 机制的存在，如果某个函数被调用多次之后，JVM 会尝试将其编译成为机器码从而提高执行速度。所以为了让 benchmark 的结果更加接近真实情况就需要进行预热</p>
-</blockquote>
-<h3 id="Measurement"><a href="#Measurement" class="headerlink" title="@Measurement"></a><em>@Measurement</em></h3><p>度量，一些基本的测试参数。</p>
-<ol>
-<li>iterations 进行测试的轮次</li>
-<li>time 每轮进行的时长</li>
-<li>timeUnit 时长单位</li>
-</ol>
-<p>可以根据具体情况调整。一般比较重的东西可以进行大量的测试，放到服务器上运行。</p>
-<h3 id="Threads"><a href="#Threads" class="headerlink" title="@Threads"></a><em>@Threads</em></h3><p>每个进程中的测试线程，根据具体情况选择，一般为cpu乘以2。</p>
-<h3 id="Fork"><a href="#Fork" class="headerlink" title="@Fork"></a><em>@Fork</em></h3><p>进行 fork 的次数。如果 fork 数是2的话，则 JMH 会 fork 出两个进程来进行测试。</p>
-<h3 id="OutputTimeUnit"><a href="#OutputTimeUnit" class="headerlink" title="@OutputTimeUnit"></a><em>@OutputTimeUnit</em></h3><p>基准测试结果的时间类型。一般选择秒、毫秒、微秒。</p>
-<h3 id="Benchmark"><a href="#Benchmark" class="headerlink" title="@Benchmark"></a><em>@Benchmark</em></h3><p>方法级注解，表示该方法是需要进行 benchmark ，用法和 JUnit 的 @Test 类似。</p>
-<h3 id="Param"><a href="#Param" class="headerlink" title="@Param"></a><em>@Param</em></h3><p>属性级注解，@Param 用来指定某项参数的多种情况。适合用来测试一个函数在不同的参数输入的情况下的性能。</p>
-<h3 id="Setup"><a href="#Setup" class="headerlink" title="@Setup"></a><em>@Setup</em></h3><p>方法级注解，需要在测试之前进行一些准备工作，比如对一些数据的初始化。</p>
-<h3 id="TearDown"><a href="#TearDown" class="headerlink" title="@TearDown"></a><em>@TearDown</em></h3><p>方法级注解，在测试之后进行一些结束工作，比如关闭线程池，数据库连接等的，主要用于资源的回收等。</p>
-<h3 id="State"><a href="#State" class="headerlink" title="@State"></a><em>@State</em></h3><p>当使用@Setup参数的时候，必须在类上加这个参数，不然会提示无法运行。</p>
-<p>State 用于声明某个类是一个“状态”，然后接受一个 Scope 参数用来表示该状态的共享范围。 很多 benchmark 会需要一些表示状态的类，JMH 允许你把这些类以依赖注入的方式注入到 benchmark 函数里。Scope 主要分为三种。</p>
-<ol>
-<li>Thread: 该状态为每个线程独享。</li>
-<li>Group: 该状态为同一个组里面所有线程共享。</li>
-<li>Benchmark: 该状态在所有线程间共享。</li>
-</ol>
-<h2 id="补充说明"><a href="#补充说明" class="headerlink" title="补充说明"></a>补充说明</h2><p>在日常的工作和学习中，常常会遇到三种类型的问题，JHM对其能很好就觉很处理。</p>
-<ul>
-<li>对方法或库的不同实现方式的性能分析测试和最后的采用取舍</li>
-<li>方法入参对方法的性能影响和限制</li>
-<li>对项目中的热点方法的优化和其优化效果的定性分析。</li>
-</ul>
+@Benchmark
+public double measureRight() { 
+    // 22.590 ± 2.636  ns/op
+    return Math.log(x);
+}</code></pre>
+<p>由于发生了常量折叠，相同实现下的执行销量完全不同，这个测试在一定程度上说明了final的定义对于方法执行结果的影响。</p>
+<p>此外<strong>常数传播 (</strong>Constant propagation<strong>)</strong> 是一个替代表示式中已知常数的过程，也是在编译时期进行，包含前述所定义，内建函数也适用于常数。</p>
+<pre><code class="java">int x = 520;
+int y = 260 - 520 / 2;
+return y * (1314 / x + 2);</code></pre>
+<p>传播可以理解变量的替换，如果进行持续传播，上式则可写成如下</p>
+<pre><code class="java">int x = 14;
+int y = 0;
+return 0;</code></pre>
+<h2 id="陷阱三：不要在测试中写循环"><a href="#陷阱三：不要在测试中写循环" class="headerlink" title="陷阱三：不要在测试中写循环"></a>陷阱三：不要在测试中写循环</h2><h2 id="为什么要使用JMH"><a href="#为什么要使用JMH" class="headerlink" title="为什么要使用JMH"></a>为什么要使用JMH</h2><p>对于传统的接口调用测试，可能会使用以下的方式测试</p>
+<pre><code class="java">long startTime = System.currentTimeMillis();
+benchmarkTestMethod();
+System.out.println(System.currentTimeMillis()-startTime);</code></pre>
+<p>而JMH则使用</p>
+<pre><code class="java">@Benchmark
+public void benchmarkTestMethod(){
+  // do 
+}</code></pre>
 <hr>
-<h2 id="参考和来源"><a href="#参考和来源" class="headerlink" title="参考和来源"></a>参考和来源</h2><ul>
-<li><a href="https://www.xncoding.com/2018/01/07/java/jmh.html" target="_blank" rel="noopener">Java微基准测试框架JMH</a></li>
-<li><a href="http://irfen.me/java-jmh-simple-microbenchmark/" target="_blank" rel="noopener">Java使用JMH进行简单的基准测试Benchmark</a></li>
-<li><a href="http://blog.dyngr.com/blog/2016/10/29/introduction-of-jmh/" target="_blank" rel="noopener">Java 并发编程笔记：JMH 性能测试框架</a></li>
-<li><a href="http://tutorials.jenkov.com/java-performance/jmh.html" target="_blank" rel="noopener">JMH - Java Microbenchmark Harness</a></li>
+<h2 id="参考和引用"><a href="#参考和引用" class="headerlink" title="参考和引用"></a>参考和引用</h2><ul>
+<li><a href="https://www.ibm.com/developerworks/cn/java/j-benchmark1.html" target="_blank" rel="noopener">IBM Developer Java 代码基准测试的问题</a></li>
+<li><a href="https://www.cnkirito.moe/java-jmh/" target="_blank" rel="noopener">JAVA 拾遗 — JMH 与 8 个测试陷阱</a></li>
 </ul>
 ]]></content>
       <categories>
@@ -236,9 +117,9 @@ StringBuilderBenchmark.testStringBuilderAdd  thrpt   20  45051.713 ± 7496.158  
       <tags>
         <tag>Java</tag>
         <tag>基准测试</tag>
-        <tag>JMH</tag>
         <tag>系统调优</tag>
-        <tag>基础</tag>
+        <tag>误区和陷阱</tag>
+        <tag>JMH</tag>
       </tags>
   </entry>
   <entry>
@@ -378,128 +259,6 @@ sed -i &#39;s/http:\/\/www.google.com/https:\/\/www.baidu.com/g&#39; default.jso
         <tag>Liunx</tag>
         <tag>Jenkins</tag>
         <tag>CentOS</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>Java Microbenchmark Harness微基准测试陷阱</title>
-    <url>/2020/07/09/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Java-Microbenchmark-Harness-Test-Trap/</url>
-    <content><![CDATA[<blockquote>
-<p><strong>天下之事，闻者不如见者知之为详，见者不如居者知之为尽。——宋-陆游</strong></p>
-<p><strong>你要知道梨子的滋味，就要亲口尝一下。——毛泽东</strong></p>
-</blockquote>
-<p>俗话说，没有实践就没有发言权，自己实践才能知之为尽，Benchmark 为应用提供了数据支持，是评价和比较方法好坏的基准，Benchmark 的准确性，多样性便显得尤为重要。JMH为Java方法的基准水平提供了很好的量化标准，也为剖析系统性能和技术选型提供的更为有效切可靠的实现手段。</p>
-<p>以下记录在使用Java Microbenchmark Harness做微基准测试容易遇见的误区和相关陷阱，便于之后的查找和说明。</p>
-<a id="more"></a>
-
-<h2 id="代码预热"><a href="#代码预热" class="headerlink" title="代码预热"></a>代码预热</h2><blockquote>
-<p><strong>Warmup = waiting for the transient responses to settle down</strong></p>
-</blockquote>
-<p>随着JVM虚拟机的优化，JIT的存在，代码的执行往往前期执行结果没有后期的执行结果好。 <code>Benchmark</code> 产生更可靠的结果的原因是，它只度量稳定状态下<code>方法任务</code>的执行时间，而不理会最初的性能。大多数 Java 实现具有复杂的性能生命周期。一般来说，最初的性能往往相当低，然后性能显著提高（常常出现几次性能跃升），直到到达稳定状态。</p>
-<h3 id="类装载"><a href="#类装载" class="headerlink" title="类装载"></a>类装载</h3><p>JVM 通常只在类的第一次使用类时装载它们。所以,方法任务的第一次执行时间包含装载它使用的所有类的时间（如果这些类还没有装载的话）。因为类装载往往涉及磁盘 I/O、解析和检验，这会显著增加<code>方法任务</code>的第一次执行时间。<strong>常常</strong>可以通过多次执行<code>方法任务</code>来消除这种影响。</p>
-<blockquote>
-<p>PS:  <strong>常常</strong>而不是<strong>总是</strong>，这是因为 <code>方法任务</code> 可能具有复杂的分支行为，这可能导致它在任何给定的执行过程中并不使用所有可能用到的类。幸运的是，如果执行任务足够多次，就可能经历所有分支，因此很快就会装载所有相关类）。</p>
-</blockquote>
-<p>如果使用定制的类装载器，就有另一个问题：JVM 可能认为一些类已经成了垃圾，因此决定卸载它。这不太可能严重影响性能，但是仍然会使基准测试结果产生偏差。</p>
-<h3 id="混合模式"><a href="#混合模式" class="headerlink" title="混合模式"></a>混合模式</h3><p>在执行即时（Just-in-time，JIT）编译之前，现代的 JVM 通常会运行代码一段时间（常常是纯解释式运行），从而收集剖析信息。这对基准测试的影响在于，任务可能需要执行许多次，才能达到稳定状态。</p>
-<p>一般来说对稳定状态下的基准测试至少需要以下步骤：</p>
-<ol>
-<li>执行 <code>方法任务</code> 一次，以便装载所有类。</li>
-<li>执行 <code>方法任务</code> 足够多次，以确保出现稳定状态的执行数据。</li>
-</ol>
-<h2 id="陷阱一-死码消除"><a href="#陷阱一-死码消除" class="headerlink" title="陷阱一: 死码消除"></a>陷阱一: 死码消除</h2><p><a href="[https://zh.wikipedia.org/zh-cn/%E6%AD%BB%E7%A2%BC%E5%88%AA%E9%99%A4](https://zh.wikipedia.org/zh-cn/死碼刪除)">死码消除</a>(Dead code elimination）是一种编译最优化技术,在某些情况下，编译器可以判断出某些代码根本不影响输出，所以编译器会消除这些代码,例如注释的代码，不可达的代码块，可达但不被使用的代码，会被判断为死码而在Javac的时候被消除。</p>
-<pre><code class="java">public class ErrorBenchmark {
-    private double PI = Math.PI;
-
-    @Benchmark
-    public void benchmarkNothing(){
-        // 19873732.412 ± 6783114.266  ops/ms
-        //do nothing 
-    }
-
-    @Benchmark
-    public void benchmarkWrong(){
-        //  20988076.131 ± 7282548.202  ops/ms
-        Math.log(PI);  // DCE 会被判断为死码而被消除
-    }
-
-    @Benchmark
-    public double benchmarkRight(){
-       // 306740.041 ±   52692.696  ops/ms
-        return Math.log(PI);
-    }
-
-}</code></pre>
-<p>在做测试时，需要注意方法会不会有死码的存在，否者可能会带来一些不合理的测试结果和意外。对于会被判断为死码但又需要进行执行测试方法来说，可以想办法去除孤立的方法执行，例如增加方法返回值，或者使用JMH的提供的API<strong>Blackhole</strong>。</p>
-<pre><code class="java">@Benchmark
-public void benchmarkRight(Blackhole bh) {
-    bh.consume(Math.log(PI));
-}</code></pre>
-<h2 id="陷阱二：常量折叠与常量传播"><a href="#陷阱二：常量折叠与常量传播" class="headerlink" title="陷阱二：常量折叠与常量传播"></a>陷阱二：常量折叠与常量传播</h2><p><a href="[https://zh.wikipedia.org/wiki/%E5%B8%B8%E6%95%B8%E6%8A%98%E7%96%8A#%E5%B8%B8%E6%95%B8%E5%82%B3%E6%92%AD](https://zh.wikipedia.org/wiki/常數折疊#常數傳播)">常数折叠</a>（Constant folding）以及常数传播（constant propagation）都是<a href="https://zh.wikipedia.org/w/index.php?title=編譯器最佳化&action=edit&redlink=1" target="_blank" rel="noopener">编译器最佳化</a>技术。是一个在编译时期简化常数的一个过程。常数在表示式中仅仅代表一个简单的数值，就算一个变数从未被修改也可作为常数，或者直接将一个变数被明确地被标注为常数。</p>
-<pre><code class="java">long number = 2 * 600 * 200;</code></pre>
-<p>多数的现代编译器不会真的产生两个乘法的指令再将结果储存下来，取而代之的，他们会辨识出语句的结构，并在编译时期将数值直接计算出来。常数折叠的时机取决于编译器，有的在编译前期完成，有的在较后期进行。</p>
-<pre><code class="java">private double x = Math.PI;
-
-// 编译器会对 final 变量特殊处理 
-private final double wrongX = Math.PI;
-
-@Benchmark
-public double baseline() {
-    // 2.220 ± 0.352 ns/op
-    return Math.PI;
-}
-
-@Benchmark
-public double measureWrong_1() { 
-    // 2.220 ± 0.352 ns/op
-    // 错误，结果可以被预测，会发生常量折叠
-    return Math.log(Math.PI);
-}
-
-@Benchmark
-public double measureWrong_2() { 
-    // 2.220 ± 0.352 ns/op
-    // 错误，结果可以被预测，会发生常量折叠
-    return Math.log(wrongX);
-}
-
-@Benchmark
-public double measureRight() { 
-    // 22.590 ± 2.636  ns/op
-    return Math.log(x);
-}</code></pre>
-<p>由于发生了常量折叠，相同实现下的执行销量完全不同，这个测试在一定程度上说明了final的定义对于方法执行结果的影响。</p>
-<p>此外<strong>常数传播 (</strong>Constant propagation<strong>)</strong> 是一个替代表示式中已知常数的过程，也是在编译时期进行，包含前述所定义，内建函数也适用于常数。</p>
-<pre><code class="java">int x = 520;
-int y = 260 - 520 / 2;
-return y * (1314 / x + 2);</code></pre>
-<p>传播可以理解变量的替换，如果进行持续传播，上式则可写成如下</p>
-<pre><code class="java">int x = 14;
-int y = 0;
-return 0;</code></pre>
-<h2 id="陷阱三：不要在测试中写循环"><a href="#陷阱三：不要在测试中写循环" class="headerlink" title="陷阱三：不要在测试中写循环"></a>陷阱三：不要在测试中写循环</h2><h2 id="为什么要使用JMH"><a href="#为什么要使用JMH" class="headerlink" title="为什么要使用JMH"></a>为什么要使用JMH</h2><p>对于传统的接口调用测试，可能会使用以下的方式测试</p>
-<pre><code class="java">long startTime = System.currentTimeMillis();
-benchmarkTestMethod();
-System.out.println(System.currentTimeMillis()-startTime);</code></pre>
-<p>而JMH则使用</p>
-<pre><code class="java">@Benchmark
-public void benchmarkTestMethod(){
-  // do 
-}</code></pre>
-<hr>
-<h2 id="参考和引用"><a href="#参考和引用" class="headerlink" title="参考和引用"></a>参考和引用</h2><ul>
-<li><a href="https://www.ibm.com/developerworks/cn/java/j-benchmark1.html" target="_blank" rel="noopener">IBM Developer Java 代码基准测试的问题</a></li>
-<li><a href="https://www.cnkirito.moe/java-jmh/" target="_blank" rel="noopener">JAVA 拾遗 — JMH 与 8 个测试陷阱</a></li>
-</ul>
-]]></content>
-      <categories>
-        <category>系统调优</category>
-      </categories>
-      <tags>
-        <tag>Java</tag>
-        <tag>基准测试</tag>
-        <tag>JMH</tag>
-        <tag>系统调优</tag>
-        <tag>误区和陷阱</tag>
       </tags>
   </entry>
   <entry>
@@ -864,6 +623,345 @@ Short options:        GNU long options: (extensions)
         <tag>Liunx</tag>
         <tag>Tools</tag>
         <tag>Shell</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>Java Microbenchmark Harness微基准测试基础</title>
+    <url>/2020/07/07/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Java-Microbenchmark-Harness-Basic/</url>
+    <content><![CDATA[<blockquote>
+<p><strong>If you cannot measure it, you cannot improve it.    –Lord Kelvin</strong></p>
+</blockquote>
+<p><a href="http://openjdk.java.net/projects/code-tools/jmh/" target="_blank" rel="noopener">Java Microbenchmark Harness</a> 是专门进行代码的微基准测试的一套工具API。 为应用提供了数据支持，是评价和比较方法好坏的基准。一般说JMH，是在 <strong>Method 层面上的 Benchmark</strong>，精度可以精确到微秒级。以下记录JMH的使用和相关基础，便于之后查找和学习。</p>
+<p>Benchmark 作为应用框架，产品的基准画像，存在统一的标准，避免了不同测评对象自说自话的尴尬，应用框架各自使用有利于自身场景的测评方式必然不可取。</p>
+<a id="more"></a>
+
+<h2 id="Hello-JHM"><a href="#Hello-JHM" class="headerlink" title="Hello JHM"></a>Hello JHM</h2><h3 id="Maven依赖"><a href="#Maven依赖" class="headerlink" title="Maven依赖"></a>Maven依赖</h3><p>在项目中使用Maven,只需要添加如下依赖：</p>
+<pre><code class="xml">&lt;!-- JMH--&gt;
+&lt;dependency&gt;
+    &lt;groupId&gt;org.openjdk.jmh&lt;/groupId&gt;
+    &lt;artifactId&gt;jmh-core&lt;/artifactId&gt;
+    &lt;version&gt;${jmh.version}&lt;/version&gt;
+&lt;/dependency&gt;
+&lt;dependency&gt;
+    &lt;groupId&gt;org.openjdk.jmh&lt;/groupId&gt;
+    &lt;artifactId&gt;jmh-generator-annprocess&lt;/artifactId&gt;
+    &lt;version&gt;${jmh.version}&lt;/version&gt;
+    &lt;scope&gt;provided&lt;/scope&gt;
+&lt;/dependency&gt;</code></pre>
+<h3 id="性能测试设计"><a href="#性能测试设计" class="headerlink" title="性能测试设计"></a>性能测试设计</h3><p>测试比较Spring和StringBuilder的完成字符串拼接的性能</p>
+<pre><code class="java">/**
+ * 比较字符串直接相加和StringBuilder的效率
+ *
+ * @author Leo Wang
+ * @version 1.0
+ * @date 2020/7/7 16:44
+ */
+@BenchmarkMode(Mode.Throughput)
+@Warmup(iterations = 1,time = 1, timeUnit = TimeUnit.SECONDS)
+@Measurement(iterations = 10,time = 10,timeUnit = TimeUnit.SECONDS)
+@Threads(8)
+@Fork(2)
+@OutputTimeUnit(TimeUnit.MILLISECONDS)
+@State(Scope.Thread)
+public class StringBuilderBenchmark {
+    @Benchmark
+    public void testStringAdd() {
+        String a = &quot;&quot;;
+        for (int i = 0; i &lt; 10; i++) {
+            a += i;
+        }
+        print(a);
+    }
+
+    @Benchmark
+    public void testStringBuilderAdd() {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i &lt; 10; i++) {
+            sb.append(i);
+        }
+        print(sb.toString());
+    }
+
+    private void print(String a) {
+    }</code></pre>
+<h3 id="性能测试执行"><a href="#性能测试执行" class="headerlink" title="性能测试执行"></a>性能测试执行</h3><p>对于JMH来说，其执行方式主要有两种</p>
+<h4 id="直接IDE运行"><a href="#直接IDE运行" class="headerlink" title="直接IDE运行"></a>直接IDE运行</h4><p>对于体量小的测试，可以直接在IDE中完成相关的测试。如上的测试来说，可以直接运行，然后查看相关结果，执行的结果的Main函数如下，创建<em>Options</em>对象，传入需要执行的测试和测试报告的输出地址。直接执行Main方法</p>
+<pre><code class="java">    public static void main(String[] args) throws RunnerException {
+        String userDirPath = System.getProperty(&quot;user.dir&quot;);
+        String benchmarkLogPath = String.format(&quot;%s/%s&quot;,userDirPath,&quot;/StringBenchmark.log&quot;);
+        Options options = new OptionsBuilder()
+                .include(StringBuilderBenchmark.class.getSimpleName())
+                .output(benchmarkLogPath)
+                .build();
+        new Runner(options).run();
+    }</code></pre>
+<p>在使用IDE进行测试时，需要注意不能使用<strong>Dubug</strong>模式启动，否则不能正常完成测试。</p>
+<h4 id="打包成Jar-其他机器上执行"><a href="#打包成Jar-其他机器上执行" class="headerlink" title="打包成Jar,其他机器上执行"></a>打包成Jar,其他机器上执行</h4><p>一般对于大型的测试，需要测试时间比较久，线程比较多，就需要去写好了丢到远端的Linux系统环境中里执行， 不然会在本机执行很久并且需要的性能需求可能达不到测试需求。</p>
+<pre><code class="bash">mvn clean package
+java -jar StringBuilderBenchmark.jar</code></pre>
+<h3 id="测试结果"><a href="#测试结果" class="headerlink" title="测试结果"></a>测试结果</h3><p>当正常跑完项目测试以后，JHM会在指定的文件夹下输出一下的测试结果</p>
+<pre><code class="shell"># JMH version: 1.23
+# VM version: JDK 1.8.0_251, Java HotSpot(TM) 64-Bit Server VM, 25.251-b08
+# VM invoker: /Library/Java/JavaVirtualMachines/jdk1.8.0_251.jdk/Contents/Home/jre/bin/java
+# VM options: -javaagent:/Applications/IntelliJ IDEA.app/Contents/lib/idea_rt.jar=63118:/Applications/IntelliJ IDEA.app/Contents/bin -Dfile.encoding=UTF-8
+# Warmup: 1 iterations, 1 s each
+# Measurement: 10 iterations, 10 s each
+# Timeout: 10 min per iteration
+# Threads: 8 threads, will synchronize iterations
+# Benchmark mode: Throughput, ops/time
+# Benchmark: com.upuphub.lake.skylake.benchmark.StringBuilderBenchmark.testStringAdd
+
+# Run progress: 0.00% complete, ETA 00:06:44
+# Fork: 1 of 2
+# Warmup Iteration   1: 9014.340 ops/ms
+Iteration   1: 21302.297 ops/ms
+Iteration   2: 21807.763 ops/ms
+Iteration   3: 21812.419 ops/ms
+Iteration   4: 21840.912 ops/ms
+Iteration   5: 21985.020 ops/ms
+Iteration   6: 22066.751 ops/ms
+Iteration   7: 22006.021 ops/ms
+Iteration   8: 19239.509 ops/ms
+Iteration   9: 10515.274 ops/ms
+Iteration  10: 11758.987 ops/ms
+
+# Run progress: 25.00% complete, ETA 00:05:21
+# Fork: 2 of 2
+# Warmup Iteration   1: 5273.829 ops/ms
+Iteration   1: 18880.356 ops/ms
+Iteration   2: 22225.847 ops/ms
+Iteration   3: 22017.665 ops/ms
+Iteration   4: 22036.969 ops/ms
+Iteration   5: 22080.422 ops/ms
+Iteration   6: 22262.118 ops/ms
+Iteration   7: 22153.187 ops/ms
+Iteration   8: 22105.884 ops/ms
+Iteration   9: 21613.504 ops/ms
+Iteration  10: 22029.923 ops/ms
+
+
+Result &quot;com.upuphub.lake.skylake.benchmark.StringBuilderBenchmark.testStringAdd&quot;:
+  20587.041 ±(99.9%) 2921.754 ops/ms [Average]
+  (min, avg, max) = (10515.274, 20587.041, 22262.118), stdev = 3364.697
+  CI (99.9%): [17665.287, 23508.796] (assumes normal distribution)
+
+
+# JMH version: 1.23
+# VM version: JDK 1.8.0_251, Java HotSpot(TM) 64-Bit Server VM, 25.251-b08
+# VM invoker: /Library/Java/JavaVirtualMachines/jdk1.8.0_251.jdk/Contents/Home/jre/bin/java
+# VM options: -javaagent:/Applications/IntelliJ IDEA.app/Contents/lib/idea_rt.jar=63118:/Applications/IntelliJ IDEA.app/Contents/bin -Dfile.encoding=UTF-8
+# Warmup: 1 iterations, 1 s each
+# Measurement: 10 iterations, 10 s each
+# Timeout: 10 min per iteration
+# Threads: 8 threads, will synchronize iterations
+# Benchmark mode: Throughput, ops/time
+# Benchmark: com.upuphub.lake.skylake.benchmark.StringBuilderBenchmark.testStringBuilderAdd
+
+# Run progress: 50.00% complete, ETA 00:03:34
+# Fork: 1 of 2
+# Warmup Iteration   1: 50084.373 ops/ms
+Iteration   1: 67510.457 ops/ms
+Iteration   2: 42202.643 ops/ms
+Iteration   3: 41633.858 ops/ms
+Iteration   4: 43352.405 ops/ms
+Iteration   5: 43748.063 ops/ms
+Iteration   6: 45176.476 ops/ms
+Iteration   7: 44649.922 ops/ms
+Iteration   8: 40872.340 ops/ms
+Iteration   9: 40520.724 ops/ms
+Iteration  10: 38853.095 ops/ms
+
+# Run progress: 75.00% complete, ETA 00:01:47
+# Fork: 2 of 2
+# Warmup Iteration   1: 45279.748 ops/ms
+Iteration   1: 71985.226 ops/ms
+Iteration   2: 43291.826 ops/ms
+Iteration   3: 44149.181 ops/ms
+Iteration   4: 43297.043 ops/ms
+Iteration   5: 40614.460 ops/ms
+Iteration   6: 40444.594 ops/ms
+Iteration   7: 40912.490 ops/ms
+Iteration   8: 41428.454 ops/ms
+Iteration   9: 43022.557 ops/ms
+Iteration  10: 43368.455 ops/ms
+
+
+Result &quot;com.upuphub.lake.skylake.benchmark.StringBuilderBenchmark.testStringBuilderAdd&quot;:
+  45051.713 ±(99.9%) 7496.158 ops/ms [Average]
+  (min, avg, max) = (38853.095, 45051.713, 71985.226), stdev = 8632.587
+  CI (99.9%): [37555.555, 52547.872] (assumes normal distribution)
+
+
+# Run complete. Total time: 00:07:08
+
+REMEMBER: The numbers below are just data. To gain reusable insights, you need to follow up on
+why the numbers are the way they are. Use profilers (see -prof, -lprof), design factorial
+experiments, perform baseline and negative tests that provide experimental control, make sure
+the benchmarking environment is safe on JVM/OS/HW level, ask for reviews from the domain experts.
+Do not assume the numbers tell you what you want them to tell.
+
+Benchmark                                     Mode  Cnt      Score      Error   Units
+StringBuilderBenchmark.testStringAdd         thrpt   20  20587.041 ± 2921.754  ops/ms
+StringBuilderBenchmark.testStringBuilderAdd  thrpt   20  45051.713 ± 7496.158  ops/ms</code></pre>
+<p>整个测试报告由三个部分组成，首先分别是<strong>testStringAdd</strong>的测试结果然后是<strong>testStringBuilderAdd</strong>的测试结果，最后时两个测试结果之间的结果汇总和对应的比较。前两个部分的结果是类似的，会列出测试环境的一些基本信息，包括JHM的版本、虚拟机版本和相关一些配置等的信息以及测试的一些配置和设置，然后就是预热迭代执行（Warmup Iteration）， 然后是正常的迭代执行（Iteration），最后是结果（Result）的信息输出。一般来说最关注第三部分，也就是汇总结果。</p>
+<blockquote>
+<p>Tips: 对于汇总结果部分的输出,Error是没有数据的，这里是Score过长挤过去的</p>
+</blockquote>
+<p>可以看出StringBuilder在做字符串拼接的速度比String的直接评价速度好两倍以上。</p>
+<h2 id="JHM的注解和功能"><a href="#JHM的注解和功能" class="headerlink" title="JHM的注解和功能"></a>JHM的注解和功能</h2><h3 id="BenchmarkMode"><a href="#BenchmarkMode" class="headerlink" title="@BenchmarkMode"></a><em>@BenchmarkMode</em></h3><p>基准测试类型。这里选择的是Throughput也就是吞吐量。吞吐量会得到单位时间内可以进行的操作数。</p>
+<ul>
+<li>Throughput: 整体吞吐量，例如“1秒内可以执行多少次调用”。</li>
+<li>AverageTime: 调用的平均时间，例如“每次调用平均耗时xxx毫秒”。</li>
+<li>SampleTime: 随机取样，最后输出取样结果的分布，例如“99%的调用在xxx毫秒以内，99.99%的调用在xxx毫秒以内”</li>
+<li>SingleShotTime: 以上模式都是默认一次 iteration 是 1s，唯有 SingleShotTime 是只运行一次。往往同时把 warmup 次数设为0，用于测试冷启动时的性能。</li>
+<li>All(“all”, “All benchmark modes”): 执行所有模式。</li>
+</ul>
+<h3 id="Warmup"><a href="#Warmup" class="headerlink" title="@Warmup"></a><em>@Warmup</em></h3><p>在进行基准测试前需要进行预热。一般前几次进行程序测试的时候都会比较慢， 所以要让程序进行几轮预热，保证测试的准确性。其中的参数iterations就是预热轮数。</p>
+<blockquote>
+<p>Tips: 因为 JVM 的 JIT 机制的存在，如果某个函数被调用多次之后，JVM 会尝试将其编译成为机器码从而提高执行速度。所以为了让 benchmark 的结果更加接近真实情况就需要进行预热</p>
+</blockquote>
+<h3 id="Measurement"><a href="#Measurement" class="headerlink" title="@Measurement"></a><em>@Measurement</em></h3><p>度量，一些基本的测试参数。</p>
+<ol>
+<li>iterations 进行测试的轮次</li>
+<li>time 每轮进行的时长</li>
+<li>timeUnit 时长单位</li>
+</ol>
+<p>可以根据具体情况调整。一般比较重的东西可以进行大量的测试，放到服务器上运行。</p>
+<h3 id="Threads"><a href="#Threads" class="headerlink" title="@Threads"></a><em>@Threads</em></h3><p>每个进程中的测试线程，根据具体情况选择，一般为cpu乘以2。</p>
+<h3 id="Fork"><a href="#Fork" class="headerlink" title="@Fork"></a><em>@Fork</em></h3><p>进行 fork 的次数。如果 fork 数是2的话，则 JMH 会 fork 出两个进程来进行测试。</p>
+<h3 id="OutputTimeUnit"><a href="#OutputTimeUnit" class="headerlink" title="@OutputTimeUnit"></a><em>@OutputTimeUnit</em></h3><p>基准测试结果的时间类型。一般选择秒、毫秒、微秒。</p>
+<h3 id="Benchmark"><a href="#Benchmark" class="headerlink" title="@Benchmark"></a><em>@Benchmark</em></h3><p>方法级注解，表示该方法是需要进行 benchmark ，用法和 JUnit 的 @Test 类似。</p>
+<h3 id="Param"><a href="#Param" class="headerlink" title="@Param"></a><em>@Param</em></h3><p>属性级注解，@Param 用来指定某项参数的多种情况。适合用来测试一个函数在不同的参数输入的情况下的性能。</p>
+<h3 id="Setup"><a href="#Setup" class="headerlink" title="@Setup"></a><em>@Setup</em></h3><p>方法级注解，需要在测试之前进行一些准备工作，比如对一些数据的初始化。</p>
+<h3 id="TearDown"><a href="#TearDown" class="headerlink" title="@TearDown"></a><em>@TearDown</em></h3><p>方法级注解，在测试之后进行一些结束工作，比如关闭线程池，数据库连接等的，主要用于资源的回收等。</p>
+<h3 id="State"><a href="#State" class="headerlink" title="@State"></a><em>@State</em></h3><p>当使用@Setup参数的时候，必须在类上加这个参数，不然会提示无法运行。</p>
+<p>State 用于声明某个类是一个“状态”，然后接受一个 Scope 参数用来表示该状态的共享范围。 很多 benchmark 会需要一些表示状态的类，JMH 允许你把这些类以依赖注入的方式注入到 benchmark 函数里。Scope 主要分为三种。</p>
+<ol>
+<li>Thread: 该状态为每个线程独享。</li>
+<li>Group: 该状态为同一个组里面所有线程共享。</li>
+<li>Benchmark: 该状态在所有线程间共享。</li>
+</ol>
+<h2 id="补充说明"><a href="#补充说明" class="headerlink" title="补充说明"></a>补充说明</h2><p>在日常的工作和学习中，常常会遇到三种类型的问题，JHM对其能很好就觉很处理。</p>
+<ul>
+<li>对方法或库的不同实现方式的性能分析测试和最后的采用取舍</li>
+<li>方法入参对方法的性能影响和限制</li>
+<li>对项目中的热点方法的优化和其优化效果的定性分析。</li>
+</ul>
+<hr>
+<h2 id="参考和来源"><a href="#参考和来源" class="headerlink" title="参考和来源"></a>参考和来源</h2><ul>
+<li><a href="https://www.xncoding.com/2018/01/07/java/jmh.html" target="_blank" rel="noopener">Java微基准测试框架JMH</a></li>
+<li><a href="http://irfen.me/java-jmh-simple-microbenchmark/" target="_blank" rel="noopener">Java使用JMH进行简单的基准测试Benchmark</a></li>
+<li><a href="http://blog.dyngr.com/blog/2016/10/29/introduction-of-jmh/" target="_blank" rel="noopener">Java 并发编程笔记：JMH 性能测试框架</a></li>
+<li><a href="http://tutorials.jenkov.com/java-performance/jmh.html" target="_blank" rel="noopener">JMH - Java Microbenchmark Harness</a></li>
+</ul>
+]]></content>
+      <categories>
+        <category>系统调优</category>
+      </categories>
+      <tags>
+        <tag>Java</tag>
+        <tag>基准测试</tag>
+        <tag>系统调优</tag>
+        <tag>JMH</tag>
+        <tag>基础</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>CentOS下Nginx支持SSL协议的编译安装</title>
+    <url>/2020/07/04/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Nginx-under-CentOS-installation/</url>
+    <content><![CDATA[<h2 id="Nginx及其衍生的其他相关优秀开源产品"><a href="#Nginx及其衍生的其他相关优秀开源产品" class="headerlink" title="Nginx及其衍生的其他相关优秀开源产品"></a>Nginx及其衍生的其他相关优秀开源产品</h2><ul>
+<li><a href="http://nginx.org/" target="_blank" rel="noopener">NGINX</a> 是开源、高性能、高可靠的 Web 和反向代理服务器</li>
+<li><a href="https://tengine.taobao.org/" target="_blank" rel="noopener">Tengine</a> Tengine是由淘宝网发起基于Nginx的Web服务器项目</li>
+<li><a href="https://openresty.org/cn/" target="_blank" rel="noopener">OpenResty</a> OpenResty® 是一个基于 Nginx 与 Lua 的高性能 Web 平台</li>
+</ul>
+<h2 id="下载Nginx稳定版包并解压"><a href="#下载Nginx稳定版包并解压" class="headerlink" title="下载Nginx稳定版包并解压"></a>下载Nginx稳定版包并解压</h2><pre><code class="bash">wget http://nginx.org/download/nginx-x.x.x.tar.gz
+tar zxvf nginx-x.x.x.tar.gz
+cd nginx-x.x.x</code></pre>
+<a id="more"></a>
+
+<h2 id="补全需要的库依赖"><a href="#补全需要的库依赖" class="headerlink" title="补全需要的库依赖"></a>补全需要的库依赖</h2><pre><code class="bash">yum install gcc-c++
+yum install -y pcre pcre-devel
+yum install -y zlib zlib-devel
+yum install -y openssl openssl-devel</code></pre>
+<h2 id="执行编译安装"><a href="#执行编译安装" class="headerlink" title="执行编译安装"></a>执行编译安装</h2><p>所有文件放在同一个位置,便于统一管理</p>
+<pre><code class="bash">./configure --prefix=/usr/local/nginx  \
+--conf-path=/usr/local/nginx/etc/nginx.conf  \
+--user=nginx --group=nginx  \
+--error-log-path=/usr/local/nginx/nginxlog/error.log  \
+--http-log-path=/usr/local/nginx/nginxlog/access.log  \
+--pid-path=/usr/local/nginx/pids/nginx.pid  \
+--lock-path=/usr/local/nginx/locks/nginx.lock  \
+--with-http_ssl_module  \
+--with-http_stub_status_module  \
+--with-http_gzip_static_module  \
+--http-client-body-temp-path=/usr/local/nginx/tmp/client  \
+--http-proxy-temp-path=/usr/local/nginx/tmp/proxy  \
+--http-fastcgi-temp-path=/usr/local/nginx/tmp/fastcgi  \
+--http-uwsgi-temp-path=/usr/local/nginx/tmp/uwsgi  \
+--http-scgi-temp-path=/usr/local/nginx/tmp/scgi</code></pre>
+<p>编译结果</p>
+<pre><code class="bash">Configuration summary
+  + using system PCRE library
+  + using system OpenSSL library
+  + using system zlib library
+
+  nginx path prefix: &quot;/usr/local/nginx&quot;
+  nginx binary file: &quot;/usr/local/nginx/sbin/nginx&quot;
+  nginx modules path: &quot;/usr/local/nginx/modules&quot;
+  nginx configuration prefix: &quot;/usr/local/nginx/etc&quot;
+  nginx configuration file: &quot;/usr/local/nginx/etc/nginx.conf&quot;
+  nginx pid file: &quot;/usr/local/nginx/pids/nginx.pid&quot;
+  nginx error log file: &quot;/usr/local/nginx/nginxlog/error.log&quot;
+  nginx http access log file: &quot;/usr/local/nginx/nginxlog/access.log&quot;
+  nginx http client request body temporary files: &quot;/usr/local/nginx/tmp/client&quot;
+  nginx http proxy temporary files: &quot;/usr/local/nginx/tmp/proxy&quot;
+  nginx http fastcgi temporary files: &quot;/usr/local/nginx/tmp/fastcgi&quot;
+  nginx http uwsgi temporary files: &quot;/usr/local/nginx/tmp/uwsgi&quot;
+  nginx http scgi temporary files: &quot;/usr/local/nginx/tmp/scgi</code></pre>
+<p>执行安装</p>
+<pre><code class="bash">make &amp;&amp; make install</code></pre>
+<h2 id="安装后处理"><a href="#安装后处理" class="headerlink" title="安装后处理"></a>安装后处理</h2><p>查看文件结构</p>
+<pre><code class="bash">cd /usr/local/nginx/
+tree
+.
+├── etc
+│   ├── fastcgi.conf
+│   ├── fastcgi.conf.default
+│   ├── fastcgi_params
+│   ├── fastcgi_params.default
+│   ├── koi-utf
+│   ├── koi-win
+│   ├── mime.types
+│   ├── mime.types.default
+│   ├── nginx.conf
+│   ├── nginx.conf.default
+│   ├── scgi_params
+│   ├── scgi_params.default
+│   ├── uwsgi_params
+│   ├── uwsgi_params.default
+│   └── win-utf
+├── html
+│   ├── 50x.html
+│   └── index.html
+├── nginxlog
+├── pids
+└── sbin
+    └── nginx</code></pre>
+<p>完善Nginx目录结构</p>
+<pre><code class="bash">mkdir -pv /usr/local/nginx/tmp/{client,proxy,fastcgi,uwsgi,scgi}</code></pre>
+<h2 id="Nginx启动和监听"><a href="#Nginx启动和监听" class="headerlink" title="Nginx启动和监听"></a>Nginx启动和监听</h2><pre><code class="bash"># 启动
+/usr/local/nginx/sbin/nginx
+# 检查是否启动
+ss -tnlp | grep :80</code></pre>
+]]></content>
+      <categories>
+        <category>Nginx</category>
+      </categories>
+      <tags>
+        <tag>Liunx</tag>
+        <tag>CentOS</tag>
+        <tag>Nginx</tag>
+        <tag>Server</tag>
       </tags>
   </entry>
   <entry>
@@ -1522,104 +1620,6 @@ xsi:schemaLocation=&quot;http://maven.apache.org/POM/4.0.0http://maven.apache.or
       </categories>
       <tags>
         <tag>maven</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>CentOS下Nginx支持SSL协议的编译安装</title>
-    <url>/2020/07/04/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Nginx-under-CentOS-installation/</url>
-    <content><![CDATA[<h2 id="Nginx及其衍生的其他相关优秀开源产品"><a href="#Nginx及其衍生的其他相关优秀开源产品" class="headerlink" title="Nginx及其衍生的其他相关优秀开源产品"></a>Nginx及其衍生的其他相关优秀开源产品</h2><ul>
-<li><a href="http://nginx.org/" target="_blank" rel="noopener">NGINX</a> 是开源、高性能、高可靠的 Web 和反向代理服务器</li>
-<li><a href="https://tengine.taobao.org/" target="_blank" rel="noopener">Tengine</a> Tengine是由淘宝网发起基于Nginx的Web服务器项目</li>
-<li><a href="https://openresty.org/cn/" target="_blank" rel="noopener">OpenResty</a> OpenResty® 是一个基于 Nginx 与 Lua 的高性能 Web 平台</li>
-</ul>
-<h2 id="下载Nginx稳定版包并解压"><a href="#下载Nginx稳定版包并解压" class="headerlink" title="下载Nginx稳定版包并解压"></a>下载Nginx稳定版包并解压</h2><pre><code class="bash">wget http://nginx.org/download/nginx-x.x.x.tar.gz
-tar zxvf nginx-x.x.x.tar.gz
-cd nginx-x.x.x</code></pre>
-<a id="more"></a>
-
-<h2 id="补全需要的库依赖"><a href="#补全需要的库依赖" class="headerlink" title="补全需要的库依赖"></a>补全需要的库依赖</h2><pre><code class="bash">yum install gcc-c++
-yum install -y pcre pcre-devel
-yum install -y zlib zlib-devel
-yum install -y openssl openssl-devel</code></pre>
-<h2 id="执行编译安装"><a href="#执行编译安装" class="headerlink" title="执行编译安装"></a>执行编译安装</h2><p>所有文件放在同一个位置,便于统一管理</p>
-<pre><code class="bash">./configure --prefix=/usr/local/nginx  \
---conf-path=/usr/local/nginx/etc/nginx.conf  \
---user=nginx --group=nginx  \
---error-log-path=/usr/local/nginx/nginxlog/error.log  \
---http-log-path=/usr/local/nginx/nginxlog/access.log  \
---pid-path=/usr/local/nginx/pids/nginx.pid  \
---lock-path=/usr/local/nginx/locks/nginx.lock  \
---with-http_ssl_module  \
---with-http_stub_status_module  \
---with-http_gzip_static_module  \
---http-client-body-temp-path=/usr/local/nginx/tmp/client  \
---http-proxy-temp-path=/usr/local/nginx/tmp/proxy  \
---http-fastcgi-temp-path=/usr/local/nginx/tmp/fastcgi  \
---http-uwsgi-temp-path=/usr/local/nginx/tmp/uwsgi  \
---http-scgi-temp-path=/usr/local/nginx/tmp/scgi</code></pre>
-<p>编译结果</p>
-<pre><code class="bash">Configuration summary
-  + using system PCRE library
-  + using system OpenSSL library
-  + using system zlib library
-
-  nginx path prefix: &quot;/usr/local/nginx&quot;
-  nginx binary file: &quot;/usr/local/nginx/sbin/nginx&quot;
-  nginx modules path: &quot;/usr/local/nginx/modules&quot;
-  nginx configuration prefix: &quot;/usr/local/nginx/etc&quot;
-  nginx configuration file: &quot;/usr/local/nginx/etc/nginx.conf&quot;
-  nginx pid file: &quot;/usr/local/nginx/pids/nginx.pid&quot;
-  nginx error log file: &quot;/usr/local/nginx/nginxlog/error.log&quot;
-  nginx http access log file: &quot;/usr/local/nginx/nginxlog/access.log&quot;
-  nginx http client request body temporary files: &quot;/usr/local/nginx/tmp/client&quot;
-  nginx http proxy temporary files: &quot;/usr/local/nginx/tmp/proxy&quot;
-  nginx http fastcgi temporary files: &quot;/usr/local/nginx/tmp/fastcgi&quot;
-  nginx http uwsgi temporary files: &quot;/usr/local/nginx/tmp/uwsgi&quot;
-  nginx http scgi temporary files: &quot;/usr/local/nginx/tmp/scgi</code></pre>
-<p>执行安装</p>
-<pre><code class="bash">make &amp;&amp; make install</code></pre>
-<h2 id="安装后处理"><a href="#安装后处理" class="headerlink" title="安装后处理"></a>安装后处理</h2><p>查看文件结构</p>
-<pre><code class="bash">cd /usr/local/nginx/
-tree
-.
-├── etc
-│   ├── fastcgi.conf
-│   ├── fastcgi.conf.default
-│   ├── fastcgi_params
-│   ├── fastcgi_params.default
-│   ├── koi-utf
-│   ├── koi-win
-│   ├── mime.types
-│   ├── mime.types.default
-│   ├── nginx.conf
-│   ├── nginx.conf.default
-│   ├── scgi_params
-│   ├── scgi_params.default
-│   ├── uwsgi_params
-│   ├── uwsgi_params.default
-│   └── win-utf
-├── html
-│   ├── 50x.html
-│   └── index.html
-├── nginxlog
-├── pids
-└── sbin
-    └── nginx</code></pre>
-<p>完善Nginx目录结构</p>
-<pre><code class="bash">mkdir -pv /usr/local/nginx/tmp/{client,proxy,fastcgi,uwsgi,scgi}</code></pre>
-<h2 id="Nginx启动和监听"><a href="#Nginx启动和监听" class="headerlink" title="Nginx启动和监听"></a>Nginx启动和监听</h2><pre><code class="bash"># 启动
-/usr/local/nginx/sbin/nginx
-# 检查是否启动
-ss -tnlp | grep :80</code></pre>
-]]></content>
-      <categories>
-        <category>Nginx</category>
-      </categories>
-      <tags>
-        <tag>Liunx</tag>
-        <tag>CentOS</tag>
-        <tag>Nginx</tag>
-        <tag>Server</tag>
       </tags>
   </entry>
   <entry>
