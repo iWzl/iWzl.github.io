@@ -97,13 +97,13 @@
                 
                 <span>
                     <b class="iconfont icon-text2"></b> <i>Words count</i>
-                    14k
+                    13k
                 </span>
                 
                 
                 <span>
                     <b class="iconfont icon-timer__s"></b> <i>Reading time</i>
-                    13 mins.
+                    12 mins.
                 </span>
                 
                 
@@ -139,8 +139,7 @@
         <div class="content markdown animated fadeIn">
             <h1 id="HTTP3协议的深入剖析"><a href="#HTTP3协议的深入剖析" class="headerlink" title="HTTP3协议的深入剖析"></a>HTTP3协议的深入剖析</h1><p>自2017年起HTTP3协议已发布了34个Draft，推出在即，Chrome、Nginx等软件都在跟进实现最新的草案。本文将介绍HTTP3协议规范、应用场景及实现原理。</p>
 <p>2015年HTTP2协议正式推出后，已经有接近一半的互联网站点在使用它：</p>
-<p><img src="https://img.hellobyebye.com/doc/2021032412271216165600321616560032829XkbSZ6.png" alt="http2站点使用率_20200824"></p>
-<p>（图片来自<a href="https://w3techs.com/technologies/details/ce-http2）" target="_blank" rel="noopener">https://w3techs.com/technologies/details/ce-http2）</a></p>
+<p><img src="https://img.hellobyebye.com/doc/2021032412271216165600321616560032829XkbSZ6.png" alt="图片来自https://w3techs.com/technologies/details/ce-http2"></p>
 <p>HTTP2协议虽然大幅提升了HTTP/1.1的性能，然而，基于TCP实现的HTTP2遗留下3个问题：</p>
 <ul>
 <li>有序字节流引出的 <strong>队头阻塞</strong><a href="https://en.wikipedia.org/wiki/Head-of-line_blocking" target="_blank" rel="noopener">（Head-of-line blocking）</a>，使得HTTP2的多路复用能力大打折扣；</li>
@@ -170,13 +169,11 @@
 <li>TCP连接有一个防止出现拥塞的慢启动流程，它会对每个TCP连接都产生减速效果。</li>
 </ul>
 <p>因此，HTTP2与HTTP3都在应用层实现了多路复用功能</p>
-<p><img src="https://img.hellobyebye.com/doc/2021032412294816165601881616560188614XVaK0p.png" alt="多路复用"></p>
-<p>（图片来自：<a href="https://blog.cloudflare.com/http3-the-past-present-and-future/）" target="_blank" rel="noopener">https://blog.cloudflare.com/http3-the-past-present-and-future/）</a></p>
+<p><img src="https://img.hellobyebye.com/doc/2021032412294816165601881616560188614XVaK0p.png" alt="图片来自：https://blog.cloudflare.com/http3-the-past-present-and-future/"></p>
 <p>HTTP2协议基于TCP有序字节流实现，因此<strong>应用层的多路复用并不能做到无序地并发，在丢包场景下会出现队头阻塞问题。</strong>如下面的动态图片所示，服务器返回的绿色响应由5个TCP报文组成，而黄色响应由4个TCP报文组成，当第2个黄色报文丢失后，即使客户端接收到完整的5个绿色报文，但TCP层不会允许应用进程的read函数读取到最后5个报文，并发成了一纸空谈：</p>
 <p><img src="https://img.hellobyebye.com/doc/2021032412310516165602651616560265144TQYO1C.gif" alt="阻塞队列"></p>
 <p>当网络繁忙时，丢包概率会很高，多路复用受到了很大限制。因此， <strong>HTTP3采用UDP作为传输层协议，重新实现了无序连接，并在此基础上通过有序的QUIC Stream提供了多路复用</strong> ，如下图所示：</p>
-<p><img src="https://img.hellobyebye.com/doc/2021032412320016165603201616560320171ONaX6s.png" alt="协议的调整"></p>
-<p>（图片来自：<a href="https://blog.cloudflare.com/http3-the-past-present-and-future/）" target="_blank" rel="noopener">https://blog.cloudflare.com/http3-the-past-present-and-future/）</a></p>
+<p><img src="https://img.hellobyebye.com/doc/2021032412320016165603201616560320171ONaX6s.png" alt="图片来自：https://blog.cloudflare.com/http3-the-past-present-and-future/"></p>
 <p>最早这一实验性协议由Google推出，并命名为gQUIC，因此，IETF草案中仍然保留了QUIC概念，用来描述HTTP3协议的传输层和表示层。HTTP3协议规范由以下5个部分组成：</p>
 <ol>
 <li>QUIC层由<a href="https://tools.ietf.org/html/draft-ietf-quic-transport-29" target="_blank" rel="noopener">https://tools.ietf.org/html/draft-ietf-quic-transport-29</a> 描述，它定义了连接、报文的可靠传输、有序字节流的实现；</li>
@@ -187,8 +184,7 @@
 </ol>
 <p>自1991年诞生的HTTP/0.9协议已不再使用， <strong>但1996推出的HTTP/1.0、1999年推出的HTTP/1.1、2015年推出的HTTP2协议仍然共存于互联网中（HTTP/1.0在企业内网中还在广为使用，例如Nginx与上游的默认协议还是1.0版本），即将面世的HTTP3协议的加入，将会进一步增加协议适配的复杂度</strong> 。</p>
 <h1 id="连接迁移功能的实现"><a href="#连接迁移功能的实现" class="headerlink" title="连接迁移功能的实现"></a>连接迁移功能的实现</h1><p>对于当下的HTTP1和HTTP2协议，传输请求前需要先完成耗时1个RTT的TCP三次握手、耗时1个RTT的TLS握手（TLS1.3），由于它们分属内核实现的传输层、openssl库实现的表示层，所以难以合并在一起，如下图所示</p>
-<p><img src="https://img.hellobyebye.com/doc/20210324222605161659596516165959656814j0mI0.png" alt="传统的系统迁移功能"></p>
-<p>（图片来自：<a href="https://blog.cloudflare.com/http3-the-past-present-and-future/）" target="_blank" rel="noopener">https://blog.cloudflare.com/http3-the-past-present-and-future/）</a></p>
+<p><img src="https://img.hellobyebye.com/doc/20210324222605161659596516165959656814j0mI0.png" alt="图片来自：https://blog.cloudflare.com/http3-the-past-present-and-future/"></p>
 <p>在IoT时代，移动设备接入的网络会频繁变动，从而导致设备IP地址改变。<strong>对于通过四元组（源IP、源端口、目的IP、目的端口）定位连接的TCP协议来说，这意味着连接需要断开重连，所以上述2个RTT的建链时延、TCP慢启动都需要重新来过。</strong>而HTTP3的QUIC层实现了连接迁移功能，允许移动设备更换IP地址后，只要仍保有上下文信息（比如连接ID、TLS密钥等），就可以复用原连接。</p>
 <p>在UDP报文头部与HTTP消息之间，共有3层头部，定义连接且实现了Connection Migration主要是在Packet Header中完成的，如下图所示：</p>
 <p><img src="https://img.hellobyebye.com/doc/2021032422272516165960451616596045106y5pyES.png" alt="TLS3"></p>
@@ -215,8 +211,7 @@
 <h1 id="Stream多路复用时的队头阻塞问题解决"><a href="#Stream多路复用时的队头阻塞问题解决" class="headerlink" title="Stream多路复用时的队头阻塞问题解决"></a>Stream多路复用时的队头阻塞问题解决</h1><p>其实，解决队头阻塞的方案，就是允许微观上有序发出的Packet报文，在接收端无序到达后也可以应用于并发请求中。比如上文的动态图中，如果丢失的黄色报文对其后发出的绿色报文不造成影响，队头阻塞问题自然就得到了解决：</p>
 <p><img src="https://img.hellobyebye.com/doc/20210324223300161659638016165963806320YzB88.gif" alt="对头阻塞问题的解决"></p>
 <p>在Packet Header之上的QUIC Frame Header，定义了有序字节流Stream，而且Stream之间可以实现真正的并发。HTTP3的Stream，借鉴了HTTP2中的部分概念，所以在讨论QUIC Frame Header格式之前，我们先来看看HTTP2中的Stream长成什么样子：</p>
-<p><img src="https://img.hellobyebye.com/doc/202103242234121616596452161659645207962J1BF.png" alt="请求体"></p>
-<p>（图片参见：<a href="https://developers.google.com/web/fundamentals/performance/http2）" target="_blank" rel="noopener">https://developers.google.com/web/fundamentals/performance/http2）</a></p>
+<p><img src="https://img.hellobyebye.com/doc/202103242234121616596452161659645207962J1BF.png" alt="图片参见：https://developers.google.com/web/fundamentals/performance/http2"></p>
 <p>每个Stream就像HTTP1中的TCP连接，它保证了承载的HEADERS frame（存放HTTP Header）、DATA frame（存放HTTP Body）是有序到达的，多个Stream之间可以并行传输。在HTTP3中，上图中的HTTP2 frame会被拆解为两层，我们先来看底层的QUIC Frame。</p>
 <p>一个Packet报文中可以存放多个QUIC Frame，当然所有Frame的长度之和不能大于PMTUD（Path Maximum Transmission Unit Discovery，这是大于1200字节的值），你可以把它与IP路由中的MTU概念对照理解：</p>
 <p><img src="https://img.hellobyebye.com/doc/20210324223544161659654416165965441392qhP3u.png" alt="QUIC"></p>
@@ -322,8 +317,7 @@
 <p>总结一下，QUIC Stream Frame定义了有序字节流，且多个Stream间的传输没有时序性要求，这样，HTTP消息基于QUIC Stream就实现了真正的多路复用，队头阻塞问题自然就被解决掉了。</p>
 <h1 id="QPACK编码对对头阻塞队列问题的解决"><a href="#QPACK编码对对头阻塞队列问题的解决" class="headerlink" title="QPACK编码对对头阻塞队列问题的解决"></a>QPACK编码对对头阻塞队列问题的解决</h1><p>最后，我们再看下HTTP Header头部的编码方式，它需要面对另一种队头阻塞问题。</p>
 <p>与HTTP2中的HPACK编码方式相似，HTTP3中的QPACK也采用了静态表、动态表及Huffman编码：</p>
-<p><img src="https://img.hellobyebye.com/doc/20210324223945161659678516165967851090LcLMr.png" alt="Huffman"></p>
-<p>（图片参见：<a href="https://www.oreilly.com/content/http2-a-new-excerpt/）" target="_blank" rel="noopener">https://www.oreilly.com/content/http2-a-new-excerpt/）</a></p>
+<p><img src="https://img.hellobyebye.com/doc/20210324223945161659678516165967851090LcLMr.png" alt="图片参见：https://www.oreilly.com/content/http2-a-new-excerpt/"></p>
 <p>先来看静态表的变化。在上图中，GET方法映射为数字2，这是通过客户端、服务器协议实现层的硬编码完成的。在HTTP2中，共有61个静态表项：</p>
 <p><img src="https://img.hellobyebye.com/doc/2021032422402616165968261616596826684CQVW2x.png" alt="静态表"></p>
 <p>而在QPACK中，则上升为98个静态表项，比如Nginx上的ngx_htt_v3_static_table数组所示</p>
