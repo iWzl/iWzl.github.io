@@ -16,9 +16,7 @@ abstract: 原文来自陶辉老师的《深入剖析HTTP3协议》,这里做一�
 
 2015年HTTP2协议正式推出后，已经有接近一半的互联网站点在使用它：
 
-![http2站点使用率_20200824](https://img.hellobyebye.com/doc/2021032412271216165600321616560032829XkbSZ6.png)
-
-（图片来自https://w3techs.com/technologies/details/ce-http2）
+![图片来自https://w3techs.com/technologies/details/ce-http2](https://img.hellobyebye.com/doc/2021032412271216165600321616560032829XkbSZ6.png)
 
 HTTP2协议虽然大幅提升了HTTP/1.1的性能，然而，基于TCP实现的HTTP2遗留下3个问题：
 
@@ -56,9 +54,7 @@ HTTP2与HTTP3采用二进制、静态表、动态表与Huffman算法对HTTP Head
 
 因此，HTTP2与HTTP3都在应用层实现了多路复用功能
 
-![多路复用](https://img.hellobyebye.com/doc/2021032412294816165601881616560188614XVaK0p.png)
-
-（图片来自：https://blog.cloudflare.com/http3-the-past-present-and-future/）
+![图片来自：https://blog.cloudflare.com/http3-the-past-present-and-future/](https://img.hellobyebye.com/doc/2021032412294816165601881616560188614XVaK0p.png)
 
 HTTP2协议基于TCP有序字节流实现，因此**应用层的多路复用并不能做到无序地并发，在丢包场景下会出现队头阻塞问题。**如下面的动态图片所示，服务器返回的绿色响应由5个TCP报文组成，而黄色响应由4个TCP报文组成，当第2个黄色报文丢失后，即使客户端接收到完整的5个绿色报文，但TCP层不会允许应用进程的read函数读取到最后5个报文，并发成了一纸空谈：
 
@@ -66,9 +62,7 @@ HTTP2协议基于TCP有序字节流实现，因此**应用层的多路复用并�
 
 当网络繁忙时，丢包概率会很高，多路复用受到了很大限制。因此， **HTTP3采用UDP作为传输层协议，重新实现了无序连接，并在此基础上通过有序的QUIC Stream提供了多路复用** ，如下图所示：
 
-![协议的调整](https://img.hellobyebye.com/doc/2021032412320016165603201616560320171ONaX6s.png)
-
-（图片来自：https://blog.cloudflare.com/http3-the-past-present-and-future/）
+![图片来自：https://blog.cloudflare.com/http3-the-past-present-and-future/](https://img.hellobyebye.com/doc/2021032412320016165603201616560320171ONaX6s.png)
 
 最早这一实验性协议由Google推出，并命名为gQUIC，因此，IETF草案中仍然保留了QUIC概念，用来描述HTTP3协议的传输层和表示层。HTTP3协议规范由以下5个部分组成：
 
@@ -84,9 +78,7 @@ HTTP2协议基于TCP有序字节流实现，因此**应用层的多路复用并�
 
 对于当下的HTTP1和HTTP2协议，传输请求前需要先完成耗时1个RTT的TCP三次握手、耗时1个RTT的TLS握手（TLS1.3），由于它们分属内核实现的传输层、openssl库实现的表示层，所以难以合并在一起，如下图所示
 
-![传统的系统迁移功能](https://img.hellobyebye.com/doc/20210324222605161659596516165959656814j0mI0.png)
-
-（图片来自：https://blog.cloudflare.com/http3-the-past-present-and-future/）
+![图片来自：https://blog.cloudflare.com/http3-the-past-present-and-future/](https://img.hellobyebye.com/doc/20210324222605161659596516165959656814j0mI0.png)
 
 在IoT时代，移动设备接入的网络会频繁变动，从而导致设备IP地址改变。**对于通过四元组（源IP、源端口、目的IP、目的端口）定位连接的TCP协议来说，这意味着连接需要断开重连，所以上述2个RTT的建链时延、TCP慢启动都需要重新来过。**而HTTP3的QUIC层实现了连接迁移功能，允许移动设备更换IP地址后，只要仍保有上下文信息（比如连接ID、TLS密钥等），就可以复用原连接。
 
@@ -131,9 +123,7 @@ HTTP2协议基于TCP有序字节流实现，因此**应用层的多路复用并�
 
 在Packet Header之上的QUIC Frame Header，定义了有序字节流Stream，而且Stream之间可以实现真正的并发。HTTP3的Stream，借鉴了HTTP2中的部分概念，所以在讨论QUIC Frame Header格式之前，我们先来看看HTTP2中的Stream长成什么样子：
 
-![请求体](https://img.hellobyebye.com/doc/202103242234121616596452161659645207962J1BF.png)
-
-（图片参见：https://developers.google.com/web/fundamentals/performance/http2）
+![图片参见：https://developers.google.com/web/fundamentals/performance/http2](https://img.hellobyebye.com/doc/202103242234121616596452161659645207962J1BF.png)
 
 每个Stream就像HTTP1中的TCP连接，它保证了承载的HEADERS frame（存放HTTP Header）、DATA frame（存放HTTP Body）是有序到达的，多个Stream之间可以并行传输。在HTTP3中，上图中的HTTP2 frame会被拆解为两层，我们先来看底层的QUIC Frame。
 
@@ -198,9 +188,7 @@ Stream数据中并不会直接存放HTTP消息，因为HTTP3还需要实现服�
 
 与HTTP2中的HPACK编码方式相似，HTTP3中的QPACK也采用了静态表、动态表及Huffman编码：
 
-![Huffman](https://img.hellobyebye.com/doc/20210324223945161659678516165967851090LcLMr.png)
-
-（图片参见：https://www.oreilly.com/content/http2-a-new-excerpt/）
+![图片参见：https://www.oreilly.com/content/http2-a-new-excerpt/](https://img.hellobyebye.com/doc/20210324223945161659678516165967851090LcLMr.png)
 
 先来看静态表的变化。在上图中，GET方法映射为数字2，这是通过客户端、服务器协议实现层的硬编码完成的。在HTTP2中，共有61个静态表项：
 
