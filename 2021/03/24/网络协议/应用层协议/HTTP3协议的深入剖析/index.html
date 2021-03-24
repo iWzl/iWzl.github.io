@@ -97,13 +97,13 @@
                 
                 <span>
                     <b class="iconfont icon-text2"></b> <i>Words count</i>
-                    5k
+                    14k
                 </span>
                 
                 
                 <span>
                     <b class="iconfont icon-timer__s"></b> <i>Reading time</i>
-                    5 mins.
+                    13 mins.
                 </span>
                 
                 
@@ -186,8 +186,169 @@
 <li>在HTTP2中，由HPACK规范定义HTTP头部的压缩算法。由于HPACK动态表的更新具有时序性，无法满足HTTP3的要求。在HTTP3中，QPACK定义HTTP头部的编码：<a href="https://tools.ietf.org/html/draft-ietf-quic-qpack-16" target="_blank" rel="noopener">https://tools.ietf.org/html/draft-ietf-quic-qpack-16</a> 。注意，以上规范的最新草案都到了29，而QPACK相对简单，它目前更新到16。</li>
 </ol>
 <p>自1991年诞生的HTTP/0.9协议已不再使用， <strong>但1996推出的HTTP/1.0、1999年推出的HTTP/1.1、2015年推出的HTTP2协议仍然共存于互联网中（HTTP/1.0在企业内网中还在广为使用，例如Nginx与上游的默认协议还是1.0版本），即将面世的HTTP3协议的加入，将会进一步增加协议适配的复杂度</strong> 。</p>
+<h1 id="连接迁移功能的实现"><a href="#连接迁移功能的实现" class="headerlink" title="连接迁移功能的实现"></a>连接迁移功能的实现</h1><p>对于当下的HTTP1和HTTP2协议，传输请求前需要先完成耗时1个RTT的TCP三次握手、耗时1个RTT的TLS握手（TLS1.3），由于它们分属内核实现的传输层、openssl库实现的表示层，所以难以合并在一起，如下图所示</p>
+<p><img src="https://img.hellobyebye.com/doc/20210324222605161659596516165959656814j0mI0.png" alt="传统的系统迁移功能"></p>
+<p>（图片来自：<a href="https://blog.cloudflare.com/http3-the-past-present-and-future/）" target="_blank" rel="noopener">https://blog.cloudflare.com/http3-the-past-present-and-future/）</a></p>
+<p>在IoT时代，移动设备接入的网络会频繁变动，从而导致设备IP地址改变。<strong>对于通过四元组（源IP、源端口、目的IP、目的端口）定位连接的TCP协议来说，这意味着连接需要断开重连，所以上述2个RTT的建链时延、TCP慢启动都需要重新来过。</strong>而HTTP3的QUIC层实现了连接迁移功能，允许移动设备更换IP地址后，只要仍保有上下文信息（比如连接ID、TLS密钥等），就可以复用原连接。</p>
+<p>在UDP报文头部与HTTP消息之间，共有3层头部，定义连接且实现了Connection Migration主要是在Packet Header中完成的，如下图所示：</p>
+<p><img src="https://img.hellobyebye.com/doc/2021032422272516165960451616596045106y5pyES.png" alt="TLS3"></p>
+<p>这3层Header实现的功能各不相同：</p>
+<ul>
+<li>Packet Header实现了可靠的连接。当UDP报文丢失后，通过Packet Header中的Packet Number实现报文重传。连接也是通过其中的Connection ID字段定义的；</li>
+<li>QUIC Frame Header在无序的Packet报文中，基于QUIC Stream概念实现了有序的字节流，这允许HTTP消息可以像在TCP连接上一样传输；</li>
+<li>HTTP3 Frame Header定义了HTTP Header、Body的格式，以及服务器推送、QPACK编解码流等功能。</li>
+</ul>
+<p>为了进一步提升网络传输效率，Packet Header又可以细分为两种：</p>
+<ul>
+<li>Long Packet Header用于首次建立连接；</li>
+<li>Short Packet Header用于日常传输数据。</li>
+</ul>
+<p>其中，Long Packet Header的格式如下图所示：</p>
+<p><img src="https://img.hellobyebye.com/doc/202103242229291616596169161659616955077G4JU.png" alt="Long Packet Header"></p>
+<p>建立连接时，连接是由服务器通过Source Connection ID字段分配的，这样，后续传输时，双方只需要固定住Destination Connection ID，就可以在客户端IP地址、端口变化后，绕过UDP四元组（与TCP四元组相同），实现连接迁移功能。下图是Short Packet Header头部的格式，这里就不再需要传输Source Connection ID字段了：</p>
+<p><img src="https://img.hellobyebye.com/doc/2021032422300816165962081616596208029xctCuv.png" alt="Packet Header"></p>
+<p>上图中的Packet Number是每个报文独一无二的序号，基于它可以实现丢失报文的精准重发。如果你通过抓包观察Packet Header，会发现Packet Number被TLS层加密保护了，这是为了防范各类网络攻击的一种设计。下图给出了Packet Header中被加密保护的字段：</p>
+<p><img src="https://img.hellobyebye.com/doc/2021032422305016165962501616596250352oIy5eq.png" alt="Long Header"></p>
+<p>其中，显示为E（Encrypt）的字段表示被TLS加密过。当然，Packet Header只是描述了最基本的连接信息，其上的Stream层、HTTP消息也是被加密保护的：</p>
+<p><img src="https://img.hellobyebye.com/doc/2021032422315916165963191616596319830SsAQ5Q.png" alt="Encrypt"></p>
+<p>现在我们已经对HTTP3协议的格式有了基本的了解，接下来我们通过队头阻塞问题，看看Packet之上的QUIC Frame、HTTP3 Frame帧格式。</p>
+<h1 id="Stream多路复用时的队头阻塞问题解决"><a href="#Stream多路复用时的队头阻塞问题解决" class="headerlink" title="Stream多路复用时的队头阻塞问题解决"></a>Stream多路复用时的队头阻塞问题解决</h1><p>其实，解决队头阻塞的方案，就是允许微观上有序发出的Packet报文，在接收端无序到达后也可以应用于并发请求中。比如上文的动态图中，如果丢失的黄色报文对其后发出的绿色报文不造成影响，队头阻塞问题自然就得到了解决：</p>
+<p><img src="https://img.hellobyebye.com/doc/20210324223300161659638016165963806320YzB88.gif" alt="对头阻塞问题的解决"></p>
+<p>在Packet Header之上的QUIC Frame Header，定义了有序字节流Stream，而且Stream之间可以实现真正的并发。HTTP3的Stream，借鉴了HTTP2中的部分概念，所以在讨论QUIC Frame Header格式之前，我们先来看看HTTP2中的Stream长成什么样子：</p>
+<p><img src="https://img.hellobyebye.com/doc/202103242234121616596452161659645207962J1BF.png" alt="请求体"></p>
+<p>（图片参见：<a href="https://developers.google.com/web/fundamentals/performance/http2）" target="_blank" rel="noopener">https://developers.google.com/web/fundamentals/performance/http2）</a></p>
+<p>每个Stream就像HTTP1中的TCP连接，它保证了承载的HEADERS frame（存放HTTP Header）、DATA frame（存放HTTP Body）是有序到达的，多个Stream之间可以并行传输。在HTTP3中，上图中的HTTP2 frame会被拆解为两层，我们先来看底层的QUIC Frame。</p>
+<p>一个Packet报文中可以存放多个QUIC Frame，当然所有Frame的长度之和不能大于PMTUD（Path Maximum Transmission Unit Discovery，这是大于1200字节的值），你可以把它与IP路由中的MTU概念对照理解：</p>
+<p><img src="https://img.hellobyebye.com/doc/20210324223544161659654416165965441392qhP3u.png" alt="QUIC"></p>
+<p>每一个Frame都有明确的类型：</p>
+<p><img src="https://img.hellobyebye.com/doc/2021032422361516165965751616596575656IMsgUl.png" alt="Frame类型"></p>
+<p>前4个字节的Frame Type字段描述的类型不同，接下来的编码也不相同，下表是各类Frame的16进制Type值</p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Name</th>
+<th>Value</th>
+<th>Name</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>0x00</td>
+<td>PADDING</td>
+<td>0x02 – 0x03</td>
+<td>ACK</td>
+</tr>
+<tr>
+<td>0x01</td>
+<td>PING</td>
+<td>0x08 – 0x0f</td>
+<td>STREAM</td>
+</tr>
+<tr>
+<td>0x04</td>
+<td>RESET_STREAM</td>
+<td>0x12-0x13</td>
+<td>MAX_STREAMS</td>
+</tr>
+<tr>
+<td>0x05</td>
+<td>STOP_SENDING</td>
+<td>0x16-0x17</td>
+<td>STREAM_BLOCKED</td>
+</tr>
+<tr>
+<td>0x06</td>
+<td>CRYPTO</td>
+<td>0x1c-0x1d</td>
+<td>CONNECTION_CLOSE</td>
+</tr>
+<tr>
+<td>0x07</td>
+<td>NEW_TOKEN</td>
+<td>0x11</td>
+<td>MAX_STREAM_DATA</td>
+</tr>
+<tr>
+<td>0x10</td>
+<td>MAX_DATA</td>
+<td>0x14</td>
+<td>DATA_BLOCKED</td>
+</tr>
+<tr>
+<td>0x15</td>
+<td>STREAM_DATA_BLOCKED</td>
+<td>0x1a</td>
+<td>PATH_CHALLENGE</td>
+</tr>
+<tr>
+<td>0x18</td>
+<td>NEW_CONNECTION_ID</td>
+<td>0x1b</td>
+<td>PATH_RESPONSE</td>
+</tr>
+<tr>
+<td>0x19</td>
+<td>RETRY_CONNECTION_ID</td>
+<td>0x1e</td>
+<td>HANDSHAKE_DONE</td>
+</tr>
+</tbody></table>
+<p>在上表中，我们只要分析0x08-0x0f这8种STREAM类型的Frame，就能弄明白Stream流的实现原理，自然也就清楚队头阻塞是怎样解决的了。Stream Frame用于传递HTTP消息，它的格式如下所示：</p>
+<p><img src="https://img.hellobyebye.com/doc/2021032422372516165966451616596645524GRsGBI.png" alt="Stream Frame"></p>
+<p>可见，Stream Frame头部的3个字段，完成了多路复用、有序字节流以及报文段层面的二进制分隔功能，包括：</p>
+<ul>
+<li>Stream ID标识了一个有序字节流。当HTTP Body非常大，需要跨越多个Packet时，只要在每个Stream Frame中含有同样的Stream ID，就可以传输任意长度的消息。多个并发传输的HTTP消息，通过不同的Stream ID加以区别；</li>
+<li>消息序列化后的“有序”特性，是通过Offset字段完成的，它类似于TCP协议中的Sequence序号，用于实现Stream内多个Frame间的累计确认功能；</li>
+<li>Length指明了Frame数据的长度。</li>
+</ul>
+<p>你可能会奇怪，为什么会有8种Stream Frame呢？这是因为0x08-0x0f 这8种类型其实是由3个二进制位组成，它们实现了以下3 标志位的组合：</p>
+<ul>
+<li>第1位表示是否含有Offset，当它为0时，表示这是Stream中的起始Frame，这也是上图中Offset是可选字段的原因；</li>
+<li>第2位表示是否含有Length字段；</li>
+<li>第3位Fin，表示这是Stream中最后1个Frame，与HTTP2协议Frame帧中的FIN标志位相同。</li>
+</ul>
+<p>Stream数据中并不会直接存放HTTP消息，因为HTTP3还需要实现服务器推送、权重优先级设定、流量控制等功能，所以Stream Data中首先存放了HTTP3 Frame：</p>
+<p><img src="https://img.hellobyebye.com/doc/2021032422382516165967051616596705333bEOMci.png" alt="Stream"></p>
+<p>其中，Length指明了HTTP消息的长度，而Type字段（请注意，低2位有特殊用途，在QPACK章节中会详细介绍）包含了以下类型：</p>
+<ul>
+<li>0x00：DATA帧，用于传输HTTP Body包体；</li>
+<li>0x01：HEADERS帧，通过QPACK 编码，传输HTTP Header头部；</li>
+<li>0x03：CANCEL_PUSH控制帧，用于取消1次服务器推送消息，通常客户端在收到PUSH_PROMISE帧后，通过它告知服务器不需要这次推送；</li>
+<li>0x04：SETTINGS控制帧，设置各类通讯参数；</li>
+<li>0x05：PUSH_PROMISE帧，用于服务器推送HTTP Body前，先将HTTP Header头部发给客户端，流程与HTTP2相似；</li>
+<li>0x07：GOAWAY控制帧，用于关闭连接（注意，不是关闭Stream）；</li>
+<li>0x0d：MAX_PUSH_ID，客户端用来限制服务器推送消息数量的控制帧。</li>
+</ul>
+<p>总结一下，QUIC Stream Frame定义了有序字节流，且多个Stream间的传输没有时序性要求，这样，HTTP消息基于QUIC Stream就实现了真正的多路复用，队头阻塞问题自然就被解决掉了。</p>
+<h1 id="QPACK编码对对头阻塞队列问题的解决"><a href="#QPACK编码对对头阻塞队列问题的解决" class="headerlink" title="QPACK编码对对头阻塞队列问题的解决"></a>QPACK编码对对头阻塞队列问题的解决</h1><p>最后，我们再看下HTTP Header头部的编码方式，它需要面对另一种队头阻塞问题。</p>
+<p>与HTTP2中的HPACK编码方式相似，HTTP3中的QPACK也采用了静态表、动态表及Huffman编码：</p>
+<p><img src="https://img.hellobyebye.com/doc/20210324223945161659678516165967851090LcLMr.png" alt="Huffman"></p>
+<p>（图片参见：<a href="https://www.oreilly.com/content/http2-a-new-excerpt/）" target="_blank" rel="noopener">https://www.oreilly.com/content/http2-a-new-excerpt/）</a></p>
+<p>先来看静态表的变化。在上图中，GET方法映射为数字2，这是通过客户端、服务器协议实现层的硬编码完成的。在HTTP2中，共有61个静态表项：</p>
+<p><img src="https://img.hellobyebye.com/doc/2021032422402616165968261616596826684CQVW2x.png" alt="静态表"></p>
+<p>而在QPACK中，则上升为98个静态表项，比如Nginx上的ngx_htt_v3_static_table数组所示</p>
+<p><img src="https://img.hellobyebye.com/doc/2021032422405716165968571616596857872vo5BpS.png" alt="QPACK"></p>
+<p>你也可以从这里找到完整的HTTP3静态表。对于Huffman以及整数的编码，QPACK与HPACK并无多大不同，但动态表编解码方式差距很大。</p>
+<p>所谓动态表，就是将未包含在静态表中的Header项，在其首次出现时加入动态表，这样后续传输时仅用1个数字表示，大大提升了编码效率。因此，动态表是天然具备时序性的，如果首次出现的请求出现了丢包，后续请求解码HPACK头部时，一定会被阻塞！</p>
+<p>QPACK是如何解决队头阻塞问题的呢？事实上，QPACK将动态表的编码、解码独立在单向Stream中传输，仅当单向Stream中的动态表编码成功后，接收端才能解码双向Stream上HTTP消息里的动态表索引。</p>
+<p>我们又引入了单向Stream和双向Stream概念，不要头疼，它其实很简单。单向指只有一端可以发送消息，双向则指两端都可以发送消息。还记得上一小节的QUIC Stream Frame头部吗？其中的Stream ID别有玄机，除了标识Stream外，它的低2位还可以表达以下组合：</p>
+<p><img src="https://img.hellobyebye.com/doc/2021032422412616165968861616596886163iOEunh.png" alt="Stream Type"></p>
+<p>因此，当Stream ID是0、4、8、12时，这就是客户端发起的双向Stream（HTTP3不支持服务器发起双向Stream），它用于传输HTTP请求与响应。单向Stream有很多用途，所以它在数据前又多出一个Stream Type字段：</p>
+<p><img src="https://img.hellobyebye.com/doc/2021032422420216165969221616596922060c7PK5i.png" alt="StreamId"></p>
+<p>Stream Type有以下取值：</p>
+<ul>
+<li>0x00：控制Stream，传递各类Stream控制消息；</li>
+<li>0x01：服务器推送消息；</li>
+<li>0x02：用于编码QPACK动态表，比如面对不属于静态表的HTTP请求头部，客户端可以通过这个Stream发送动态表编码；</li>
+<li>0x03：用于通知编码端QPACK动态表的更新结果。</li>
+</ul>
+<p>由于HTTP3的STREAM之间是乱序传输的，因此，若先发送的编码Stream后到达，双向Stream中的QPACK头部就无法解码，此时传输HTTP消息的双向Stream就会进入Block阻塞状态（两端可以通过控制帧定义阻塞Stream的处理方式）。</p>
+<h1 id="小节"><a href="#小节" class="headerlink" title="小节"></a>小节</h1><p>最后对本文内容做个小结。</p>
+<p>基于四元组定义连接并不适用于下一代IoT网络，HTTP3创造出Connection ID概念实现了连接迁移，通过融合传输层、表示层，既缩短了握手时长，也加密了传输层中的绝大部分字段，提升了网络安全性。</p>
+<p>HTTP3在Packet层保障了连接的可靠性，在QUIC Frame层实现了有序字节流，在HTTP3 Frame层实现了HTTP语义，这彻底解开了队头阻塞问题，真正实现了应用层的多路复用。</p>
+<p>QPACK使用独立的单向Stream分别传输动态表编码、解码信息，这样乱序、并发传输HTTP消息的Stream既不会出现队头阻塞，也能基于时序性大幅压缩HTTP Header的体积。</p>
 <h1 id="文章来源和引用说明"><a href="#文章来源和引用说明" class="headerlink" title="文章来源和引用说明"></a>文章来源和引用说明</h1><blockquote>
-<p><strong>本文作者：</strong> 陶辉<br><strong>本文链接：</strong> <a href="https://www.taohui.tech/2021/02/04/网络协议/深入剖析HTTP3协议/" target="_blank" rel="noopener">https://www.taohui.tech/2021/02/04/网络协议/深入剖析HTTP3协议/</a></p>
+<p><strong>原文作者：</strong> 陶辉<br><strong>原文链接：</strong> <a href="https://www.taohui.tech/2021/02/04/网络协议/深入剖析HTTP3协议/" target="_blank" rel="noopener">https://www.taohui.tech/2021/02/04/网络协议/深入剖析HTTP3协议/</a></p>
 </blockquote>
 
             <!--[if lt IE 9]><script>document.createElement('audio');</script><![endif]-->
@@ -240,7 +401,7 @@
             <div class="box sticky animated fadeInRight faster">
                 <div id="toc" class="subbox">
                     <h4>Contents</h4>
-                    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#HTTP3协议的深入剖析"><span class="toc-number">1.</span> <span class="toc-text">HTTP3协议的深入剖析</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#HTTP3协议到底是什么？"><span class="toc-number">2.</span> <span class="toc-text">HTTP3协议到底是什么？</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#文章来源和引用说明"><span class="toc-number">3.</span> <span class="toc-text">文章来源和引用说明</span></a></li></ol>
+                    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#HTTP3协议的深入剖析"><span class="toc-number">1.</span> <span class="toc-text">HTTP3协议的深入剖析</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#HTTP3协议到底是什么？"><span class="toc-number">2.</span> <span class="toc-text">HTTP3协议到底是什么？</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#连接迁移功能的实现"><span class="toc-number">3.</span> <span class="toc-text">连接迁移功能的实现</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Stream多路复用时的队头阻塞问题解决"><span class="toc-number">4.</span> <span class="toc-text">Stream多路复用时的队头阻塞问题解决</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#QPACK编码对对头阻塞队列问题的解决"><span class="toc-number">5.</span> <span class="toc-text">QPACK编码对对头阻塞队列问题的解决</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#小节"><span class="toc-number">6.</span> <span class="toc-text">小节</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#文章来源和引用说明"><span class="toc-number">7.</span> <span class="toc-text">文章来源和引用说明</span></a></li></ol>
                 </div>
             </div>
             

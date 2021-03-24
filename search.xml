@@ -1,6 +1,128 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
+    <title>Java Microbenchmark Harness微基准测试陷阱</title>
+    <url>/2020/07/09/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Java-Microbenchmark-Harness-Test-Trap/</url>
+    <content><![CDATA[<blockquote>
+<p><strong>天下之事，闻者不如见者知之为详，见者不如居者知之为尽。——宋-陆游</strong></p>
+<p><strong>你要知道梨子的滋味，就要亲口尝一下。——毛泽东</strong></p>
+</blockquote>
+<p>俗话说，没有实践就没有发言权，自己实践才能知之为尽，Benchmark 为应用提供了数据支持，是评价和比较方法好坏的基准，Benchmark 的准确性，多样性便显得尤为重要。JMH为Java方法的基准水平提供了很好的量化标准，也为剖析系统性能和技术选型提供的更为有效切可靠的实现手段。</p>
+<p>以下记录在使用Java Microbenchmark Harness做微基准测试容易遇见的误区和相关陷阱，便于之后的查找和说明。</p>
+<a id="more"></a>
+
+<h2 id="代码预热"><a href="#代码预热" class="headerlink" title="代码预热"></a>代码预热</h2><blockquote>
+<p><strong>Warmup = waiting for the transient responses to settle down</strong></p>
+</blockquote>
+<p>随着JVM虚拟机的优化，JIT的存在，代码的执行往往前期执行结果没有后期的执行结果好。 <code>Benchmark</code> 产生更可靠的结果的原因是，它只度量稳定状态下<code>方法任务</code>的执行时间，而不理会最初的性能。大多数 Java 实现具有复杂的性能生命周期。一般来说，最初的性能往往相当低，然后性能显著提高（常常出现几次性能跃升），直到到达稳定状态。</p>
+<h3 id="类装载"><a href="#类装载" class="headerlink" title="类装载"></a>类装载</h3><p>JVM 通常只在类的第一次使用类时装载它们。所以,方法任务的第一次执行时间包含装载它使用的所有类的时间（如果这些类还没有装载的话）。因为类装载往往涉及磁盘 I/O、解析和检验，这会显著增加<code>方法任务</code>的第一次执行时间。<strong>常常</strong>可以通过多次执行<code>方法任务</code>来消除这种影响。</p>
+<blockquote>
+<p>PS:  <strong>常常</strong>而不是<strong>总是</strong>，这是因为 <code>方法任务</code> 可能具有复杂的分支行为，这可能导致它在任何给定的执行过程中并不使用所有可能用到的类。幸运的是，如果执行任务足够多次，就可能经历所有分支，因此很快就会装载所有相关类）。</p>
+</blockquote>
+<p>如果使用定制的类装载器，就有另一个问题：JVM 可能认为一些类已经成了垃圾，因此决定卸载它。这不太可能严重影响性能，但是仍然会使基准测试结果产生偏差。</p>
+<h3 id="混合模式"><a href="#混合模式" class="headerlink" title="混合模式"></a>混合模式</h3><p>在执行即时（Just-in-time，JIT）编译之前，现代的 JVM 通常会运行代码一段时间（常常是纯解释式运行），从而收集剖析信息。这对基准测试的影响在于，任务可能需要执行许多次，才能达到稳定状态。</p>
+<p>一般来说对稳定状态下的基准测试至少需要以下步骤：</p>
+<ol>
+<li>执行 <code>方法任务</code> 一次，以便装载所有类。</li>
+<li>执行 <code>方法任务</code> 足够多次，以确保出现稳定状态的执行数据。</li>
+</ol>
+<h2 id="陷阱一-死码消除"><a href="#陷阱一-死码消除" class="headerlink" title="陷阱一: 死码消除"></a>陷阱一: 死码消除</h2><p><a href="[https://zh.wikipedia.org/zh-cn/%E6%AD%BB%E7%A2%BC%E5%88%AA%E9%99%A4](https://zh.wikipedia.org/zh-cn/死碼刪除)">死码消除</a>(Dead code elimination）是一种编译最优化技术,在某些情况下，编译器可以判断出某些代码根本不影响输出，所以编译器会消除这些代码,例如注释的代码，不可达的代码块，可达但不被使用的代码，会被判断为死码而在Javac的时候被消除。</p>
+<pre><code class="java">public class ErrorBenchmark {
+    private double PI = Math.PI;
+
+    @Benchmark
+    public void benchmarkNothing(){
+        // 19873732.412 ± 6783114.266  ops/ms
+        //do nothing 
+    }
+
+    @Benchmark
+    public void benchmarkWrong(){
+        //  20988076.131 ± 7282548.202  ops/ms
+        Math.log(PI);  // DCE 会被判断为死码而被消除
+    }
+
+    @Benchmark
+    public double benchmarkRight(){
+       // 306740.041 ±   52692.696  ops/ms
+        return Math.log(PI);
+    }
+
+}</code></pre>
+<p>在做测试时，需要注意方法会不会有死码的存在，否者可能会带来一些不合理的测试结果和意外。对于会被判断为死码但又需要进行执行测试方法来说，可以想办法去除孤立的方法执行，例如增加方法返回值，或者使用JMH的提供的API<strong>Blackhole</strong>。</p>
+<pre><code class="java">@Benchmark
+public void benchmarkRight(Blackhole bh) {
+    bh.consume(Math.log(PI));
+}</code></pre>
+<h2 id="陷阱二：常量折叠与常量传播"><a href="#陷阱二：常量折叠与常量传播" class="headerlink" title="陷阱二：常量折叠与常量传播"></a>陷阱二：常量折叠与常量传播</h2><p><a href="[https://zh.wikipedia.org/wiki/%E5%B8%B8%E6%95%B8%E6%8A%98%E7%96%8A#%E5%B8%B8%E6%95%B8%E5%82%B3%E6%92%AD](https://zh.wikipedia.org/wiki/常數折疊#常數傳播)">常数折叠</a>（Constant folding）以及常数传播（constant propagation）都是<a href="https://zh.wikipedia.org/w/index.php?title=編譯器最佳化&action=edit&redlink=1" target="_blank" rel="noopener">编译器最佳化</a>技术。是一个在编译时期简化常数的一个过程。常数在表示式中仅仅代表一个简单的数值，就算一个变数从未被修改也可作为常数，或者直接将一个变数被明确地被标注为常数。</p>
+<pre><code class="java">long number = 2 * 600 * 200;</code></pre>
+<p>多数的现代编译器不会真的产生两个乘法的指令再将结果储存下来，取而代之的，他们会辨识出语句的结构，并在编译时期将数值直接计算出来。常数折叠的时机取决于编译器，有的在编译前期完成，有的在较后期进行。</p>
+<pre><code class="java">private double x = Math.PI;
+
+// 编译器会对 final 变量特殊处理 
+private final double wrongX = Math.PI;
+
+@Benchmark
+public double baseline() {
+    // 2.220 ± 0.352 ns/op
+    return Math.PI;
+}
+
+@Benchmark
+public double measureWrong_1() { 
+    // 2.220 ± 0.352 ns/op
+    // 错误，结果可以被预测，会发生常量折叠
+    return Math.log(Math.PI);
+}
+
+@Benchmark
+public double measureWrong_2() { 
+    // 2.220 ± 0.352 ns/op
+    // 错误，结果可以被预测，会发生常量折叠
+    return Math.log(wrongX);
+}
+
+@Benchmark
+public double measureRight() { 
+    // 22.590 ± 2.636  ns/op
+    return Math.log(x);
+}</code></pre>
+<p>由于发生了常量折叠，相同实现下的执行销量完全不同，这个测试在一定程度上说明了final的定义对于方法执行结果的影响。</p>
+<p>此外<strong>常数传播 (</strong>Constant propagation<strong>)</strong> 是一个替代表示式中已知常数的过程，也是在编译时期进行，包含前述所定义，内建函数也适用于常数。</p>
+<pre><code class="java">int x = 520;
+int y = 260 - 520 / 2;
+return y * (1314 / x + 2);</code></pre>
+<p>传播可以理解变量的替换，如果进行持续传播，上式则可写成如下</p>
+<pre><code class="java">int x = 14;
+int y = 0;
+return 0;</code></pre>
+<h2 id="陷阱三：不要在测试中写循环"><a href="#陷阱三：不要在测试中写循环" class="headerlink" title="陷阱三：不要在测试中写循环"></a>陷阱三：不要在测试中写循环</h2><h2 id="为什么要使用JMH"><a href="#为什么要使用JMH" class="headerlink" title="为什么要使用JMH"></a>为什么要使用JMH</h2><p>对于传统的接口调用测试，可能会使用以下的方式测试</p>
+<pre><code class="java">long startTime = System.currentTimeMillis();
+benchmarkTestMethod();
+System.out.println(System.currentTimeMillis()-startTime);</code></pre>
+<p>而JMH则使用</p>
+<pre><code class="java">@Benchmark
+public void benchmarkTestMethod(){
+  // do 
+}</code></pre>
+<hr>
+<h2 id="参考和引用"><a href="#参考和引用" class="headerlink" title="参考和引用"></a>参考和引用</h2><ul>
+<li><a href="https://www.ibm.com/developerworks/cn/java/j-benchmark1.html" target="_blank" rel="noopener">IBM Developer Java 代码基准测试的问题</a></li>
+<li><a href="https://www.cnkirito.moe/java-jmh/" target="_blank" rel="noopener">JAVA 拾遗 — JMH 与 8 个测试陷阱</a></li>
+</ul>
+]]></content>
+      <categories>
+        <category>系统调优</category>
+      </categories>
+      <tags>
+        <tag>Java</tag>
+        <tag>基准测试</tag>
+        <tag>系统调优</tag>
+        <tag>误区和陷阱</tag>
+        <tag>JMH</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>Java Microbenchmark Harness微基准测试基础</title>
     <url>/2020/07/07/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Java-Microbenchmark-Harness-Basic/</url>
     <content><![CDATA[<blockquote>
@@ -236,270 +358,9 @@ StringBuilderBenchmark.testStringBuilderAdd  thrpt   20  45051.713 ± 7496.158  
       <tags>
         <tag>Java</tag>
         <tag>基准测试</tag>
-        <tag>JMH</tag>
         <tag>系统调优</tag>
+        <tag>JMH</tag>
         <tag>基础</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>Java Microbenchmark Harness微基准测试陷阱</title>
-    <url>/2020/07/09/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Java-Microbenchmark-Harness-Test-Trap/</url>
-    <content><![CDATA[<blockquote>
-<p><strong>天下之事，闻者不如见者知之为详，见者不如居者知之为尽。——宋-陆游</strong></p>
-<p><strong>你要知道梨子的滋味，就要亲口尝一下。——毛泽东</strong></p>
-</blockquote>
-<p>俗话说，没有实践就没有发言权，自己实践才能知之为尽，Benchmark 为应用提供了数据支持，是评价和比较方法好坏的基准，Benchmark 的准确性，多样性便显得尤为重要。JMH为Java方法的基准水平提供了很好的量化标准，也为剖析系统性能和技术选型提供的更为有效切可靠的实现手段。</p>
-<p>以下记录在使用Java Microbenchmark Harness做微基准测试容易遇见的误区和相关陷阱，便于之后的查找和说明。</p>
-<a id="more"></a>
-
-<h2 id="代码预热"><a href="#代码预热" class="headerlink" title="代码预热"></a>代码预热</h2><blockquote>
-<p><strong>Warmup = waiting for the transient responses to settle down</strong></p>
-</blockquote>
-<p>随着JVM虚拟机的优化，JIT的存在，代码的执行往往前期执行结果没有后期的执行结果好。 <code>Benchmark</code> 产生更可靠的结果的原因是，它只度量稳定状态下<code>方法任务</code>的执行时间，而不理会最初的性能。大多数 Java 实现具有复杂的性能生命周期。一般来说，最初的性能往往相当低，然后性能显著提高（常常出现几次性能跃升），直到到达稳定状态。</p>
-<h3 id="类装载"><a href="#类装载" class="headerlink" title="类装载"></a>类装载</h3><p>JVM 通常只在类的第一次使用类时装载它们。所以,方法任务的第一次执行时间包含装载它使用的所有类的时间（如果这些类还没有装载的话）。因为类装载往往涉及磁盘 I/O、解析和检验，这会显著增加<code>方法任务</code>的第一次执行时间。<strong>常常</strong>可以通过多次执行<code>方法任务</code>来消除这种影响。</p>
-<blockquote>
-<p>PS:  <strong>常常</strong>而不是<strong>总是</strong>，这是因为 <code>方法任务</code> 可能具有复杂的分支行为，这可能导致它在任何给定的执行过程中并不使用所有可能用到的类。幸运的是，如果执行任务足够多次，就可能经历所有分支，因此很快就会装载所有相关类）。</p>
-</blockquote>
-<p>如果使用定制的类装载器，就有另一个问题：JVM 可能认为一些类已经成了垃圾，因此决定卸载它。这不太可能严重影响性能，但是仍然会使基准测试结果产生偏差。</p>
-<h3 id="混合模式"><a href="#混合模式" class="headerlink" title="混合模式"></a>混合模式</h3><p>在执行即时（Just-in-time，JIT）编译之前，现代的 JVM 通常会运行代码一段时间（常常是纯解释式运行），从而收集剖析信息。这对基准测试的影响在于，任务可能需要执行许多次，才能达到稳定状态。</p>
-<p>一般来说对稳定状态下的基准测试至少需要以下步骤：</p>
-<ol>
-<li>执行 <code>方法任务</code> 一次，以便装载所有类。</li>
-<li>执行 <code>方法任务</code> 足够多次，以确保出现稳定状态的执行数据。</li>
-</ol>
-<h2 id="陷阱一-死码消除"><a href="#陷阱一-死码消除" class="headerlink" title="陷阱一: 死码消除"></a>陷阱一: 死码消除</h2><p><a href="[https://zh.wikipedia.org/zh-cn/%E6%AD%BB%E7%A2%BC%E5%88%AA%E9%99%A4](https://zh.wikipedia.org/zh-cn/死碼刪除)">死码消除</a>(Dead code elimination）是一种编译最优化技术,在某些情况下，编译器可以判断出某些代码根本不影响输出，所以编译器会消除这些代码,例如注释的代码，不可达的代码块，可达但不被使用的代码，会被判断为死码而在Javac的时候被消除。</p>
-<pre><code class="java">public class ErrorBenchmark {
-    private double PI = Math.PI;
-
-    @Benchmark
-    public void benchmarkNothing(){
-        // 19873732.412 ± 6783114.266  ops/ms
-        //do nothing 
-    }
-
-    @Benchmark
-    public void benchmarkWrong(){
-        //  20988076.131 ± 7282548.202  ops/ms
-        Math.log(PI);  // DCE 会被判断为死码而被消除
-    }
-
-    @Benchmark
-    public double benchmarkRight(){
-       // 306740.041 ±   52692.696  ops/ms
-        return Math.log(PI);
-    }
-
-}</code></pre>
-<p>在做测试时，需要注意方法会不会有死码的存在，否者可能会带来一些不合理的测试结果和意外。对于会被判断为死码但又需要进行执行测试方法来说，可以想办法去除孤立的方法执行，例如增加方法返回值，或者使用JMH的提供的API<strong>Blackhole</strong>。</p>
-<pre><code class="java">@Benchmark
-public void benchmarkRight(Blackhole bh) {
-    bh.consume(Math.log(PI));
-}</code></pre>
-<h2 id="陷阱二：常量折叠与常量传播"><a href="#陷阱二：常量折叠与常量传播" class="headerlink" title="陷阱二：常量折叠与常量传播"></a>陷阱二：常量折叠与常量传播</h2><p><a href="[https://zh.wikipedia.org/wiki/%E5%B8%B8%E6%95%B8%E6%8A%98%E7%96%8A#%E5%B8%B8%E6%95%B8%E5%82%B3%E6%92%AD](https://zh.wikipedia.org/wiki/常數折疊#常數傳播)">常数折叠</a>（Constant folding）以及常数传播（constant propagation）都是<a href="https://zh.wikipedia.org/w/index.php?title=編譯器最佳化&action=edit&redlink=1" target="_blank" rel="noopener">编译器最佳化</a>技术。是一个在编译时期简化常数的一个过程。常数在表示式中仅仅代表一个简单的数值，就算一个变数从未被修改也可作为常数，或者直接将一个变数被明确地被标注为常数。</p>
-<pre><code class="java">long number = 2 * 600 * 200;</code></pre>
-<p>多数的现代编译器不会真的产生两个乘法的指令再将结果储存下来，取而代之的，他们会辨识出语句的结构，并在编译时期将数值直接计算出来。常数折叠的时机取决于编译器，有的在编译前期完成，有的在较后期进行。</p>
-<pre><code class="java">private double x = Math.PI;
-
-// 编译器会对 final 变量特殊处理 
-private final double wrongX = Math.PI;
-
-@Benchmark
-public double baseline() {
-    // 2.220 ± 0.352 ns/op
-    return Math.PI;
-}
-
-@Benchmark
-public double measureWrong_1() { 
-    // 2.220 ± 0.352 ns/op
-    // 错误，结果可以被预测，会发生常量折叠
-    return Math.log(Math.PI);
-}
-
-@Benchmark
-public double measureWrong_2() { 
-    // 2.220 ± 0.352 ns/op
-    // 错误，结果可以被预测，会发生常量折叠
-    return Math.log(wrongX);
-}
-
-@Benchmark
-public double measureRight() { 
-    // 22.590 ± 2.636  ns/op
-    return Math.log(x);
-}</code></pre>
-<p>由于发生了常量折叠，相同实现下的执行销量完全不同，这个测试在一定程度上说明了final的定义对于方法执行结果的影响。</p>
-<p>此外<strong>常数传播 (</strong>Constant propagation<strong>)</strong> 是一个替代表示式中已知常数的过程，也是在编译时期进行，包含前述所定义，内建函数也适用于常数。</p>
-<pre><code class="java">int x = 520;
-int y = 260 - 520 / 2;
-return y * (1314 / x + 2);</code></pre>
-<p>传播可以理解变量的替换，如果进行持续传播，上式则可写成如下</p>
-<pre><code class="java">int x = 14;
-int y = 0;
-return 0;</code></pre>
-<h2 id="陷阱三：不要在测试中写循环"><a href="#陷阱三：不要在测试中写循环" class="headerlink" title="陷阱三：不要在测试中写循环"></a>陷阱三：不要在测试中写循环</h2><h2 id="为什么要使用JMH"><a href="#为什么要使用JMH" class="headerlink" title="为什么要使用JMH"></a>为什么要使用JMH</h2><p>对于传统的接口调用测试，可能会使用以下的方式测试</p>
-<pre><code class="java">long startTime = System.currentTimeMillis();
-benchmarkTestMethod();
-System.out.println(System.currentTimeMillis()-startTime);</code></pre>
-<p>而JMH则使用</p>
-<pre><code class="java">@Benchmark
-public void benchmarkTestMethod(){
-  // do 
-}</code></pre>
-<hr>
-<h2 id="参考和引用"><a href="#参考和引用" class="headerlink" title="参考和引用"></a>参考和引用</h2><ul>
-<li><a href="https://www.ibm.com/developerworks/cn/java/j-benchmark1.html" target="_blank" rel="noopener">IBM Developer Java 代码基准测试的问题</a></li>
-<li><a href="https://www.cnkirito.moe/java-jmh/" target="_blank" rel="noopener">JAVA 拾遗 — JMH 与 8 个测试陷阱</a></li>
-</ul>
-]]></content>
-      <categories>
-        <category>系统调优</category>
-      </categories>
-      <tags>
-        <tag>Java</tag>
-        <tag>基准测试</tag>
-        <tag>JMH</tag>
-        <tag>系统调优</tag>
-        <tag>误区和陷阱</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>Jenkins在CentOS系统环境上的搭建和部署</title>
-    <url>/2020/07/23/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Jenkins-programming-environment-setup/</url>
-    <content><![CDATA[<h3 id="Jenkins服务在CentOS系统环境上的搭建和部署"><a href="#Jenkins服务在CentOS系统环境上的搭建和部署" class="headerlink" title="Jenkins服务在CentOS系统环境上的搭建和部署"></a>Jenkins服务在CentOS系统环境上的搭建和部署</h3><blockquote>
-<p><a href="https://www.jenkins.io/zh/" target="_blank" rel="noopener">Jenkins</a> 由Java编写的一个开源的、提供友好操作界面的持续集成(CI)工具，起源于Hudson（Hudson是商用的），主要用于持续、自动的构建/测试软件项目、监控外部任务的运行（这个比较抽象，暂且写上，不做解释）。Jenkins用Java语言编写，可在Tomcat等流行的servlet容器中运行，也可独立运行。通常与版本管理工具(SCM)、构建工具结合使用。常用的版本控制工具有SVN、GIT，构建工具有Maven、Ant、Gradle。</p>
-</blockquote>
-<a id="more"></a>  
-
-<p>CI(Continuous integration，中文意思是持续集成)是一种软件开发时间。持续集成强调开发人员提交了新代码之后，立刻进行构建、（单元）测试。根据测试结果，我们可以确定新代码和原有代码能否正确地集成在一起。借用网络图片对CI加以理解。</p>
-<p><img src="http://img.upuphub.com/6464255-1b6e3bfdbece1492.jpg" alt="CI"></p>
-<p> CD(Continuous Delivery， 中文意思持续交付)是在持续集成的基础上，将集成后的代码部署到更贴近真实运行环境(类生产环境)中。比如，我们完成单元测试后，可以把代码部署到连接数据库的Staging环境中更多的测试。如果代码没有问题，可以继续手动部署到生产环境。下图反应的是CI/CD 的大概工作模式。</p>
-<p><img src="http://img.upuphub.com/6464255-ba088ec7257062c0.jpg" alt="Jenkins"></p>
-<!-- more -->
-
-<h2 id="在线安装Jenkins"><a href="#在线安装Jenkins" class="headerlink" title="在线安装Jenkins"></a>在线安装Jenkins</h2><pre><code class="shell"># 获取 repo
-$ wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
-
-# 获取key, 如果之前导入 jenkins 的key, 这一步可以忽略
-$ rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key
-
-$ yum update &amp;&amp; yum install jenkins
-
-# 启用 jenkins
-$ systemctl start jenkins</code></pre>
-<h2 id="离线安装Jenkins"><a href="#离线安装Jenkins" class="headerlink" title="离线安装Jenkins"></a>离线安装Jenkins</h2><pre><code class="shell"># 准备安装临时文件夹
-$ mkdir jenkins
-$ cd jenkins
-
-# 获取最新的稳定版本的Jenkins.rpm文件(https://pkg.jenkins.io/redhat-stable/)
-$ wget https://pkg.jenkins.io/redhat-stable/jenkins-2.235.2-1.1.noarch.rpm
-
-# 执行本地的Yum安装
-$ yum localinstall jenkins-2.235.2-1.1.noarch.rpm
-
-# 启用 jenkins
-$ systemctl start jenkins</code></pre>
-<h2 id="安装异常解决"><a href="#安装异常解决" class="headerlink" title="安装异常解决"></a>安装异常解决</h2><h3 id="异常信息如下"><a href="#异常信息如下" class="headerlink" title="异常信息如下"></a>异常信息如下</h3><pre><code class="shell">[root@Leonardo-iWzl-Server jenkins]# systemctl start jenkins
-Job for jenkins.service failed because the control process exited with error code. See &quot;systemctl status jenkins.service&quot; and &quot;journalctl -xe&quot; for details.
-[root@Leonardo-iWzl-Server jenkins]# systemctl status jenkins
-● jenkins.service - LSB: Jenkins Automation Server
-   Loaded: loaded (/etc/rc.d/init.d/jenkins; bad; vendor preset: disabled)
-   Active: failed (Result: exit-code) since 四 2020-07-23 10:02:43 EDT; 16s ago
-     Docs: man:systemd-sysv-generator(8)
-  Process: 23582 ExecStart=/etc/rc.d/init.d/jenkins start (code=exited, status=1/FAILURE)
-
-7月 23 10:02:43 Leonardo-iWzl-Server systemd[1]: Starting LSB: Jenkins Automation Server...
-7月 23 10:02:43 Leonardo-iWzl-Server runuser[23587]: pam_unix(runuser:session): session opened for user jenkins...d=0)
-7月 23 10:02:43 Leonardo-iWzl-Server jenkins[23582]: Starting Jenkins bash: /usr/bin/java: No such file or directory
-7月 23 10:02:43 Leonardo-iWzl-Server runuser[23587]: pam_unix(runuser:session): session closed for user jenkins
-7月 23 10:02:43 Leonardo-iWzl-Server jenkins[23582]: [FAILED]
-7月 23 10:02:43 Leonardo-iWzl-Server systemd[1]: jenkins.service: control process exited, code=exited status=1
-7月 23 10:02:43 Leonardo-iWzl-Server systemd[1]: Failed to start LSB: Jenkins Automation Server.
-7月 23 10:02:43 Leonardo-iWzl-Server systemd[1]: Unit jenkins.service entered failed state.
-7月 23 10:02:43 Leonardo-iWzl-Server systemd[1]: jenkins.service failed.
-Hint: Some lines were ellipsized, use -l to show in full.</code></pre>
-<h3 id="原因说明"><a href="#原因说明" class="headerlink" title="原因说明"></a>原因说明</h3><p>Jenkins 默认会在以下目录按顺序搜寻 JDK，一旦找到一个可用的即返回</p>
-<pre><code class="shell">/etc/alternatives/java
-/usr/lib/jvm/java-1.8.0/bin/java
-/usr/lib/jvm/jre-1.8.0/bin/java
-/usr/lib/jvm/java-1.7.0/bin/java
-/usr/lib/jvm/jre-1.7.0/bin/java
-/usr/lib/jvm/java-11.0/bin/java
-/usr/lib/jvm/jre-11.0/bin/java
-/usr/lib/jvm/java-11-openjdk-amd64
-/usr/bin/java</code></pre>
-<p>如果系统的以上位置都未安装 JDK，启动时就会报错，可以通过建立软连接进行解决</p>
-<pre><code class="shell"> ln -s /usr/local/java/jdk1.8.0_261/bin/java /usr/bin/java</code></pre>
-<p>完成以上错误处理后,可得到以下输出</p>
-<pre><code class="shell">[root@Leonardo-iWzl-Server jenkins]# systemctl status jenkins
-● jenkins.service - LSB: Jenkins Automation Server
-   Loaded: loaded (/etc/rc.d/init.d/jenkins; bad; vendor preset: disabled)
-   Active: active (running) since 四 2020-07-23 10:10:06 EDT; 4s ago
-     Docs: man:systemd-sysv-generator(8)
-  Process: 23606 ExecStart=/etc/rc.d/init.d/jenkins start (code=exited, status=0/SUCCESS)
-   CGroup: /system.slice/jenkins.service
-           └─23630 /usr/bin/java -Dcom.sun.akuma.Daemon=daemonized -Djava.awt.headless=true -DJENKINS_HOME=/var/lib/jenkins -jar /usr/lib/jenkins/jenkins.war --logfile=/var/log/jenkins/jenkins.log --webroot=/var/cache/jenkins/war --dae...
-
-7月 23 10:10:04 Leonardo-iWzl-Server systemd[1]: Starting LSB: Jenkins Automation Server...
-7月 23 10:10:04 Leonardo-iWzl-Server runuser[23611]: pam_unix(runuser:session): session opened for user jenkins by (uid=0)
-7月 23 10:10:06 Leonardo-iWzl-Server runuser[23611]: pam_unix(runuser:session): session closed for user jenkins
-7月 23 10:10:06 Leonardo-iWzl-Server jenkins[23606]: Starting Jenkins [  OK  ]
-7月 23 10:10:06 Leonardo-iWzl-Server systemd[1]: Started LSB: Jenkins Automation Server.</code></pre>
-<p> 查看jenkins 的启动参数 <em>ps -ef |grep jenkins</em> </p>
-<pre><code class="shell">[root@Leonardo-iWzl-Server jenkins]# ps -ef |grep jenkins
-jenkins  23630     1 49 10:10 ?        00:00:54 /usr/bin/java 
-        -Dcom.sun.akuma.Daemon=daemonized 
-        -Djava.awt.headless=true 
-        -DJENKINS_HOME=/var/lib/jenkins 
-        -jar /usr/lib/jenkins/jenkins.war 
-        --logfile=/var/log/jenkins/jenkins.log 
-        --webroot=/var/cache/jenkins/war 
-        --daemon 
-        --httpPort=8080 
-        --debug=5 
-        --handlerCountMax=100 
-        --handlerCountMaxIdle=20
-root     23695 23312  0 10:11 pts/0    00:00:00 grep --color=auto jenkins</code></pre>
-<p>在这里看到日志的一些配置和相关的端口、可以通过访问<em>「IP」:8080</em>访问到Jenkins服务</p>
-<h3 id="Jenkins的更新"><a href="#Jenkins的更新" class="headerlink" title="Jenkins的更新"></a>Jenkins的更新</h3><p>对于Jenkins更新可以通过</p>
-<pre><code class="shell">yum update jenkins</code></pre>
-<p>完成更新后,需要重启Jenkins服务</p>
-<h3 id="Jenkins国内镜像配置"><a href="#Jenkins国内镜像配置" class="headerlink" title="Jenkins国内镜像配置"></a>Jenkins国内镜像配置</h3><p>修改<em>/var/lib/jenkins</em> 目录下的<em>hudson.model.UpdateCenter.xml</em>文件内容如下</p>
-<pre><code class="xml">&lt;?xml version=&#39;1.1&#39; encoding=&#39;UTF-8&#39;?&gt;
-&lt;sites&gt;
-  &lt;site&gt;
-    &lt;id&gt;default&lt;/id&gt;
-    &lt;!-- &lt;url&gt;https://updates.jenkins.io/update-center.json&lt;/url&gt;--&gt;
-     &lt;url&gt;https://mirrors.tuna.tsinghua.edu.cn/jenkins/updates/update-center.json/url&gt;
-  &lt;/site&gt;
-&lt;/sites&gt;</code></pre>
-<p>修改默认配置json文件<em>/var/lib/jenkins/updates/default.json</em></p>
-<pre><code class="shell"># 进入响应文件夹
-cd /var/lib/jenkins/updates
-
-# 备份原始文件
-cp default.json default.json.bak
-
-# 替换更新下载地址
-sed -i &#39;s/http:\/\/updates.jenkins-ci.org\/download/https:\/\/mirrors.tuna.tsinghua.edu.cn\/jenkins/g&#39; default.json
-
-# 替换测试URL
-sed -i &#39;s/http:\/\/www.google.com/https:\/\/www.baidu.com/g&#39; default.json</code></pre>
-<p>完成以后重启Jenkins服务</p>
-<h3 id="配置Jenkins服务"><a href="#配置Jenkins服务" class="headerlink" title="配置Jenkins服务"></a>配置Jenkins服务</h3><p>之后按提示和Jenkins可视化引导完成剩余的Jenkins环境的搭建部署</p>
-<h2 id="Jenkins的结构导图"><a href="#Jenkins的结构导图" class="headerlink" title="Jenkins的结构导图"></a>Jenkins的结构导图</h2><p><img src="http://img.upuphub.com/6464255-cc56d3af1fdd96df.png" alt="Jenkins"></p>
-<hr>
-<h2 id="参考和引用"><a href="#参考和引用" class="headerlink" title="参考和引用"></a>参考和引用</h2><p><a href="https://www.jianshu.com/p/5f671aca2b5a" target="_blank" rel="noopener">哥本哈根月光-Jenkins详细教程</a></p>
-<p><a href="https://halo.sherlocky.com/archives/jenkins" target="_blank" rel="noopener">CentOS 安装 Jenkins 及 国内下载加速</a></p>
-]]></content>
-      <categories>
-        <category>DevOps</category>
-      </categories>
-      <tags>
-        <tag>DevOps</tag>
-        <tag>Liunx</tag>
-        <tag>Jenkins</tag>
-        <tag>CentOS</tag>
       </tags>
   </entry>
   <entry>
@@ -594,10 +455,30 @@ ss -tnlp | grep :80</code></pre>
         <category>Nginx</category>
       </categories>
       <tags>
-        <tag>Liunx</tag>
-        <tag>CentOS</tag>
         <tag>Nginx</tag>
+        <tag>Liunx</tag>
         <tag>Server</tag>
+        <tag>CentOS</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>IM系统的可靠性保障方案设计</title>
+    <url>/2021/03/23/%E5%8F%8A%E6%97%B6%E9%80%9A%E8%AE%AF/IM%E7%B3%BB%E7%BB%9F%E7%9A%84%E5%8F%AF%E9%9D%A0%E6%80%A7%E4%BF%9D%E9%9A%9C%E6%96%B9%E6%A1%88%E8%AE%BE%E8%AE%A1/</url>
+    <content><![CDATA[<div id="hexo-blog-encrypt" data-wpm="Oh, this is an invalid password. Check and try again, please." data-whm="OOPS, these decrypted content may changed, but you can still have a look.">
+  <div class="hbe-input-container">
+  <input type="password" id="hbePass" placeholder="" />
+    <label for="hbePass">输入密码，查看文章</label>
+    <div class="bottom-line"></div>
+  </div>
+  <script id="hbeData" type="hbeData" data-hmacdigest="eec786a40cf7aea934fb8b407653c706146aee44047d4f82cd2f941341428254">ff2aa2f000186a9810700fce1416f63b</script>
+</div>
+<script src="/lib/blog-encrypt.js"></script><link href="/css/blog-encrypt.css" rel="stylesheet" type="text/css">]]></content>
+      <categories>
+        <category>及时通讯</category>
+      </categories>
+      <tags>
+        <tag>及时通讯</tag>
+        <tag>系统架构</tag>
       </tags>
   </entry>
   <entry>
@@ -965,6 +846,242 @@ Short options:        GNU long options: (extensions)
       </tags>
   </entry>
   <entry>
+    <title>支持亿级消息的IM系统模块设计</title>
+    <url>/2021/03/23/%E5%8F%8A%E6%97%B6%E9%80%9A%E8%AE%AF/%E6%94%AF%E6%8C%81%E4%BA%BF%E7%BA%A7%E7%94%A8%E6%88%B7%E7%9A%84IM%E7%B3%BB%E7%BB%9F%E6%A8%A1%E5%9D%97%E8%AE%BE%E8%AE%A1/</url>
+    <content><![CDATA[<h1 id="支持亿级用户的IM系统模块设计"><a href="#支持亿级用户的IM系统模块设计" class="headerlink" title="支持亿级用户的IM系统模块设计"></a>支持亿级用户的IM系统模块设计</h1><p>现代实现的及时通讯系统一般由长连接和短连接配合使用进行实现，一般的实现架构即Connector和Service两个部分,分别对应长连接服务和短连接服务，<strong>长连接服务主要用于服务端对客户端的推送和新消息到达的通知</strong>，<strong>短连接服务主要用于客户端对于消息的拉取和离线(在线)消息的同步</strong>。当用户数据量增大时,其很容易就会出现以下的缺陷:</p>
+<ul>
+<li><strong>复杂性高</strong>：每个模块服务包含的功能职责增多、模块的边界模糊、 依赖关系不清晰、 代码质量参差不齐、 混乱地堆砌在一起。</li>
+<li><strong>可靠性缺失</strong>： 某个核心服务出现问题，例如死循环、内存溢出等， 可能会导致整个系统不能正常使用。</li>
+<li><strong>拓展成本增大</strong>： 当用户体量增大时,部分服务功能会成为系统瓶颈,当进行服务扩容时,因为部分功能瓶颈的原因，就需要将整个服务进行拓展，带来不需要的成本开销。</li>
+</ul>
+<p>为此就需要对常见IM系统架构进行更加细化的服务拆分,以下就IM服务功能拆分提供参考</p>
+<a id="more"></a>
+
+<h2 id="技术指标"><a href="#技术指标" class="headerlink" title="技术指标"></a>技术指标</h2><ul>
+<li><strong>高可靠</strong>：确保不丢消息；</li>
+<li><strong>高可用</strong>：任意机房或者服务器挂掉，不影响服务；</li>
+<li><strong>实时性</strong>：不管用户在哪里，在线用户消息在1秒内达到（我们实际是75%消息可以做到120ms）；</li>
+<li><strong>有序性</strong>：确保用户消息的有序性，不会出现发送和接受的乱序。</li>
+</ul>
+<h2 id="架构拆分"><a href="#架构拆分" class="headerlink" title="架构拆分"></a>架构拆分</h2><p>当需要满足亿级用户量的IM架构时，需要将IM服务的进行更加精细化的服务拆分</p>
+<ul>
+<li><strong>业务系统</strong>：服务及时通讯的业务逻辑</li>
+<li><strong>信令系统</strong>：负责用户登录，用户在线状态的维护，以及在线用户的下行推送</li>
+<li><strong>推送系统</strong>：负责消息的在线推送和离线推送</li>
+<li><strong>持久化系统</strong>：负责消息和文件的存储和查询</li>
+</ul>
+<img src="https://img.hellobyebye.com/doc/2021032318255616164951561616495156116dGPQS7.png" alt="服务架构拆分"/>
+
+<h3 id="业务系统"><a href="#业务系统" class="headerlink" title="业务系统"></a><strong>业务系统</strong></h3><p>业务系统的详细来说在于<strong>专注处理IM相关的业务逻辑</strong>，主要使用短连接进行实现(HTTP协议)</p>
+<ul>
+<li>消息发送的鉴权和支持(optional)：客户端通过短连接发送消息</li>
+<li>维护用户数据：用户基本信息等</li>
+<li>维护好友关系：好友请求、好友列表、好友信息等</li>
+<li>维护群组信息：群创建、解散、成员管理等</li>
+<li>提供数据：在线消息(optional)、离线拉取、历史记录同步</li>
+<li>其它逻辑：比如通过存储和推送系统，存储消息和发送通知</li>
+</ul>
+<p>其功能和实际的架构可以根据具体的业务量和自身的系统架构进行更加细化的服务细分</p>
+<h3 id="信令系统"><a href="#信令系统" class="headerlink" title="信令系统"></a><strong>信令系统</strong></h3><p>对于IM系统来说，是最主要和最核心的需求和职责，主要维护服务端与客户端的长连接(socket)，其主要职责包含以下3个部分</p>
+<h4 id="维护用户在线状态"><a href="#维护用户在线状态" class="headerlink" title="维护用户在线状态"></a><strong>维护用户在线状态</strong></h4><p>当用户体量大时，需要建立大量的Socket连接和用户接入，为此单台机器是不能满足业务需求的，其落地和必然是集群化的服务，多台服务未用户提供连接服务。当用户A需要给用户B发送消息时,是需要知道用户B当前连接上了那个服务器上，然后通过该台服务器上的Socket连接向用户发送下行通知信息。</p>
+<h4 id="下行通知数据下发"><a href="#下行通知数据下发" class="headerlink" title="下行通知数据下发"></a><strong>下行通知数据下发</strong></h4><p>与维护用户在线状态的职责相关，当用户在线的时，如果有其它用户给他发消息，就需要走在线的系统推送，直接将新消息告知到客户端，而不是走离线推送信息。</p>
+<h4 id="业务协议内容的分发"><a href="#业务协议内容的分发" class="headerlink" title="业务协议内容的分发"></a><strong>业务协议内容的分发</strong></h4><p>信令服务不只可以处理IM请求，也可以处理其它类型的业务请求。为了处理不同的业务，就需要有分发能力。一般来说会使用Protobuf定义下发的业务协议，其中可能会包括SVID(Service Id)或是CMD(Commond)字段来标识消息数据类型，用户通过该标识能表明当前业务包的功能(eg:心跳和连接授权、QoS、消息到达、用户特权变更等)并交由业务服务进行处理。</p>
+<p>这样不管用户有多少的业务或是多少的实现表达，客户端与服务器端仅需要维护一个Socket连接。</p>
+<h4 id="信令服务的服务拆分"><a href="#信令服务的服务拆分" class="headerlink" title="信令服务的服务拆分"></a><strong>信令服务的服务拆分</strong></h4><p>信令系统为了实现以上这3个职责，同时要确保我们服务可平行扩展的能力和稳定性，在实际的技术实现上，我们实际上把信令服务分拆为3个服务模块。</p>
+<p><strong>- 连接授权和维护(Login服务)</strong></p>
+<ul>
+<li><em>主要负责维护用户长链接：</em></li>
+</ul>
+<p>客户端与服务器之间长连接的维护、长连接的连接认证、连接的心跳。用户完成业务模块的登陆操作后，会持有登陆完成后授权给用户Token或者相关凭证、Login服务会接受客户端的连接并对用户心跳包持有的Token进行验证、如果成功就将认证结果发送到Online服务，当授权验证不通过时,直接关闭该次连接。</p>
+<p>Login对并发要求比较高，一般要支持TCP+UDP+Websocket几种方式，单服务可以做到10-250万之间。从服务稳定性角度触发，建议是控制VM的CPU/内存，单服务器以20-50万为合适。</p>
+<p>Login服务器本身没有状态，任何一个Login服务断掉，客户端检测到以后重连另一个Login服务器并发送心跳包，对整体服务可靠性基本没有影响。</p>
+<p><strong>- 在线信息的维护和同步(Online服务)</strong></p>
+<ul>
+<li><em>主要负责维护用户的在线信息:</em></li>
+</ul>
+<p>当用户掉线或者根本不在线，Online服务里用户相关信息就是空</p>
+<p>当用户在线时，Online就能找到用户登录在哪个集群，哪个Login服务器上</p>
+<p>多个Login服务器会连接到Online，定期同步用户登录和离线信息，把用户状态信息存储在共有的存储服务中(Redis集群)。因此也是无状态的，任何一个Online服务挂掉，不影响整体服务能力。当集群规模不大，用户规模也不大时，Online服务也可以收到Login服务里去。</p>
+<p>当规模比较大，建议分拆出来，一方面简化Login的逻辑复杂度，同时避免写共有的存储服务的慢操作，在Login服务里。因为Login要同时处理50万以上的并发链接，不适合在循环里嵌入慢操作。</p>
+<p><strong>- 协议的解析和业务的路由(Route服务)</strong></p>
+<ul>
+<li><em>主要负责信令系统跟其它子系统的交互：</em></li>
+</ul>
+<p>Route下接Login服务，可以接受用户业务信息（IM），也可以往用户推送下行消息。多个后端业务系统可以接入到Route，按照服务类型（SVID、CMD）注册。</p>
+<p>IM服务可以接入到Route, 注册SVID_IM或CMD_IM。这样Login接收到SVID=SVID_IM、或者CMD_IM的消息，转发给Route，Route就可以根据SVID转发给IM相关的服务。</p>
+<p>Route只做转发，不处理具体的业务逻辑，因此也是无状态的。一个信令集群可以有多个Route服务，任何服务挂了不影响整体服务能力。</p>
+<h3 id="推送系统"><a href="#推送系统" class="headerlink" title="推送系统"></a>推送系统</h3><p>接收服务端给用户发送下行消息的请求后，通过信令服务查询用户是否在线，如果在线走信令服务器进行在线推送，如果不在线走离线推送。</p>
+<p>推送服务可能出现大规模并发蜂拥，可能会触发亿级的TPS。为此可以用Kafka或其他消息中间件做削峰。具体的服务实现模块可主要由以下4个部分组成:</p>
+<ul>
+<li>PushProxy：接受服务端给用户发送的下行消息，写入消息中间件</li>
+<li>消息中间件(Kafka)：缓存推送服务消息并做削峰，并完成消息任务的推送</li>
+<li>PushServer：监听来自消息中间件的请求，消费消息，完成用的在线、离线状态的判断，调用PushWorker</li>
+<li>PushWorker：真正推送给信令或者APNS、Firebase、或其他推送平台</li>
+</ul>
+<p>因此除了中间件以外的每个服务都是无状态的、因此也可以实现平行拓展和容错，任何服务挂点都不会对整体服务可用性产生影响。</p>
+<h3 id="持久化系统"><a href="#持久化系统" class="headerlink" title="持久化系统"></a>持久化系统</h3><p>当用户数据产生后，必然是需要伴随消息的存储和持久化的，因此持久化系统主要负责消息的存储和查询，已实现离线消息的拉取、漫游等的相关附属功能。因为消息量巨大，对存储服务的并发能力和存储量要求巨大。为了平衡性能、空间和成本，存储服务按数据的热度进行了分级和区别对待。</p>
+<ul>
+<li>短期消息(7天)：存储在Redis里</li>
+<li>近期消息(1-3个月)：存储在Mysql里，以备用户实时查询</li>
+<li>历史信息：存储在HBase里，作为历史数据慢查询</li>
+</ul>
+<p>为了应对超大群的大量消息处理，存储服务在实际的技术实现上，也做了比较细的分拆</p>
+<p><strong>具体的业务划分</strong></p>
+<ul>
+<li>MsgProxy：负责接受业务系统的存储请求，写入消息中间件</li>
+<li>MsgWriter：从消息中间件获取写请求，按需写入Redis和Mysql</li>
+<li>MsgReader：接受用户的消息查询请求，从Redis，Mysql或者HBase读数据</li>
+</ul>
+<p>部署上可能是3-4个MsgProxy，后端可以对应15个左右的MsgWriter。MsgWriter是比较慢的，需要同时操作多个数据库，还要保证操作的原子性。</p>
+]]></content>
+      <categories>
+        <category>及时通讯</category>
+      </categories>
+      <tags>
+        <tag>及时通讯</tag>
+        <tag>系统架构</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>Jenkins在CentOS系统环境上的搭建和部署</title>
+    <url>/2020/07/23/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Jenkins-programming-environment-setup/</url>
+    <content><![CDATA[<h3 id="Jenkins服务在CentOS系统环境上的搭建和部署"><a href="#Jenkins服务在CentOS系统环境上的搭建和部署" class="headerlink" title="Jenkins服务在CentOS系统环境上的搭建和部署"></a>Jenkins服务在CentOS系统环境上的搭建和部署</h3><blockquote>
+<p><a href="https://www.jenkins.io/zh/" target="_blank" rel="noopener">Jenkins</a> 由Java编写的一个开源的、提供友好操作界面的持续集成(CI)工具，起源于Hudson（Hudson是商用的），主要用于持续、自动的构建/测试软件项目、监控外部任务的运行（这个比较抽象，暂且写上，不做解释）。Jenkins用Java语言编写，可在Tomcat等流行的servlet容器中运行，也可独立运行。通常与版本管理工具(SCM)、构建工具结合使用。常用的版本控制工具有SVN、GIT，构建工具有Maven、Ant、Gradle。</p>
+</blockquote>
+<a id="more"></a>  
+
+<p>CI(Continuous integration，中文意思是持续集成)是一种软件开发时间。持续集成强调开发人员提交了新代码之后，立刻进行构建、（单元）测试。根据测试结果，我们可以确定新代码和原有代码能否正确地集成在一起。借用网络图片对CI加以理解。</p>
+<p><img src="http://img.upuphub.com/6464255-1b6e3bfdbece1492.jpg" alt="CI"></p>
+<p> CD(Continuous Delivery， 中文意思持续交付)是在持续集成的基础上，将集成后的代码部署到更贴近真实运行环境(类生产环境)中。比如，我们完成单元测试后，可以把代码部署到连接数据库的Staging环境中更多的测试。如果代码没有问题，可以继续手动部署到生产环境。下图反应的是CI/CD 的大概工作模式。</p>
+<p><img src="http://img.upuphub.com/6464255-ba088ec7257062c0.jpg" alt="Jenkins"></p>
+<!-- more -->
+
+<h2 id="在线安装Jenkins"><a href="#在线安装Jenkins" class="headerlink" title="在线安装Jenkins"></a>在线安装Jenkins</h2><pre><code class="shell"># 获取 repo
+$ wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
+
+# 获取key, 如果之前导入 jenkins 的key, 这一步可以忽略
+$ rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key
+
+$ yum update &amp;&amp; yum install jenkins
+
+# 启用 jenkins
+$ systemctl start jenkins</code></pre>
+<h2 id="离线安装Jenkins"><a href="#离线安装Jenkins" class="headerlink" title="离线安装Jenkins"></a>离线安装Jenkins</h2><pre><code class="shell"># 准备安装临时文件夹
+$ mkdir jenkins
+$ cd jenkins
+
+# 获取最新的稳定版本的Jenkins.rpm文件(https://pkg.jenkins.io/redhat-stable/)
+$ wget https://pkg.jenkins.io/redhat-stable/jenkins-2.235.2-1.1.noarch.rpm
+
+# 执行本地的Yum安装
+$ yum localinstall jenkins-2.235.2-1.1.noarch.rpm
+
+# 启用 jenkins
+$ systemctl start jenkins</code></pre>
+<h2 id="安装异常解决"><a href="#安装异常解决" class="headerlink" title="安装异常解决"></a>安装异常解决</h2><h3 id="异常信息如下"><a href="#异常信息如下" class="headerlink" title="异常信息如下"></a>异常信息如下</h3><pre><code class="shell">[root@Leonardo-iWzl-Server jenkins]# systemctl start jenkins
+Job for jenkins.service failed because the control process exited with error code. See &quot;systemctl status jenkins.service&quot; and &quot;journalctl -xe&quot; for details.
+[root@Leonardo-iWzl-Server jenkins]# systemctl status jenkins
+● jenkins.service - LSB: Jenkins Automation Server
+   Loaded: loaded (/etc/rc.d/init.d/jenkins; bad; vendor preset: disabled)
+   Active: failed (Result: exit-code) since 四 2020-07-23 10:02:43 EDT; 16s ago
+     Docs: man:systemd-sysv-generator(8)
+  Process: 23582 ExecStart=/etc/rc.d/init.d/jenkins start (code=exited, status=1/FAILURE)
+
+7月 23 10:02:43 Leonardo-iWzl-Server systemd[1]: Starting LSB: Jenkins Automation Server...
+7月 23 10:02:43 Leonardo-iWzl-Server runuser[23587]: pam_unix(runuser:session): session opened for user jenkins...d=0)
+7月 23 10:02:43 Leonardo-iWzl-Server jenkins[23582]: Starting Jenkins bash: /usr/bin/java: No such file or directory
+7月 23 10:02:43 Leonardo-iWzl-Server runuser[23587]: pam_unix(runuser:session): session closed for user jenkins
+7月 23 10:02:43 Leonardo-iWzl-Server jenkins[23582]: [FAILED]
+7月 23 10:02:43 Leonardo-iWzl-Server systemd[1]: jenkins.service: control process exited, code=exited status=1
+7月 23 10:02:43 Leonardo-iWzl-Server systemd[1]: Failed to start LSB: Jenkins Automation Server.
+7月 23 10:02:43 Leonardo-iWzl-Server systemd[1]: Unit jenkins.service entered failed state.
+7月 23 10:02:43 Leonardo-iWzl-Server systemd[1]: jenkins.service failed.
+Hint: Some lines were ellipsized, use -l to show in full.</code></pre>
+<h3 id="原因说明"><a href="#原因说明" class="headerlink" title="原因说明"></a>原因说明</h3><p>Jenkins 默认会在以下目录按顺序搜寻 JDK，一旦找到一个可用的即返回</p>
+<pre><code class="shell">/etc/alternatives/java
+/usr/lib/jvm/java-1.8.0/bin/java
+/usr/lib/jvm/jre-1.8.0/bin/java
+/usr/lib/jvm/java-1.7.0/bin/java
+/usr/lib/jvm/jre-1.7.0/bin/java
+/usr/lib/jvm/java-11.0/bin/java
+/usr/lib/jvm/jre-11.0/bin/java
+/usr/lib/jvm/java-11-openjdk-amd64
+/usr/bin/java</code></pre>
+<p>如果系统的以上位置都未安装 JDK，启动时就会报错，可以通过建立软连接进行解决</p>
+<pre><code class="shell"> ln -s /usr/local/java/jdk1.8.0_261/bin/java /usr/bin/java</code></pre>
+<p>完成以上错误处理后,可得到以下输出</p>
+<pre><code class="shell">[root@Leonardo-iWzl-Server jenkins]# systemctl status jenkins
+● jenkins.service - LSB: Jenkins Automation Server
+   Loaded: loaded (/etc/rc.d/init.d/jenkins; bad; vendor preset: disabled)
+   Active: active (running) since 四 2020-07-23 10:10:06 EDT; 4s ago
+     Docs: man:systemd-sysv-generator(8)
+  Process: 23606 ExecStart=/etc/rc.d/init.d/jenkins start (code=exited, status=0/SUCCESS)
+   CGroup: /system.slice/jenkins.service
+           └─23630 /usr/bin/java -Dcom.sun.akuma.Daemon=daemonized -Djava.awt.headless=true -DJENKINS_HOME=/var/lib/jenkins -jar /usr/lib/jenkins/jenkins.war --logfile=/var/log/jenkins/jenkins.log --webroot=/var/cache/jenkins/war --dae...
+
+7月 23 10:10:04 Leonardo-iWzl-Server systemd[1]: Starting LSB: Jenkins Automation Server...
+7月 23 10:10:04 Leonardo-iWzl-Server runuser[23611]: pam_unix(runuser:session): session opened for user jenkins by (uid=0)
+7月 23 10:10:06 Leonardo-iWzl-Server runuser[23611]: pam_unix(runuser:session): session closed for user jenkins
+7月 23 10:10:06 Leonardo-iWzl-Server jenkins[23606]: Starting Jenkins [  OK  ]
+7月 23 10:10:06 Leonardo-iWzl-Server systemd[1]: Started LSB: Jenkins Automation Server.</code></pre>
+<p> 查看jenkins 的启动参数 <em>ps -ef |grep jenkins</em> </p>
+<pre><code class="shell">[root@Leonardo-iWzl-Server jenkins]# ps -ef |grep jenkins
+jenkins  23630     1 49 10:10 ?        00:00:54 /usr/bin/java 
+        -Dcom.sun.akuma.Daemon=daemonized 
+        -Djava.awt.headless=true 
+        -DJENKINS_HOME=/var/lib/jenkins 
+        -jar /usr/lib/jenkins/jenkins.war 
+        --logfile=/var/log/jenkins/jenkins.log 
+        --webroot=/var/cache/jenkins/war 
+        --daemon 
+        --httpPort=8080 
+        --debug=5 
+        --handlerCountMax=100 
+        --handlerCountMaxIdle=20
+root     23695 23312  0 10:11 pts/0    00:00:00 grep --color=auto jenkins</code></pre>
+<p>在这里看到日志的一些配置和相关的端口、可以通过访问<em>「IP」:8080</em>访问到Jenkins服务</p>
+<h3 id="Jenkins的更新"><a href="#Jenkins的更新" class="headerlink" title="Jenkins的更新"></a>Jenkins的更新</h3><p>对于Jenkins更新可以通过</p>
+<pre><code class="shell">yum update jenkins</code></pre>
+<p>完成更新后,需要重启Jenkins服务</p>
+<h3 id="Jenkins国内镜像配置"><a href="#Jenkins国内镜像配置" class="headerlink" title="Jenkins国内镜像配置"></a>Jenkins国内镜像配置</h3><p>修改<em>/var/lib/jenkins</em> 目录下的<em>hudson.model.UpdateCenter.xml</em>文件内容如下</p>
+<pre><code class="xml">&lt;?xml version=&#39;1.1&#39; encoding=&#39;UTF-8&#39;?&gt;
+&lt;sites&gt;
+  &lt;site&gt;
+    &lt;id&gt;default&lt;/id&gt;
+    &lt;!-- &lt;url&gt;https://updates.jenkins.io/update-center.json&lt;/url&gt;--&gt;
+     &lt;url&gt;https://mirrors.tuna.tsinghua.edu.cn/jenkins/updates/update-center.json/url&gt;
+  &lt;/site&gt;
+&lt;/sites&gt;</code></pre>
+<p>修改默认配置json文件<em>/var/lib/jenkins/updates/default.json</em></p>
+<pre><code class="shell"># 进入响应文件夹
+cd /var/lib/jenkins/updates
+
+# 备份原始文件
+cp default.json default.json.bak
+
+# 替换更新下载地址
+sed -i &#39;s/http:\/\/updates.jenkins-ci.org\/download/https:\/\/mirrors.tuna.tsinghua.edu.cn\/jenkins/g&#39; default.json
+
+# 替换测试URL
+sed -i &#39;s/http:\/\/www.google.com/https:\/\/www.baidu.com/g&#39; default.json</code></pre>
+<p>完成以后重启Jenkins服务</p>
+<h3 id="配置Jenkins服务"><a href="#配置Jenkins服务" class="headerlink" title="配置Jenkins服务"></a>配置Jenkins服务</h3><p>之后按提示和Jenkins可视化引导完成剩余的Jenkins环境的搭建部署</p>
+<h2 id="Jenkins的结构导图"><a href="#Jenkins的结构导图" class="headerlink" title="Jenkins的结构导图"></a>Jenkins的结构导图</h2><p><img src="http://img.upuphub.com/6464255-cc56d3af1fdd96df.png" alt="Jenkins"></p>
+<hr>
+<h2 id="参考和引用"><a href="#参考和引用" class="headerlink" title="参考和引用"></a>参考和引用</h2><p><a href="https://www.jianshu.com/p/5f671aca2b5a" target="_blank" rel="noopener">哥本哈根月光-Jenkins详细教程</a></p>
+<p><a href="https://halo.sherlocky.com/archives/jenkins" target="_blank" rel="noopener">CentOS 安装 Jenkins 及 国内下载加速</a></p>
+]]></content>
+      <categories>
+        <category>DevOps</category>
+      </categories>
+      <tags>
+        <tag>Liunx</tag>
+        <tag>CentOS</tag>
+        <tag>DevOps</tag>
+        <tag>Jenkins</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>高并发网络应用的关键-Unix系统下的五种IO模型</title>
     <url>/2020/11/22/%E5%8E%86%E5%8F%B2%E6%96%87%E6%A1%A3/Unix-IO-5-Model/</url>
     <content><![CDATA[<p>Unix 中提供了五种 IO 模型，分别是<strong>阻塞式IO、非阻塞式IO、IO复用、信号驱动式IO、异步IO</strong>。</p>
@@ -985,26 +1102,6 @@ Short options:        GNU long options: (extensions)
       <tags>
         <tag>Unix</tag>
         <tag>IO</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>IM系统的可靠性保障方案设计</title>
-    <url>/2021/03/23/%E5%8F%8A%E6%97%B6%E9%80%9A%E8%AE%AF/IM%E7%B3%BB%E7%BB%9F%E7%9A%84%E5%8F%AF%E9%9D%A0%E6%80%A7%E4%BF%9D%E9%9A%9C%E6%96%B9%E6%A1%88%E8%AE%BE%E8%AE%A1/</url>
-    <content><![CDATA[<div id="hexo-blog-encrypt" data-wpm="Oh, this is an invalid password. Check and try again, please." data-whm="OOPS, these decrypted content may changed, but you can still have a look.">
-  <div class="hbe-input-container">
-  <input type="password" id="hbePass" placeholder="" />
-    <label for="hbePass">输入密码，查看文章</label>
-    <div class="bottom-line"></div>
-  </div>
-  <script id="hbeData" type="hbeData" data-hmacdigest="eec786a40cf7aea934fb8b407653c706146aee44047d4f82cd2f941341428254">ff2aa2f000186a9810700fce1416f63b</script>
-</div>
-<script src="/lib/blog-encrypt.js"></script><link href="/css/blog-encrypt.css" rel="stylesheet" type="text/css">]]></content>
-      <categories>
-        <category>及时通讯</category>
-      </categories>
-      <tags>
-        <tag>及时通讯</tag>
-        <tag>系统架构</tag>
       </tags>
   </entry>
   <entry>
@@ -1666,103 +1763,6 @@ xsi:schemaLocation=&quot;http://maven.apache.org/POM/4.0.0http://maven.apache.or
       </tags>
   </entry>
   <entry>
-    <title>支持亿级消息的IM系统模块设计</title>
-    <url>/2021/03/23/%E5%8F%8A%E6%97%B6%E9%80%9A%E8%AE%AF/%E6%94%AF%E6%8C%81%E4%BA%BF%E7%BA%A7%E7%94%A8%E6%88%B7%E7%9A%84IM%E7%B3%BB%E7%BB%9F%E6%A8%A1%E5%9D%97%E8%AE%BE%E8%AE%A1/</url>
-    <content><![CDATA[<h1 id="支持亿级用户的IM系统模块设计"><a href="#支持亿级用户的IM系统模块设计" class="headerlink" title="支持亿级用户的IM系统模块设计"></a>支持亿级用户的IM系统模块设计</h1><p>现代实现的及时通讯系统一般由长连接和短连接配合使用进行实现，一般的实现架构即Connector和Service两个部分,分别对应长连接服务和短连接服务，<strong>长连接服务主要用于服务端对客户端的推送和新消息到达的通知</strong>，<strong>短连接服务主要用于客户端对于消息的拉取和离线(在线)消息的同步</strong>。当用户数据量增大时,其很容易就会出现以下的缺陷:</p>
-<ul>
-<li><strong>复杂性高</strong>：每个模块服务包含的功能职责增多、模块的边界模糊、 依赖关系不清晰、 代码质量参差不齐、 混乱地堆砌在一起。</li>
-<li><strong>可靠性缺失</strong>： 某个核心服务出现问题，例如死循环、内存溢出等， 可能会导致整个系统不能正常使用。</li>
-<li><strong>拓展成本增大</strong>： 当用户体量增大时,部分服务功能会成为系统瓶颈,当进行服务扩容时,因为部分功能瓶颈的原因，就需要将整个服务进行拓展，带来不需要的成本开销。</li>
-</ul>
-<p>为此就需要对常见IM系统架构进行更加细化的服务拆分,以下就IM服务功能拆分提供参考</p>
-<a id="more"></a>
-
-<h2 id="技术指标"><a href="#技术指标" class="headerlink" title="技术指标"></a>技术指标</h2><ul>
-<li><strong>高可靠</strong>：确保不丢消息；</li>
-<li><strong>高可用</strong>：任意机房或者服务器挂掉，不影响服务；</li>
-<li><strong>实时性</strong>：不管用户在哪里，在线用户消息在1秒内达到（我们实际是75%消息可以做到120ms）；</li>
-<li><strong>有序性</strong>：确保用户消息的有序性，不会出现发送和接受的乱序。</li>
-</ul>
-<h2 id="架构拆分"><a href="#架构拆分" class="headerlink" title="架构拆分"></a>架构拆分</h2><p>当需要满足亿级用户量的IM架构时，需要将IM服务的进行更加精细化的服务拆分</p>
-<ul>
-<li><strong>业务系统</strong>：服务及时通讯的业务逻辑</li>
-<li><strong>信令系统</strong>：负责用户登录，用户在线状态的维护，以及在线用户的下行推送</li>
-<li><strong>推送系统</strong>：负责消息的在线推送和离线推送</li>
-<li><strong>持久化系统</strong>：负责消息和文件的存储和查询</li>
-</ul>
-<img src="https://img.hellobyebye.com/doc/2021032318255616164951561616495156116dGPQS7.png" alt="服务架构拆分"/>
-
-<h3 id="业务系统"><a href="#业务系统" class="headerlink" title="业务系统"></a><strong>业务系统</strong></h3><p>业务系统的详细来说在于<strong>专注处理IM相关的业务逻辑</strong>，主要使用短连接进行实现(HTTP协议)</p>
-<ul>
-<li>消息发送的鉴权和支持(optional)：客户端通过短连接发送消息</li>
-<li>维护用户数据：用户基本信息等</li>
-<li>维护好友关系：好友请求、好友列表、好友信息等</li>
-<li>维护群组信息：群创建、解散、成员管理等</li>
-<li>提供数据：在线消息(optional)、离线拉取、历史记录同步</li>
-<li>其它逻辑：比如通过存储和推送系统，存储消息和发送通知</li>
-</ul>
-<p>其功能和实际的架构可以根据具体的业务量和自身的系统架构进行更加细化的服务细分</p>
-<h3 id="信令系统"><a href="#信令系统" class="headerlink" title="信令系统"></a><strong>信令系统</strong></h3><p>对于IM系统来说，是最主要和最核心的需求和职责，主要维护服务端与客户端的长连接(socket)，其主要职责包含以下3个部分</p>
-<h4 id="维护用户在线状态"><a href="#维护用户在线状态" class="headerlink" title="维护用户在线状态"></a><strong>维护用户在线状态</strong></h4><p>当用户体量大时，需要建立大量的Socket连接和用户接入，为此单台机器是不能满足业务需求的，其落地和必然是集群化的服务，多台服务未用户提供连接服务。当用户A需要给用户B发送消息时,是需要知道用户B当前连接上了那个服务器上，然后通过该台服务器上的Socket连接向用户发送下行通知信息。</p>
-<h4 id="下行通知数据下发"><a href="#下行通知数据下发" class="headerlink" title="下行通知数据下发"></a><strong>下行通知数据下发</strong></h4><p>与维护用户在线状态的职责相关，当用户在线的时，如果有其它用户给他发消息，就需要走在线的系统推送，直接将新消息告知到客户端，而不是走离线推送信息。</p>
-<h4 id="业务协议内容的分发"><a href="#业务协议内容的分发" class="headerlink" title="业务协议内容的分发"></a><strong>业务协议内容的分发</strong></h4><p>信令服务不只可以处理IM请求，也可以处理其它类型的业务请求。为了处理不同的业务，就需要有分发能力。一般来说会使用Protobuf定义下发的业务协议，其中可能会包括SVID(Service Id)或是CMD(Commond)字段来标识消息数据类型，用户通过该标识能表明当前业务包的功能(eg:心跳和连接授权、QoS、消息到达、用户特权变更等)并交由业务服务进行处理。</p>
-<p>这样不管用户有多少的业务或是多少的实现表达，客户端与服务器端仅需要维护一个Socket连接。</p>
-<h4 id="信令服务的服务拆分"><a href="#信令服务的服务拆分" class="headerlink" title="信令服务的服务拆分"></a><strong>信令服务的服务拆分</strong></h4><p>信令系统为了实现以上这3个职责，同时要确保我们服务可平行扩展的能力和稳定性，在实际的技术实现上，我们实际上把信令服务分拆为3个服务模块。</p>
-<p><strong>- 连接授权和维护(Login服务)</strong></p>
-<ul>
-<li><em>主要负责维护用户长链接：</em></li>
-</ul>
-<p>客户端与服务器之间长连接的维护、长连接的连接认证、连接的心跳。用户完成业务模块的登陆操作后，会持有登陆完成后授权给用户Token或者相关凭证、Login服务会接受客户端的连接并对用户心跳包持有的Token进行验证、如果成功就将认证结果发送到Online服务，当授权验证不通过时,直接关闭该次连接。</p>
-<p>Login对并发要求比较高，一般要支持TCP+UDP+Websocket几种方式，单服务可以做到10-250万之间。从服务稳定性角度触发，建议是控制VM的CPU/内存，单服务器以20-50万为合适。</p>
-<p>Login服务器本身没有状态，任何一个Login服务断掉，客户端检测到以后重连另一个Login服务器并发送心跳包，对整体服务可靠性基本没有影响。</p>
-<p><strong>- 在线信息的维护和同步(Online服务)</strong></p>
-<ul>
-<li><em>主要负责维护用户的在线信息:</em></li>
-</ul>
-<p>当用户掉线或者根本不在线，Online服务里用户相关信息就是空</p>
-<p>当用户在线时，Online就能找到用户登录在哪个集群，哪个Login服务器上</p>
-<p>多个Login服务器会连接到Online，定期同步用户登录和离线信息，把用户状态信息存储在共有的存储服务中(Redis集群)。因此也是无状态的，任何一个Online服务挂掉，不影响整体服务能力。当集群规模不大，用户规模也不大时，Online服务也可以收到Login服务里去。</p>
-<p>当规模比较大，建议分拆出来，一方面简化Login的逻辑复杂度，同时避免写共有的存储服务的慢操作，在Login服务里。因为Login要同时处理50万以上的并发链接，不适合在循环里嵌入慢操作。</p>
-<p><strong>- 协议的解析和业务的路由(Route服务)</strong></p>
-<ul>
-<li><em>主要负责信令系统跟其它子系统的交互：</em></li>
-</ul>
-<p>Route下接Login服务，可以接受用户业务信息（IM），也可以往用户推送下行消息。多个后端业务系统可以接入到Route，按照服务类型（SVID、CMD）注册。</p>
-<p>IM服务可以接入到Route, 注册SVID_IM或CMD_IM。这样Login接收到SVID=SVID_IM、或者CMD_IM的消息，转发给Route，Route就可以根据SVID转发给IM相关的服务。</p>
-<p>Route只做转发，不处理具体的业务逻辑，因此也是无状态的。一个信令集群可以有多个Route服务，任何服务挂了不影响整体服务能力。</p>
-<h3 id="推送系统"><a href="#推送系统" class="headerlink" title="推送系统"></a>推送系统</h3><p>接收服务端给用户发送下行消息的请求后，通过信令服务查询用户是否在线，如果在线走信令服务器进行在线推送，如果不在线走离线推送。</p>
-<p>推送服务可能出现大规模并发蜂拥，可能会触发亿级的TPS。为此可以用Kafka或其他消息中间件做削峰。具体的服务实现模块可主要由以下4个部分组成:</p>
-<ul>
-<li>PushProxy：接受服务端给用户发送的下行消息，写入消息中间件</li>
-<li>消息中间件(Kafka)：缓存推送服务消息并做削峰，并完成消息任务的推送</li>
-<li>PushServer：监听来自消息中间件的请求，消费消息，完成用的在线、离线状态的判断，调用PushWorker</li>
-<li>PushWorker：真正推送给信令或者APNS、Firebase、或其他推送平台</li>
-</ul>
-<p>因此除了中间件以外的每个服务都是无状态的、因此也可以实现平行拓展和容错，任何服务挂点都不会对整体服务可用性产生影响。</p>
-<h3 id="持久化系统"><a href="#持久化系统" class="headerlink" title="持久化系统"></a>持久化系统</h3><p>当用户数据产生后，必然是需要伴随消息的存储和持久化的，因此持久化系统主要负责消息的存储和查询，已实现离线消息的拉取、漫游等的相关附属功能。因为消息量巨大，对存储服务的并发能力和存储量要求巨大。为了平衡性能、空间和成本，存储服务按数据的热度进行了分级和区别对待。</p>
-<ul>
-<li>短期消息(7天)：存储在Redis里</li>
-<li>近期消息(1-3个月)：存储在Mysql里，以备用户实时查询</li>
-<li>历史信息：存储在HBase里，作为历史数据慢查询</li>
-</ul>
-<p>为了应对超大群的大量消息处理，存储服务在实际的技术实现上，也做了比较细的分拆</p>
-<p><strong>具体的业务划分</strong></p>
-<ul>
-<li>MsgProxy：负责接受业务系统的存储请求，写入消息中间件</li>
-<li>MsgWriter：从消息中间件获取写请求，按需写入Redis和Mysql</li>
-<li>MsgReader：接受用户的消息查询请求，从Redis，Mysql或者HBase读数据</li>
-</ul>
-<p>部署上可能是3-4个MsgProxy，后端可以对应15个左右的MsgWriter。MsgWriter是比较慢的，需要同时操作多个数据库，还要保证操作的原子性。</p>
-]]></content>
-      <categories>
-        <category>及时通讯</category>
-      </categories>
-      <tags>
-        <tag>及时通讯</tag>
-        <tag>系统架构</tag>
-      </tags>
-  </entry>
-  <entry>
     <title>HTTP3协议的深入剖析</title>
     <url>/2021/03/24/%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE/%E5%BA%94%E7%94%A8%E5%B1%82%E5%8D%8F%E8%AE%AE/HTTP3%E5%8D%8F%E8%AE%AE%E7%9A%84%E6%B7%B1%E5%85%A5%E5%89%96%E6%9E%90/</url>
     <content><![CDATA[<h1 id="HTTP3协议的深入剖析"><a href="#HTTP3协议的深入剖析" class="headerlink" title="HTTP3协议的深入剖析"></a>HTTP3协议的深入剖析</h1><p>自2017年起HTTP3协议已发布了34个Draft，推出在即，Chrome、Nginx等软件都在跟进实现最新的草案。本文将介绍HTTP3协议规范、应用场景及实现原理。</p>
@@ -1814,8 +1814,169 @@ xsi:schemaLocation=&quot;http://maven.apache.org/POM/4.0.0http://maven.apache.or
 <li>在HTTP2中，由HPACK规范定义HTTP头部的压缩算法。由于HPACK动态表的更新具有时序性，无法满足HTTP3的要求。在HTTP3中，QPACK定义HTTP头部的编码：<a href="https://tools.ietf.org/html/draft-ietf-quic-qpack-16" target="_blank" rel="noopener">https://tools.ietf.org/html/draft-ietf-quic-qpack-16</a> 。注意，以上规范的最新草案都到了29，而QPACK相对简单，它目前更新到16。</li>
 </ol>
 <p>自1991年诞生的HTTP/0.9协议已不再使用， <strong>但1996推出的HTTP/1.0、1999年推出的HTTP/1.1、2015年推出的HTTP2协议仍然共存于互联网中（HTTP/1.0在企业内网中还在广为使用，例如Nginx与上游的默认协议还是1.0版本），即将面世的HTTP3协议的加入，将会进一步增加协议适配的复杂度</strong> 。</p>
+<h1 id="连接迁移功能的实现"><a href="#连接迁移功能的实现" class="headerlink" title="连接迁移功能的实现"></a>连接迁移功能的实现</h1><p>对于当下的HTTP1和HTTP2协议，传输请求前需要先完成耗时1个RTT的TCP三次握手、耗时1个RTT的TLS握手（TLS1.3），由于它们分属内核实现的传输层、openssl库实现的表示层，所以难以合并在一起，如下图所示</p>
+<p><img src="https://img.hellobyebye.com/doc/20210324222605161659596516165959656814j0mI0.png" alt="传统的系统迁移功能"></p>
+<p>（图片来自：<a href="https://blog.cloudflare.com/http3-the-past-present-and-future/）" target="_blank" rel="noopener">https://blog.cloudflare.com/http3-the-past-present-and-future/）</a></p>
+<p>在IoT时代，移动设备接入的网络会频繁变动，从而导致设备IP地址改变。<strong>对于通过四元组（源IP、源端口、目的IP、目的端口）定位连接的TCP协议来说，这意味着连接需要断开重连，所以上述2个RTT的建链时延、TCP慢启动都需要重新来过。</strong>而HTTP3的QUIC层实现了连接迁移功能，允许移动设备更换IP地址后，只要仍保有上下文信息（比如连接ID、TLS密钥等），就可以复用原连接。</p>
+<p>在UDP报文头部与HTTP消息之间，共有3层头部，定义连接且实现了Connection Migration主要是在Packet Header中完成的，如下图所示：</p>
+<p><img src="https://img.hellobyebye.com/doc/2021032422272516165960451616596045106y5pyES.png" alt="TLS3"></p>
+<p>这3层Header实现的功能各不相同：</p>
+<ul>
+<li>Packet Header实现了可靠的连接。当UDP报文丢失后，通过Packet Header中的Packet Number实现报文重传。连接也是通过其中的Connection ID字段定义的；</li>
+<li>QUIC Frame Header在无序的Packet报文中，基于QUIC Stream概念实现了有序的字节流，这允许HTTP消息可以像在TCP连接上一样传输；</li>
+<li>HTTP3 Frame Header定义了HTTP Header、Body的格式，以及服务器推送、QPACK编解码流等功能。</li>
+</ul>
+<p>为了进一步提升网络传输效率，Packet Header又可以细分为两种：</p>
+<ul>
+<li>Long Packet Header用于首次建立连接；</li>
+<li>Short Packet Header用于日常传输数据。</li>
+</ul>
+<p>其中，Long Packet Header的格式如下图所示：</p>
+<p><img src="https://img.hellobyebye.com/doc/202103242229291616596169161659616955077G4JU.png" alt="Long Packet Header"></p>
+<p>建立连接时，连接是由服务器通过Source Connection ID字段分配的，这样，后续传输时，双方只需要固定住Destination Connection ID，就可以在客户端IP地址、端口变化后，绕过UDP四元组（与TCP四元组相同），实现连接迁移功能。下图是Short Packet Header头部的格式，这里就不再需要传输Source Connection ID字段了：</p>
+<p><img src="https://img.hellobyebye.com/doc/2021032422300816165962081616596208029xctCuv.png" alt="Packet Header"></p>
+<p>上图中的Packet Number是每个报文独一无二的序号，基于它可以实现丢失报文的精准重发。如果你通过抓包观察Packet Header，会发现Packet Number被TLS层加密保护了，这是为了防范各类网络攻击的一种设计。下图给出了Packet Header中被加密保护的字段：</p>
+<p><img src="https://img.hellobyebye.com/doc/2021032422305016165962501616596250352oIy5eq.png" alt="Long Header"></p>
+<p>其中，显示为E（Encrypt）的字段表示被TLS加密过。当然，Packet Header只是描述了最基本的连接信息，其上的Stream层、HTTP消息也是被加密保护的：</p>
+<p><img src="https://img.hellobyebye.com/doc/2021032422315916165963191616596319830SsAQ5Q.png" alt="Encrypt"></p>
+<p>现在我们已经对HTTP3协议的格式有了基本的了解，接下来我们通过队头阻塞问题，看看Packet之上的QUIC Frame、HTTP3 Frame帧格式。</p>
+<h1 id="Stream多路复用时的队头阻塞问题解决"><a href="#Stream多路复用时的队头阻塞问题解决" class="headerlink" title="Stream多路复用时的队头阻塞问题解决"></a>Stream多路复用时的队头阻塞问题解决</h1><p>其实，解决队头阻塞的方案，就是允许微观上有序发出的Packet报文，在接收端无序到达后也可以应用于并发请求中。比如上文的动态图中，如果丢失的黄色报文对其后发出的绿色报文不造成影响，队头阻塞问题自然就得到了解决：</p>
+<p><img src="https://img.hellobyebye.com/doc/20210324223300161659638016165963806320YzB88.gif" alt="对头阻塞问题的解决"></p>
+<p>在Packet Header之上的QUIC Frame Header，定义了有序字节流Stream，而且Stream之间可以实现真正的并发。HTTP3的Stream，借鉴了HTTP2中的部分概念，所以在讨论QUIC Frame Header格式之前，我们先来看看HTTP2中的Stream长成什么样子：</p>
+<p><img src="https://img.hellobyebye.com/doc/202103242234121616596452161659645207962J1BF.png" alt="请求体"></p>
+<p>（图片参见：<a href="https://developers.google.com/web/fundamentals/performance/http2）" target="_blank" rel="noopener">https://developers.google.com/web/fundamentals/performance/http2）</a></p>
+<p>每个Stream就像HTTP1中的TCP连接，它保证了承载的HEADERS frame（存放HTTP Header）、DATA frame（存放HTTP Body）是有序到达的，多个Stream之间可以并行传输。在HTTP3中，上图中的HTTP2 frame会被拆解为两层，我们先来看底层的QUIC Frame。</p>
+<p>一个Packet报文中可以存放多个QUIC Frame，当然所有Frame的长度之和不能大于PMTUD（Path Maximum Transmission Unit Discovery，这是大于1200字节的值），你可以把它与IP路由中的MTU概念对照理解：</p>
+<p><img src="https://img.hellobyebye.com/doc/20210324223544161659654416165965441392qhP3u.png" alt="QUIC"></p>
+<p>每一个Frame都有明确的类型：</p>
+<p><img src="https://img.hellobyebye.com/doc/2021032422361516165965751616596575656IMsgUl.png" alt="Frame类型"></p>
+<p>前4个字节的Frame Type字段描述的类型不同，接下来的编码也不相同，下表是各类Frame的16进制Type值</p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Name</th>
+<th>Value</th>
+<th>Name</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>0x00</td>
+<td>PADDING</td>
+<td>0x02 – 0x03</td>
+<td>ACK</td>
+</tr>
+<tr>
+<td>0x01</td>
+<td>PING</td>
+<td>0x08 – 0x0f</td>
+<td>STREAM</td>
+</tr>
+<tr>
+<td>0x04</td>
+<td>RESET_STREAM</td>
+<td>0x12-0x13</td>
+<td>MAX_STREAMS</td>
+</tr>
+<tr>
+<td>0x05</td>
+<td>STOP_SENDING</td>
+<td>0x16-0x17</td>
+<td>STREAM_BLOCKED</td>
+</tr>
+<tr>
+<td>0x06</td>
+<td>CRYPTO</td>
+<td>0x1c-0x1d</td>
+<td>CONNECTION_CLOSE</td>
+</tr>
+<tr>
+<td>0x07</td>
+<td>NEW_TOKEN</td>
+<td>0x11</td>
+<td>MAX_STREAM_DATA</td>
+</tr>
+<tr>
+<td>0x10</td>
+<td>MAX_DATA</td>
+<td>0x14</td>
+<td>DATA_BLOCKED</td>
+</tr>
+<tr>
+<td>0x15</td>
+<td>STREAM_DATA_BLOCKED</td>
+<td>0x1a</td>
+<td>PATH_CHALLENGE</td>
+</tr>
+<tr>
+<td>0x18</td>
+<td>NEW_CONNECTION_ID</td>
+<td>0x1b</td>
+<td>PATH_RESPONSE</td>
+</tr>
+<tr>
+<td>0x19</td>
+<td>RETRY_CONNECTION_ID</td>
+<td>0x1e</td>
+<td>HANDSHAKE_DONE</td>
+</tr>
+</tbody></table>
+<p>在上表中，我们只要分析0x08-0x0f这8种STREAM类型的Frame，就能弄明白Stream流的实现原理，自然也就清楚队头阻塞是怎样解决的了。Stream Frame用于传递HTTP消息，它的格式如下所示：</p>
+<p><img src="https://img.hellobyebye.com/doc/2021032422372516165966451616596645524GRsGBI.png" alt="Stream Frame"></p>
+<p>可见，Stream Frame头部的3个字段，完成了多路复用、有序字节流以及报文段层面的二进制分隔功能，包括：</p>
+<ul>
+<li>Stream ID标识了一个有序字节流。当HTTP Body非常大，需要跨越多个Packet时，只要在每个Stream Frame中含有同样的Stream ID，就可以传输任意长度的消息。多个并发传输的HTTP消息，通过不同的Stream ID加以区别；</li>
+<li>消息序列化后的“有序”特性，是通过Offset字段完成的，它类似于TCP协议中的Sequence序号，用于实现Stream内多个Frame间的累计确认功能；</li>
+<li>Length指明了Frame数据的长度。</li>
+</ul>
+<p>你可能会奇怪，为什么会有8种Stream Frame呢？这是因为0x08-0x0f 这8种类型其实是由3个二进制位组成，它们实现了以下3 标志位的组合：</p>
+<ul>
+<li>第1位表示是否含有Offset，当它为0时，表示这是Stream中的起始Frame，这也是上图中Offset是可选字段的原因；</li>
+<li>第2位表示是否含有Length字段；</li>
+<li>第3位Fin，表示这是Stream中最后1个Frame，与HTTP2协议Frame帧中的FIN标志位相同。</li>
+</ul>
+<p>Stream数据中并不会直接存放HTTP消息，因为HTTP3还需要实现服务器推送、权重优先级设定、流量控制等功能，所以Stream Data中首先存放了HTTP3 Frame：</p>
+<p><img src="https://img.hellobyebye.com/doc/2021032422382516165967051616596705333bEOMci.png" alt="Stream"></p>
+<p>其中，Length指明了HTTP消息的长度，而Type字段（请注意，低2位有特殊用途，在QPACK章节中会详细介绍）包含了以下类型：</p>
+<ul>
+<li>0x00：DATA帧，用于传输HTTP Body包体；</li>
+<li>0x01：HEADERS帧，通过QPACK 编码，传输HTTP Header头部；</li>
+<li>0x03：CANCEL_PUSH控制帧，用于取消1次服务器推送消息，通常客户端在收到PUSH_PROMISE帧后，通过它告知服务器不需要这次推送；</li>
+<li>0x04：SETTINGS控制帧，设置各类通讯参数；</li>
+<li>0x05：PUSH_PROMISE帧，用于服务器推送HTTP Body前，先将HTTP Header头部发给客户端，流程与HTTP2相似；</li>
+<li>0x07：GOAWAY控制帧，用于关闭连接（注意，不是关闭Stream）；</li>
+<li>0x0d：MAX_PUSH_ID，客户端用来限制服务器推送消息数量的控制帧。</li>
+</ul>
+<p>总结一下，QUIC Stream Frame定义了有序字节流，且多个Stream间的传输没有时序性要求，这样，HTTP消息基于QUIC Stream就实现了真正的多路复用，队头阻塞问题自然就被解决掉了。</p>
+<h1 id="QPACK编码对对头阻塞队列问题的解决"><a href="#QPACK编码对对头阻塞队列问题的解决" class="headerlink" title="QPACK编码对对头阻塞队列问题的解决"></a>QPACK编码对对头阻塞队列问题的解决</h1><p>最后，我们再看下HTTP Header头部的编码方式，它需要面对另一种队头阻塞问题。</p>
+<p>与HTTP2中的HPACK编码方式相似，HTTP3中的QPACK也采用了静态表、动态表及Huffman编码：</p>
+<p><img src="https://img.hellobyebye.com/doc/20210324223945161659678516165967851090LcLMr.png" alt="Huffman"></p>
+<p>（图片参见：<a href="https://www.oreilly.com/content/http2-a-new-excerpt/）" target="_blank" rel="noopener">https://www.oreilly.com/content/http2-a-new-excerpt/）</a></p>
+<p>先来看静态表的变化。在上图中，GET方法映射为数字2，这是通过客户端、服务器协议实现层的硬编码完成的。在HTTP2中，共有61个静态表项：</p>
+<p><img src="https://img.hellobyebye.com/doc/2021032422402616165968261616596826684CQVW2x.png" alt="静态表"></p>
+<p>而在QPACK中，则上升为98个静态表项，比如Nginx上的ngx_htt_v3_static_table数组所示</p>
+<p><img src="https://img.hellobyebye.com/doc/2021032422405716165968571616596857872vo5BpS.png" alt="QPACK"></p>
+<p>你也可以从这里找到完整的HTTP3静态表。对于Huffman以及整数的编码，QPACK与HPACK并无多大不同，但动态表编解码方式差距很大。</p>
+<p>所谓动态表，就是将未包含在静态表中的Header项，在其首次出现时加入动态表，这样后续传输时仅用1个数字表示，大大提升了编码效率。因此，动态表是天然具备时序性的，如果首次出现的请求出现了丢包，后续请求解码HPACK头部时，一定会被阻塞！</p>
+<p>QPACK是如何解决队头阻塞问题的呢？事实上，QPACK将动态表的编码、解码独立在单向Stream中传输，仅当单向Stream中的动态表编码成功后，接收端才能解码双向Stream上HTTP消息里的动态表索引。</p>
+<p>我们又引入了单向Stream和双向Stream概念，不要头疼，它其实很简单。单向指只有一端可以发送消息，双向则指两端都可以发送消息。还记得上一小节的QUIC Stream Frame头部吗？其中的Stream ID别有玄机，除了标识Stream外，它的低2位还可以表达以下组合：</p>
+<p><img src="https://img.hellobyebye.com/doc/2021032422412616165968861616596886163iOEunh.png" alt="Stream Type"></p>
+<p>因此，当Stream ID是0、4、8、12时，这就是客户端发起的双向Stream（HTTP3不支持服务器发起双向Stream），它用于传输HTTP请求与响应。单向Stream有很多用途，所以它在数据前又多出一个Stream Type字段：</p>
+<p><img src="https://img.hellobyebye.com/doc/2021032422420216165969221616596922060c7PK5i.png" alt="StreamId"></p>
+<p>Stream Type有以下取值：</p>
+<ul>
+<li>0x00：控制Stream，传递各类Stream控制消息；</li>
+<li>0x01：服务器推送消息；</li>
+<li>0x02：用于编码QPACK动态表，比如面对不属于静态表的HTTP请求头部，客户端可以通过这个Stream发送动态表编码；</li>
+<li>0x03：用于通知编码端QPACK动态表的更新结果。</li>
+</ul>
+<p>由于HTTP3的STREAM之间是乱序传输的，因此，若先发送的编码Stream后到达，双向Stream中的QPACK头部就无法解码，此时传输HTTP消息的双向Stream就会进入Block阻塞状态（两端可以通过控制帧定义阻塞Stream的处理方式）。</p>
+<h1 id="小节"><a href="#小节" class="headerlink" title="小节"></a>小节</h1><p>最后对本文内容做个小结。</p>
+<p>基于四元组定义连接并不适用于下一代IoT网络，HTTP3创造出Connection ID概念实现了连接迁移，通过融合传输层、表示层，既缩短了握手时长，也加密了传输层中的绝大部分字段，提升了网络安全性。</p>
+<p>HTTP3在Packet层保障了连接的可靠性，在QUIC Frame层实现了有序字节流，在HTTP3 Frame层实现了HTTP语义，这彻底解开了队头阻塞问题，真正实现了应用层的多路复用。</p>
+<p>QPACK使用独立的单向Stream分别传输动态表编码、解码信息，这样乱序、并发传输HTTP消息的Stream既不会出现队头阻塞，也能基于时序性大幅压缩HTTP Header的体积。</p>
 <h1 id="文章来源和引用说明"><a href="#文章来源和引用说明" class="headerlink" title="文章来源和引用说明"></a>文章来源和引用说明</h1><blockquote>
-<p><strong>本文作者：</strong> 陶辉<br><strong>本文链接：</strong> <a href="https://www.taohui.tech/2021/02/04/网络协议/深入剖析HTTP3协议/" target="_blank" rel="noopener">https://www.taohui.tech/2021/02/04/网络协议/深入剖析HTTP3协议/</a></p>
+<p><strong>原文作者：</strong> 陶辉<br><strong>原文链接：</strong> <a href="https://www.taohui.tech/2021/02/04/网络协议/深入剖析HTTP3协议/" target="_blank" rel="noopener">https://www.taohui.tech/2021/02/04/网络协议/深入剖析HTTP3协议/</a></p>
 </blockquote>
 ]]></content>
       <categories>
