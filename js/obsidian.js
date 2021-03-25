@@ -1337,6 +1337,12 @@ $(function () {
     '%c Github %c',
     'background:#24272A; color:#73ddd7',
     '',
-    'https://github.com/TriDiamond/hexo-theme-obsidian'
+    'https://github.com/iWzl'
+  );
+    console.log(
+    '%c 关于我 %c',
+    'background:#24272A; color:#73ddd7',
+    '',
+    '一个在路上的菜鸟码农'
   );
 });
